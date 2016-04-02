@@ -1,0 +1,29 @@
+{
+  "name": "bingojs",
+  "version": "2.0.0",
+  "description": "front MV",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/guless/bingoJS2.git"
+  },
+  "homepage": "https://github.com/guless/bingoJS2",
+  "bugs": {
+    "url": "https://github.com/guless/bingoJS2/issues"
+  },
+  "keywords": [
+    "bingojs",
+    "mv"
+  ],
+  "author": "bingojs team",
+  "license": "MIT",
+  "devDependencies": {
+    "browser-sync": "^2.11.2",
+    "gulp": "^3.9.1",
+    "gulp-concat": "^2.6.0",
+    "gulp-uglify": "^1.5.3"
+  }
+}
