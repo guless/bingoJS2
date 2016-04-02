@@ -25,23 +25,25 @@ gulp.task('build', ['build:concat', 'build:uglify', 'build:copy']);
 gulp.task('build:concat', function () {
     return gulp.src(srcList)
         .pipe(plumber())
-           .pipe(concat('bingo.js'))
-          .pipe(gulp.dest(buildPath));
+        .pipe(concat('bingo.js'))
+        .pipe(gulp.dest(buildPath));
 });
 
 gulp.task('build:uglify', function () {
     return gulp.src(srcList)
         .pipe(plumber())
-           .pipe(concat('bingo.min.js'))
-            .pipe(uglify())
-          .pipe(gulp.dest(buildPath));
+        .pipe(concat('bingo.min.js'))
+        .pipe(uglify())
+        .pipe(gulp.dest(buildPath))
+        .pipe(browserSync.reload({ stream: true }));
 });
 
 gulp.task('build:copy', function () {
     return gulp.src(['src/**', '!src/scripts/bingo2/**'])
         .pipe(plumber())
-            .pipe(changed(distPath))
-          .pipe(gulp.dest(distPath));
+        .pipe(changed(distPath))
+        .pipe(gulp.dest(distPath))
+        .pipe(browserSync.reload({ stream: true }));
 });
 
 gulp.task('watch', function () {
@@ -62,7 +64,7 @@ gulp.task('server', function () {
             }
         },
         port: yargs.p,
-        startPath: '/demo'
+        startPath: '/demo/box.html'
     });
 });
 
