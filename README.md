@@ -2,7 +2,7 @@
 
 ## 安装/使用:
 
-To try this example, follow these 4 simple steps. 
+遵循以下4个简单的步骤, 就能使用demo
 
 **步骤 1**: Clone 内容
 ```bash
