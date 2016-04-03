@@ -1,9 +1,10 @@
-﻿// npm install --save-dev gulp gulp-uglify gulp-concat yargs gulp-changed gulp-plumber browser-sync
+﻿// npm install --save-dev gulp gulp-uglify gulp-concat yargs gulp-changed gulp-plumber browser-sync gulp-clean
 var gulp = require('gulp');
 var uglify = require('gulp-uglify');
 var concat = require('gulp-concat');
 var changed = require('gulp-changed');
 var plumber = require('gulp-plumber');
+var clean = require('gulp-clean');
 var yargs = require('yargs').argv;
 var browserSync = require('browser-sync');
 
@@ -21,6 +22,12 @@ srcList = srcList.map(function (item) {
 });
 
 gulp.task('build', ['build:concat', 'build:uglify', 'build:copy']);
+gulp.task('rebuild', ['clean', 'build']);
+
+gulp.task('clean', function () {
+    return gulp.src(distPath)
+        .pipe(clean());
+});
 
 gulp.task('build:concat', function () {
     return gulp.src(srcList)

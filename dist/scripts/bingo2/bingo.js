@@ -2361,7 +2361,7 @@
                 return this._bgpri_.app || bingo.app(null);
             },
             $addController: function (ctrl, name) {
-                this._ctrlname = name;
+                this.$ctrlname = name;
                 ctrl && this._bgpri_.ctrls.push(ctrl);
             },
             $getViewnode: function (node) {
