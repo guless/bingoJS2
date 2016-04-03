@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "gulp -ws",
-    "build": "gulp build",
-    "clean": "gulp clean"
+    "prebuild": "gulp clean",
+    "build": "gulp build"
   },
   "repository": {
     "type": "git",
