@@ -20,6 +20,19 @@
         defaultValue: { app: 'demo', controller: '' }
     });
 
+    //设置component资源路由
+    bingo.route('component-demo', {
+        url: 'comp/{component*}',
+        to: { tmpl: '{component*}', using: '' },
+        promise: {
+            tmpl: function (p) {
+                var id = 'comp_' + this.tmpl;
+                return bingo.tmpl(document.getElementById(id));
+            }
+        },
+        defaultValue: { app: 'demo', component: '' }
+    });
+
     //设置tmpl资源路由
     bingo.route('tmpl', {
         //路由url, 如: view/system/user/list
@@ -35,13 +48,6 @@
         url: 'ctrl/{controller*}',
         to: '{controller*}.js',
         defaultValue: { app: 'demo', controller: '' }
-    });
-
-    //设置component资源路由
-    bingo.route('component', {
-        url: 'comp/{component*}',
-        to: 'comps/{component*}.js',
-        defaultValue: { app: 'demo', component: '' }
     });
 
     //设置service资源路由

@@ -31,9 +31,23 @@
 
     app.controller('toast', ['$view', '$ui', function ($view, $ui) {
 
-        $view.open = function (name) {
-            $ui.go(name);
+        $view.showLoading = function () {
+            $ui.showLoading('数据加载中', 3000);
         };
+
+        $view.showComplete = function () {
+            $ui.showComplete('已完成', 2000);
+        };
+
+        $view.loadingToast = false;
+
+        $view.$observe('loadingToast', function (c) {
+            if (c.value) {
+                setTimeout(function () {
+                    $view.loadingToast = false;
+                }, 2000);
+            }
+        });
 
     }]);//end toast
 

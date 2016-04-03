@@ -2450,6 +2450,9 @@
                 } else
                     return jo.innerHTML;
             },
+            $remove: function () {
+                _removeNode(this.$getNode());
+            },
             $getComp: function (name) {
                 return this._bgpri_.comp[name];
             },
@@ -3049,18 +3052,18 @@
                 withDataList = p.withDataList,
                 withData = p.withData, promises =[];
 
-            var node, pBak = bingo.extend({}, p),
+            var node, pc,
                 tmplIndex = -1, nodeType, bNodes = fisrt ? p.build.nodes : null;
             bingo.each(nodes, function (node, idx) {
                 nodeType = node.nodeType;
                 if (nodeType == 1 || nodeType == 3) {
+                    pc = bingo.extend({}, p);
                     tmplIndex = withDataList ? this.getWithdataIndex(node) : -1;
                     if (tmplIndex >= 0)
-                        withData = p.withData = withDataList[tmplIndex];
+                        withData = pc.withData = withDataList[tmplIndex];
                     if (node.nodeType === 1 || node.nodeType === 3) {
-                        p.node = node, p.withData = withData;
-                        _promisePush(promises, this.traverseNode(p, nodeType, bNodes,idx));
-                        p = bingo.extend({}, pBak);
+                        pc.node = node;
+                        _promisePush(promises, this.traverseNode(pc, nodeType, bNodes, idx));
                     }
                 };
             }, this);
@@ -3381,8 +3384,9 @@
                     nodes: bingo.sliceArray(nodes)
                 };
 
+
                 var view = this.view() || bingo.view(parentNode),
-                    pViewnode = _getVNode(parentNode);
+                    pViewnode = this.view() ? this.view().$getViewnode() : _getVNode(parentNode);
 
                 //检查pViewnode, view不等于pViewnode.view
                 //node上下关系并不与viewnode上下关系对应
@@ -3522,11 +3526,14 @@
         bingo.service(name, ['$view', function ($view) {
             var fn = function (name) { return $view.$getComp(name); };
             fn.create = function (pNode, src, name) {
+                pNode || (pNode = $view.$getNode());
                 return bingo.aFramePromise().then(function () {
                     var tmpl = '<bg:component bg-src="' + src + '" bg-name="' + name + '"></bg:component>';
                     //var node = bingo.parseHTML(tmpl, pNode)[0];
                     //pNode.appendChild(node);
-                    return bingo.compile($view).html(tmpl).appendTo(pNode).compile();
+                    return bingo.compile($view).html(tmpl).appendTo(pNode).compile().then(function () {
+                        return fn(name);
+                    });
                 });
             };
 

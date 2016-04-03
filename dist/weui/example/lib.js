@@ -70,7 +70,7 @@
         }
     };//end _pageManager
 
-    app.service('$ui', ['$view', 'node', '$compile', function ($view, node, $compile) {
+    app.service('$ui', ['$view', 'node', '$compile', '$component', function ($view, node, $compile, $component) {
         if ($view.$ui) return $view.$ui;
         _pageManager.init();
         var $ui = $view.$ui = {
@@ -79,6 +79,20 @@
             },
             back: function () {
                 _pageManager.back();
+            },
+            showLoading: function (msg, timeout) {
+                var pNode = $view.$getNode('.page')[0];
+                return $component.create(pNode, 'comp/loading', 'loading').then(function (comp) {
+                    comp.msg = msg || '数据加载中';
+                    comp.timeout = timeout || 10000;
+                });
+            },
+            showComplete: function (msg, time) {
+                var pNode = $view.$getNode('.page')[0];
+                return $component.create(pNode, 'comp/complete', 'complete').then(function (comp) {
+                    comp.msg = msg || '已完成';
+                    comp.time = time || 2000;
+                });
             }
         };
         $view.$ready(function () {
@@ -87,5 +101,36 @@
         return $ui;
     }]);//end service $ui
 
+    app.component('loading', {
+        $tmpl: 'comp/loading',
+        msg: '', timeout: -1,
+        $init: function () {
+            var tFn = function () {
+                tid = null;
+                this.$remove();
+            }.bind(this);
+            var tid;
+            this.$observe('timeout', function (c) {
+                tid && clearTimeout(tid);
+                tid = setTimeout(tFn, c.value);
+            }.bind(this));
+        }
+    });
+
+    app.component('complete', {
+        $tmpl: 'comp/complete',
+        msg: '', time: -1,
+        $init: function () {
+            var tFn = function () {
+                tid = null;
+                this.$remove();
+            }.bind(this);
+            var tid;
+            this.$observe('time', function (c) {
+                tid && clearTimeout(tid);
+                tid = setTimeout(tFn, c.value);
+            });
+        }
+    });
 
 })(bingoV2);

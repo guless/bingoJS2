@@ -27,11 +27,14 @@
         bingo.service(name, ['$view', function ($view) {
             var fn = function (name) { return $view.$getComp(name); };
             fn.create = function (pNode, src, name) {
+                pNode || (pNode = $view.$getNode());
                 return bingo.aFramePromise().then(function () {
                     var tmpl = '<bg:component bg-src="' + src + '" bg-name="' + name + '"></bg:component>';
                     //var node = bingo.parseHTML(tmpl, pNode)[0];
                     //pNode.appendChild(node);
-                    return bingo.compile($view).html(tmpl).appendTo(pNode).compile();
+                    return bingo.compile($view).html(tmpl).appendTo(pNode).compile().then(function () {
+                        return fn(name);
+                    });
                 });
             };
 
