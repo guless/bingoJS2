@@ -2261,12 +2261,14 @@
 
     var doc = document, _docEle = doc.documentElement;
 
-    bingo.view = function (node) {
+    bingo.view = function (p) {
         /// <summary>
         /// 获取view<br />
-        /// bingo.view(document.body)
+        /// bingo.view(document.body)<br />
+        /// bingo.view('main')
         /// </summary>
-        return _getVNode(node).view;
+        bingo.isString(p) && (p = doc.querySelector('[bg-name="' + p + '"]'));
+        return _getVNode(p).view;
     };
 
     var _rootView = null;
@@ -2360,8 +2362,9 @@
             $getApp: function () {
                 return this._bgpri_.app || bingo.app(null);
             },
-            $addController: function (ctrl, name) {
-                this.$ctrlname = name;
+            $addController: function (ctrl, name, ctrlname) {
+                name && (this.$name = name);
+                ctrlname && (this.$ctrlname = ctrlname);
                 ctrl && this._bgpri_.ctrls.push(ctrl);
             },
             $getViewnode: function (node) {
@@ -3725,7 +3728,9 @@
                 //编译, 这时还没有appendTo文档，最好不要处理事件之类的
                 //compilePre编译前-->command.controller初始数据-->view.controller-->compile编译-->插入到document-->link连接command)-->init-->ready
                 controller: ['$view', '$compile', 'node', '$attr', function ($view, $compile, node, $attr) {
-                    var attrVal = $attr.content, val = null, pView = $view.$parentView();
+                    var attrVal = $attr.content, val = null,
+                        name = _attr(node, 'bg-name'),
+                        pView = $view.$parentView();
                     if (!bingo.isNullEmpty(attrVal)) {
                         if (pView.bgTestProps(attrVal))
                             val = pView.bgDataValue(attrVal);
@@ -3743,7 +3748,7 @@
                         || bingo.isFunction(val) || bingo.isArray(val)) {
                         //如果是function或数组, 直接当action, 或是空值时
                         //添加controller
-                        val && $view.$addController(val, attrVal);
+                        val && $view.$addController(val, name, attrVal);
                         //编译
                         return cmp();
                     } else {
@@ -3758,7 +3763,7 @@
                             //设置app
                             $view.$setApp(context.app);
                             //添加controller
-                            $view.$addController(context.controller, attrVal);
+                            $view.$addController(context.controller, name, attrVal);
                             //编译
                             return cmp();
                         } else {
@@ -3770,7 +3775,7 @@
                                     //设置app
                                     $view.$setApp(context.app);
                                     //添加controller
-                                    $view.$addController(context.controller, attrVal);
+                                    $view.$addController(context.controller, name, attrVal);
                                     //编译
                                     return cmp();
                                 }

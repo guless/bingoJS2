@@ -4,12 +4,14 @@
 
     var doc = document, _docEle = doc.documentElement;
 
-    bingo.view = function (node) {
+    bingo.view = function (p) {
         /// <summary>
         /// 获取view<br />
-        /// bingo.view(document.body)
+        /// bingo.view(document.body)<br />
+        /// bingo.view('main')
         /// </summary>
-        return _getVNode(node).view;
+        bingo.isString(p) && (p = doc.querySelector('[bg-name="' + p + '"]'));
+        return _getVNode(p).view;
     };
 
     var _rootView = null;
@@ -103,8 +105,9 @@
             $getApp: function () {
                 return this._bgpri_.app || bingo.app(null);
             },
-            $addController: function (ctrl, name) {
-                this.$ctrlname = name;
+            $addController: function (ctrl, name, ctrlname) {
+                name && (this.$name = name);
+                ctrlname && (this.$ctrlname = ctrlname);
                 ctrl && this._bgpri_.ctrls.push(ctrl);
             },
             $getViewnode: function (node) {
