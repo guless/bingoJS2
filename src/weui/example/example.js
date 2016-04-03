@@ -59,6 +59,14 @@
             $ui.go(name);
         };
 
+        $view.ok = function () {
+            $ui.back();
+        };
+
+        $view.back = function () {
+            $ui.back();
+        };
+
     }]);//end msg
 
     app.controller('article', ['$view', '$ui', function ($view, $ui) {
