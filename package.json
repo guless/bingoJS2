@@ -6,7 +6,9 @@
   "scripts": {
     "start": "gulp -ws",
     "prebuild": "gulp clean",
-    "build": "gulp build"
+    "build": "gulp build",
+    "pretest": "gulp clean",
+    "test": "gulp build"
   },
   "repository": {
     "type": "git",
