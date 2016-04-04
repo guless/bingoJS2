@@ -1,19 +1,19 @@
 ﻿/// <reference path="intellisenseDef.js" />
-/// <reference path="../js/bingo2/jLite.js" />
-/// <reference path="../js/jquery/jquery-1.8.1.js" />
-/// <reference path="../js/bingo2/core.js" />
-/// <reference path="../js/bingo2/promise.js" />
-/// <reference path="../js/bingo2/event.js" />
-/// <reference path="../js/bingo2/observe.js" />
-/// <reference path="../js/bingo2/equals.js" />
-/// <reference path="../js/bingo2/using.js" />
-/// <reference path="../js/bingo2/package.js" />
-/// <reference path="../js/bingo2/linkNode.js" />
-/// <reference path="../js/bingo2/route.js" />
-/// <reference path="../js/bingo2/location.js" />
-/// <reference path="../js/bingo2/compiles.js" />
-/// <reference path="../js/bingo2/service/base.js" />
-/// <reference path="../js/bingo2/command/base.js" />
+/// <reference path="../src/scripts/bingo2/jLite.js" />
+/// <reference path="../src/scripts/jquery/jquery-1.8.1.js" />
+/// <reference path="../src/scripts/bingo2/core.js" />
+/// <reference path="../src/scripts/bingo2/promise.js" />
+/// <reference path="../src/scripts/bingo2/event.js" />
+/// <reference path="../src/scripts/bingo2/observe.js" />
+/// <reference path="../src/scripts/bingo2/equals.js" />
+/// <reference path="../src/scripts/bingo2/using.js" />
+/// <reference path="../src/scripts/bingo2/package.js" />
+/// <reference path="../src/scripts/bingo2/linkNode.js" />
+/// <reference path="../src/scripts/bingo2/route.js" />
+/// <reference path="../src/scripts/bingo2/location.js" />
+/// <reference path="../src/scripts/bingo2/compiles.js" />
+/// <reference path="../src/scripts/bingo2/service/base.js" />
+/// <reference path="../src/scripts/bingo2/command/base.js" />
 
 (function (bingo) {
     window._newTraParam = function() {
@@ -32,7 +32,6 @@
     bingo.rootView = function () {
         return new bingo.viewClass(_pView);
     };
-
 
     window._attrObj_ = {
         attrs: [],

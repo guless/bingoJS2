@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>box</title>
+    <style type="text/css">
+        body {
+            margin: 50px;
+        }
+
+    </style>
+</head>
+<body bg-controller="mainCtrl">
+    <div>
+        <p style="font-weight:bold;">Tween实例效果-测试 bingoJS 2.x 绑定性能</p>
+        <div>
+            <p><strong> 场景：</strong>创建一组box并通过Tween算法设置box.top属性检验绑定性能(检验box创建，编译，动画，删除整个过程)</p>
+        </div>
+        <div>
+            <p><strong> 说明：</strong>dome定义了一个控制器(controller)和一个box组件(component)</p>
+            <ul>
+                <li><strong> 控制器(controller)：</strong>主要负责box组件的创建</li>
+                <li><strong> box组件(component)：</strong>定义top属性与dom层top值绑定，参数Tween算法运动， 运动完后自动删除</li>
+            </ul>
+        </div>
+        <div style="margin-bottom:10px;">
+            <strong>Tween类型：</strong>
+            <select bg-model="tween">
+                <option value="Linear">Linear</option>
+                <option value="Quad">Quad</option>
+                <option value="Cubic">Cubic</option>
+                <option value="Quart">Quart</option>
+                <option value="Quint">Quint</option>
+                <option value="Sine">Sine</option>
+                <option value="Expo">Expo</option>
+                <option value="Circ">Circ</option>
+                <option value="Elastic">Elastic</option>
+                <option value="Back">Back</option>
+                <option value="Bounce">Bounce</option>
+            </select>
+            <strong>ease类型：</strong>
+            <select bg-for="item in easeList"
+                    bg-model="ease">
+                <option value="{{item}}">{{item}}</option>
+            </select>
+            <strong>运动时长：</strong>
+            <select bg-model="duration">
+                <option value="30">30</option>
+                <option value="45">45</option>
+                <option value="60">60</option>
+                <option value="75">75</option>
+            </select>
+            <span bg-text="duration"></span>
+        </div>
+        <div>
+            <div style="border: 1px solid #000000; width: 900px; position: relative; height: 500px;"
+                 bg-node="node">
+            </div>
+        </div>
+    </div>
+
+    <script src="../scripts/bingo2/bingo.min.js"></script>
+    <script src="../scripts/other/Tween.js"></script>
+    <script src="route.js"></script>
+    <script type="text/javascript">
+
+        (function (bingo) {
+
+            //controller 控制box的创建
+            window.mainCtrl = bingo.controller(function ($view, $comp) {
+                $view.duration = iDuration;
+                $view.$observe('duration', function (c) {
+                    iDuration = c.value;
+                });
+
+                $view.tween = '';
+                $view.easeList = [];
+                $view.ease = '';
+                $view.$observe('tween', function (c) {
+                    var easeList = [], tween = Tween[c.value];
+                    bingo.eachProp(tween, function (item, n) {
+                        easeList.push(n);
+                    });
+                    $view.easeList = easeList;
+                    $view.ease = easeList.length > 0 ? easeList[0] : '';
+                    fun = tween;
+                    if (fun[$view.ease]) fun = fun[$view.ease];
+                });
+                $view.$observe('ease', function (c) {
+                    fun = Tween[$view.tween];
+                    if (fun[c.value]) fun = fun[c.value];
+                });
+                $view.tween = 'Expo';
+
+
+                //box 容器节点
+                $view.node = null;
+                $view.$ready(function () {
+                    var i = 0;
+                    //创建box
+                    var createBox = function () {
+                        //不能超过500个, 几乎是无限
+                        if (i > 500) return;
+                        i++;
+                        var id = bingo.makeAutoId();
+                        //创建一个box组件
+                        $comp.create($view.node, 'box', id).then(function () {
+                            createBox();
+
+                            //box组件释放时i计数减一
+                            $comp(id).bgOnDispose(function () {
+                                i--;
+                            });
+                        });
+                    };
+                    //开始创建
+                    createBox();
+                });
+                
+            });
+
+            var tick = 0, countAll = 0, countMax = 500, colors = ['#993300', 'red', 'green', 'blue', 'yellow'];
+            var contentWidth = 900,
+                contentHeight = 500,
+                boxSize = 50, moveHeigth = contentHeight - boxSize, iDuration = 60,
+                    fun = Tween['Expo']['easeIn'];
+
+            //定义box组件
+            window.box = bingo.component({
+                $tmpl: '<div bg-style="{top:top}" style="background-color:blue;width: 50px; position: absolute; height: 50px; display:none; "></div>',
+                top: 0,
+                $init: function () {
+
+                    //初始box参数
+                    var color = colors[parseInt(Math.random() * 4)];
+                    var node = this.$getNode(), style = node.style;
+                    style.left = parseInt(Math.random() * (contentWidth - boxSize)) + 'px';
+                    style.backgroundColor = color;
+                    style.display = 'block';
+
+                    var t = 0, height = moveHeigth, d = iDuration, top = 0;
+                    //观察top属性改变
+                    this.$layout('top', function (c) {
+                        if (t < d) {
+                            t++;
+                            this.top = fun(t, 0, height, d);
+                            //改变top值
+                            if (top == this.top)
+                                this.top += .001;
+                            top = this.top;
+                        } else {
+                            //动画结束
+                            this.top = height;
+                            bingo.aFrame(function () {
+                                //删除box节点（删除box组件）
+                                node.parentNode && node.parentNode.removeChild(node);
+                            }, 1);
+                        }
+                    }.bind(this), 0);
+                    //改变top值， 开始动画
+                    t++;
+                    this.top = fun(t, 0, height, d);
+                }
+            });
+            
+        })(bingoV2);
+    </script>
+</body>
+</html>
