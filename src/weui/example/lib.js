@@ -51,7 +51,7 @@
                                 break;
                             default:
                                 if (_pageManager.isBack(name))
-                                    _pageManager.close(_pageManager.pageList.pop());
+                                    _pageManager.close(_pageManager.pageList[_pageManager.pageList.length-1]);
                                 else
                                     _pageManager.open(name);
                                 break;
