@@ -1,3 +1,4 @@
+/// <reference path="lib.js" />
 
 (function (bingo, app) {
 
@@ -39,31 +40,48 @@
             $ui.showComplete('已完成', 2000);
         };
 
-        $view.loadingToast = false;
-
-        $view.$observe('loadingToast', function (c) {
-            if (c.value) {
-                setTimeout(function () {
-                    $view.loadingToast = false;
-                }, 2000);
-            }
-        });
-
     }]);//end toast
 
     app.controller('dialog', ['$view', '$ui', function ($view, $ui) {
+        $view.showDialog1 = false;
 
-        $view.open = function (name) {
-            $ui.go(name);
+        $view.showDialog2 = function () {
+            $ui.$dialog('dialog1', {title:'aaaa'}).receive(function (s) {
+                $ui.showComplete(s);
+            });
         };
+    }]);//end dialog
 
+    app.controller('dialog1', ['$view', '$ui', function ($view, $ui) {
+        $view.params = $ui.$params();
+
+        $view.close = function () {
+            $ui.$dialog().close('关闭成功!');
+        };
     }]);//end dialog
 
     app.controller('progress', ['$view', '$ui', function ($view, $ui) {
 
-        $view.open = function (name) {
-            $ui.go(name);
+        var progress = 0;
+        $view.progress = 0;
+        $view.$layout('progress', function (c) {
+            setTimeout(function () {
+                progress = ++progress % 100;
+                $view.progress = progress + '%';
+            }, 10);
+        });
+        $view.start = function () {
+            if ($(this).hasClass('weui_btn_disabled')) {
+                return;
+            }
+
+            $(this).addClass('weui_btn_disabled');
+            
+            progress++;
+            $view.progress = progress+'%';
+
         };
+
 
     }]);//end progress
 
@@ -85,49 +103,66 @@
 
     app.controller('article', ['$view', '$ui', function ($view, $ui) {
 
-        $view.open = function (name) {
-            $ui.go(name);
-        };
 
     }]);//end article
 
     app.controller('actionsheet', ['$view', '$ui', function ($view, $ui) {
+        $view.show = function () {
+            var mask = $('#mask');
+            var weuiActionsheet = $('#weui_actionsheet');
+            weuiActionsheet.addClass('weui_actionsheet_toggle');
+            mask.show().addClass('weui_fade_toggle').one('click', function () {
+                hideActionSheet(weuiActionsheet, mask);
+            });
+            $('#actionsheet_cancel').one('click', function () {
+                hideActionSheet(weuiActionsheet, mask);
+            });
+            weuiActionsheet.unbind('transitionend').unbind('webkitTransitionEnd');
 
-        $view.open = function (name) {
-            $ui.go(name);
+            function hideActionSheet(weuiActionsheet, mask) {
+                weuiActionsheet.removeClass('weui_actionsheet_toggle');
+                mask.removeClass('weui_fade_toggle');
+                weuiActionsheet.on('transitionend', function () {
+                    mask.hide();
+                }).on('webkitTransitionEnd', function () {
+                    mask.hide();
+                })
+            }
         };
 
     }]);//end actionsheet
 
     app.controller('icons', ['$view', '$ui', function ($view, $ui) {
 
-        $view.open = function (name) {
-            $ui.go(name);
-        };
 
     }]);//end icons
 
     app.controller('panel', ['$view', '$ui', function ($view, $ui) {
 
-        $view.open = function (name) {
-            $ui.go(name);
-        };
 
     }]);//end panel
 
     app.controller('tab', ['$view', '$ui', function ($view, $ui) {
 
-        $view.open = function (name) {
-            $ui.go(name);
+        $view.click = function () {
+            var id = $(this).data('id');
+            $ui.go(id);
         };
 
     }]);//end tab
 
+    app.controller('navbar', ['$view', '$ui', function ($view, $ui) {
+
+
+    }]);//end navbar
+
+    app.controller('tabbar', ['$view', '$ui', function ($view, $ui) {
+
+
+    }]);//end tabbar
+
     app.controller('searchbar', ['$view', '$ui', function ($view, $ui) {
 
-        $view.open = function (name) {
-            $ui.go(name);
-        };
 
     }]);//end searchbar
 

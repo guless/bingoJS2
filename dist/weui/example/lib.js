@@ -81,22 +81,54 @@
                 _pageManager.back();
             },
             showLoading: function (msg, timeout) {
-                var pNode = $view.$getNode('.page')[0];
+                var pNode = _getPageNode[0];
                 return $component.create(pNode, 'comp/loading', 'loading').then(function (comp) {
                     comp.msg = msg || '数据加载中';
                     comp.timeout = timeout || 10000;
                 });
             },
             showComplete: function (msg, time) {
-                var pNode = $view.$getNode('.page')[0];
+                var pNode = _getPageNode[0];
                 return $component.create(pNode, 'comp/complete', 'complete').then(function (comp) {
                     comp.msg = msg || '已完成';
                     comp.time = time || 2000;
                 });
+            },
+            $params: function () {
+                return this.$dialog().params;
+            },
+            $dialog: function (name, p) {
+                if (arguments.length == 0)
+                    return $view.__dlg;
+
+                var dlg = {
+                    params: p,
+                    send: function (p) {
+                        return this.bgTrigger('receive', arguments);
+                    },
+                    receive: function (fn) {
+                        return this.bgOn('receive', fn);
+                    }
+                };
+
+                var node = _getPageNode()[0];
+                var tmpl = '<div bg-route="' + name + '" bg-name="' + name + '"></div>';
+                bingo.compile($view).tmpl(tmpl).controller(['$view', function ($view) {
+
+                    dlg.close = function (p) {
+                        if (arguments.length > 0)
+                            this.send.apply(this, arguments);
+                        $view.$remove();
+                    };
+                    $view.__dlg = dlg;
+                }]).appendTo(node).compile();
+
+                return dlg;
             }
         };
+        var _getPageNode = function () { return $(node).children('.page');};
         $view.$ready(function () {
-            $view.$name != 'main' && $(node).children('.page').addClass('slideIn ' + $view.$name);
+            $view.$name != 'main' && _getPageNode().addClass('slideIn ' + $view.$name);
         });
         return $ui;
     }]);//end service $ui

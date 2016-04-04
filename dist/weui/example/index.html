@@ -442,37 +442,38 @@
                 <h1 class="page_title">Dialog</h1>
             </div>
             <div class="bd spacing">
-                <a href="javascript:;" class="weui_btn weui_btn_primary" id="showDialog1">点击弹出Dialog样式一</a>
-                <a href="javascript:;" class="weui_btn weui_btn_primary" id="showDialog2">点击弹出Dialog样式二</a>
+                <a href="javascript:;" class="weui_btn weui_btn_primary" id="showDialog1" bg-click="showDialog1=true">点击弹出Dialog样式一</a>
+                <a href="javascript:;" class="weui_btn weui_btn_primary" id="showDialog2" bg-click="showDialog2">点击弹出Dialog样式二</a>
                 <a href="javascript:;" class="weui_btn weui_btn_warn" bg-click="$ui.back()">返回</a>
             </div>
             <!--BEGIN dialog1-->
-            <div class="weui_dialog_confirm" id="dialog1" style="display: none;">
+            <div class="weui_dialog_confirm" id="dialog1" style="display: none;" bg-show="showDialog1">
                 <div class="weui_mask"></div>
                 <div class="weui_dialog">
                     <div class="weui_dialog_hd"><strong class="weui_dialog_title">弹窗标题</strong></div>
                     <div class="weui_dialog_bd">自定义弹窗内容，居左对齐显示，告知需要确认的信息等</div>
                     <div class="weui_dialog_ft">
-                        <a href="javascript:;" class="weui_btn_dialog default">取消</a>
-                        <a href="javascript:;" class="weui_btn_dialog primary">确定</a>
+                        <a href="javascript:;" class="weui_btn_dialog default" bg-click="showDialog1=false">取消</a>
+                        <a href="javascript:;" class="weui_btn_dialog primary" bg-click="showDialog1=false">确定</a>
                     </div>
                 </div>
             </div>
             <!--END dialog1-->
-            <!--BEGIN dialog2-->
-            <div class="weui_dialog_alert" id="dialog2" style="display: none;">
-                <div class="weui_mask"></div>
-                <div class="weui_dialog">
-                    <div class="weui_dialog_hd"><strong class="weui_dialog_title">弹窗标题</strong></div>
-                    <div class="weui_dialog_bd">弹窗内容，告知当前页面信息等</div>
-                    <div class="weui_dialog_ft">
-                        <a href="javascript:;" class="weui_btn_dialog primary">确定</a>
-                    </div>
-                </div>
-            </div>
-            <!--END dialog2-->
         </div>
     </script>
+    <script type="text/html" id="tpl_dialog1">
+        <div class="weui_dialog_alert" id="dialog2">
+            <div class="weui_mask"></div>
+            <div class="weui_dialog">
+                <div class="weui_dialog_hd"><strong class="weui_dialog_title">弹窗标题 - {{params.title}}</strong></div>
+                <div class="weui_dialog_bd">弹窗内容，告知当前页面信息等</div>
+                <div class="weui_dialog_ft">
+                    <a href="javascript:;" class="weui_btn_dialog primary" bg-click="close">确定</a>
+                </div>
+            </div>
+        </div>
+    </script>
+
     <script type="text/html" id="tpl_progress">
         <div class="page">
             <div class="hd">
@@ -481,7 +482,7 @@
             <div class="bd spacing">
                 <div class="weui_progress">
                     <div class="weui_progress_bar">
-                        <div class="weui_progress_inner_bar js_progress" style="width: 0%;"></div>
+                        <div class="weui_progress_inner_bar js_progress" bg-style="{width: progress}"></div>
                     </div>
                     <a href="javascript:;" class="weui_progress_opr">
                         <i class="weui_icon_cancel"></i>
@@ -490,7 +491,7 @@
                 <br>
                 <div class="weui_progress">
                     <div class="weui_progress_bar">
-                        <div class="weui_progress_inner_bar js_progress" style="width: 50%;"></div>
+                        <div class="weui_progress_inner_bar js_progress" bg-style="{width: progress}"></div>
                     </div>
                     <a href="javascript:;" class="weui_progress_opr">
                         <i class="weui_icon_cancel"></i>
@@ -499,14 +500,15 @@
                 <br>
                 <div class="weui_progress">
                     <div class="weui_progress_bar">
-                        <div class="weui_progress_inner_bar js_progress" style="width: 80%;"></div>
+                        <div class="weui_progress_inner_bar js_progress" bg-style="{width: progress}"></div>
                     </div>
                     <a href="javascript:;" class="weui_progress_opr">
                         <i class="weui_icon_cancel"></i>
                     </a>
                 </div>
                 <div class="weui_btn_area">
-                    <a href="javascript:;" class="weui_btn weui_btn_primary" id="btnStartProgress">上传</a>
+                    <a href="javascript:;" class="weui_btn weui_btn_primary" id="btnStartProgress" bg-click="start">上传</a>
+                    <a href="javascript:;" class="weui_btn weui_btn_warn" bg-click="$ui.back()">返回</a>
                 </div>
             </div>
         </div>
@@ -516,8 +518,8 @@
             <div class="weui_msg">
                 <div class="weui_icon_area"><i class="weui_icon_success weui_icon_msg"></i></div>
                 <div class="weui_text_area">
-                    <h2 class="weui_msg_title">操作成功1, 潘彦君</h2>
-                    <p class="weui_msg_desc">内容详情，可根据实际需要安排, 潘政良在睡觉</p>
+                    <h2 class="weui_msg_title">操作成功</h2>
+                    <p class="weui_msg_desc">内容详情，可根据实际需要安排</p>
                 </div>
                 <div class="weui_opr_area">
                     <p class="weui_btn_area">
@@ -562,6 +564,9 @@
                     </section>
                 </article>
             </div>
+            <div class="weui_btn_area">
+                <a href="javascript:;" class="weui_btn weui_btn_warn" bg-click="$ui.back()">返回</a>
+            </div>
         </div>
     </script>
     <script type="text/html" id="tpl_tab">
@@ -569,14 +574,14 @@
             <div class="bd">
                 <div class="weui_cells_title">Tab</div>
                 <div class="weui_cells weui_cells_access">
-                    <a class="weui_cell js_tab" href="javascript:;" data-id="navbar">
+                    <a class="weui_cell js_tab" href="javascript:;" data-id="navbar" bg-click="click">
                         <div class="weui_cell_bd weui_cell_primary">
                             <p>navbar</p>
                         </div>
                         <div class="weui_cell_ft">
                         </div>
                     </a>
-                    <a class="weui_cell js_tab" href="javascript:;" data-id="tabbar">
+                    <a class="weui_cell js_tab" href="javascript:;" data-id="tabbar" bg-click="click">
                         <div class="weui_cell_bd weui_cell_primary">
                             <p>tabbar</p>
                         </div>
@@ -606,6 +611,10 @@
                     </div>
                 </div>
             </div>
+            <div class="bd spacing">
+                <a href="javascript:;" class="weui_btn weui_btn_warn" bg-click="$ui.back()">返回</a>
+            </div>
+
         </div>
     </script>
     <script type="text/html" id="tpl_tabbar">
@@ -726,6 +735,10 @@
                     </div>
                 </div>
             </div>
+            <div class="bd spacing">
+                <a href="javascript:;" class="weui_btn weui_btn_warn" bg-click="$ui.back()">返回</a>
+            </div>
+
         </div>
     </script>
     <script type="text/html" id="tpl_actionsheet">
@@ -734,7 +747,8 @@
                 <h1 class="page_title">ActionSheet</h1>
             </div>
             <div class="bd spacing">
-                <a href="javascript:;" class="weui_btn weui_btn_primary" id="showActionSheet">点击上拉ActionSheet</a>
+                <a href="javascript:;" class="weui_btn weui_btn_primary" id="showActionSheet" bg-click="show">点击上拉ActionSheet</a>
+                <a href="javascript:;" class="weui_btn weui_btn_warn" bg-click="$ui.back()">返回</a>
             </div>
             <!--BEGIN actionSheet-->
             <div id="actionSheet_wrap">
@@ -782,6 +796,10 @@
                     <i class="weui_icon_clear"></i>
                 </div>
             </div>
+            <div class="bd spacing">
+                <a href="javascript:;" class="weui_btn weui_btn_warn" bg-click="$ui.back()">返回</a>
+            </div>
+
         </div>
     </script>
     <script type="text/html" id="tpl_searchbar">
@@ -828,6 +846,10 @@
                     </div>
                 </div>
             </div>
+            <div class="bd spacing">
+                <a href="javascript:;" class="weui_btn weui_btn_warn" bg-click="$ui.back()">返回</a>
+            </div>
+
         </div>
     </script>
 
