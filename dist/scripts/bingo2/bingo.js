@@ -2411,8 +2411,10 @@
                 return obs;
             },
             $layout: function (p, fn, fnN, dispoer, check) {
-                bingo.isNumeric(fnN) || (fnN = 1);
                 return this.$observe(p, bingo.aFrameProxy(fn, fnN), dispoer, check);
+            },
+            $layoutAfter: function (p, fn, dispoer, check) {
+                return this.$layout(p, fn, 1, dispoer, check);
             },
             $update: function (force) {
                 if (!this.$isReady) return;
