@@ -65,9 +65,10 @@
                     } catch (e) {
                         res = e;
                     }
-                    if (res instanceof Error)
+                    if (res instanceof Error) {
                         this._doNext(res, _rejected);
-                    else
+                        bingo.trace(res);
+                    } else
                         this._doNext(res, _fulfilled);
                     break;
                 case _rejected:

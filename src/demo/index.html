@@ -12,6 +12,14 @@
         .bg-body > * {
             margin-left: 20px;
         }
+
+        .red {
+            color:red;
+        }
+
+        .blue {
+            color:blue;
+        }
     </style>
 </head>
 <body bg-controller="ctrl1" style="visibility1:hidden">
@@ -50,7 +58,7 @@
     </div>
     <div class="bg-head">event =================</div>
     <div class="bg-body">
-        <button bg-click="click1">点击</button>
+        <button bg-click="click1" bg-class="{red:isOk, blue:!isOk}">点击</button>
         <button bg-click="changeSt" bg-style="console.log({color:color1}),{color:color1}">css {{color1}}</button>
     </div>
     <div class="bg-head">model =================</div>

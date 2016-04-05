@@ -88,18 +88,25 @@
             _css(node, 'display', 'none');
         },
         _spaceRE = /\s+/g,
-        _hasClass = function (node, name) {
-            return name ? node.className.split(_spaceRE).indexOf(name) >= 0 : false;
+        _getClass = function (node) {
+            var cn = node.className;
+            return cn ? cn.split(_spaceRE) : [];
         },
-        _addClass = function (node, name) {
-            if (_hasClass(node, name)) return;
-            node.className = node.className ? [node.className, name].join(' ') : name;
+        _setClass = function (node, classNames) {
+            var cn = classNames.join(' ');
+            (cn == node.className) || (node.className = cn);
         },
-        _removeClass = function (node, name) {
-            if (!_hasClass(node, name)) return;
-            node.className = node.className.split(_spaceRE).filter(function (item) {
+        _hasClass = function (classNames, name) {
+            return name ? classNames.indexOf(name) >= 0 : false;
+        },
+        _addClass = function (classNames, name) {
+            _hasClass(classNames, name) || classNames.push(name);
+        },
+        _removeClass = function (classNames, name) {
+            if (!_hasClass(classNames, name)) return classNames;
+            return classNames.filter(function (item) {
                 return item != name;
-            }).join(' ');
+            });
         };
 
     /*
@@ -297,9 +304,6 @@
         bg-checked="true" //直接表达式
         bg-checked="helper.checked" //绑定到变量, 双向绑定
     */
-    var _addClassNames = function (node, names) {
-        names.split(_spaceRE).forEach(function (item) { console.log('aaaaa', item);  _addClass(node,item); });
-    };
     bingo.each('attr,prop,src,checked,unchecked,disabled,enabled,readonly,class'.split(','), function (attrName) {
         bingo.command('bg-' + attrName, function () {
 
@@ -331,13 +335,17 @@
                                 _prop(node, attrName, val);
                                 break;
                             case 'class':
+                                var classNames = _getClass(node);
                                 if (bingo.isObject(val)) {
                                     bingo.eachProp(val, function (item, n) {
-                                        _addClassNames(node, n);
+                                        if (bingo.isString(item))
+                                            _addClass(classNames, item);
+                                        else
+                                            item ? _addClass(classNames, n) : (classNames = _removeClass(classNames, n));
                                     });
-                                } else if (val) {
-                                    _addClassNames(node, val);
-                                }
+                                } else
+                                    val && _addClass(classNames, val);
+                                _setClass(node, classNames);
                                 break;
                             default:
                                 _attr(node, attrName, val);

@@ -88,8 +88,6 @@
                         ow.$update();
                         ow.bgSyncDec();
                         pView && pView.bgSyncDec();
-                    }).catch(function (e) {
-                        bingo.trace(e);
                     });
                 build && build.push(pm);
                 return pm;
@@ -1175,7 +1173,6 @@
                         }
                     }).then(step('link')).then(step('init')).then(step('ready'));
                 }).finally(function (e) {
-                    (e instanceof Error) && bingo.trace(e);
                     build.bgOff();
                     build.bgDispose();
                     $this.bgDispose();
