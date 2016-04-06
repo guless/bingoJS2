@@ -140,9 +140,10 @@
             /// bingo.using('/js/file1.js').then <br />
             /// </summary>
             /// <param name="p">url</param>
-            if (_usingDone)
+            if (_usingDone) {
+                _usingDone = false;
                 return bingo.config().using(url);
-            else {
+            } else {
                 try {
                     _usingDone = true;
                     return bingo.route(url).usingPromise();
@@ -322,9 +323,10 @@
 
     var _ajaxDoing = false;
     bingo.ajax = function (url, p) {
-        if (_ajaxDoing)
+        if (_ajaxDoing) {
+            _ajaxDoing = false;
             return bingo.config().ajax(url, p);
-        else {
+        } else {
             try {
                 _ajaxDoing = true;
                 return bingo.route(url).ajaxPromise(p);
@@ -347,9 +349,10 @@
                 if (!p || _tagTestReg.test(p)) {
                     return _Promise.resolve(p);
                 } else {
-                    if (_tmpling)
+                    if (_tmpling) {
+                        _tmpling = false;
                         return bingo.config().tmpl(p, aP);
-                    else {
+                    } else {
                         try {
                             _tmpling = true;
                             return bingo.route(p).tmplPromise(aP);

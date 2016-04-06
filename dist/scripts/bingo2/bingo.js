@@ -1445,14 +1445,24 @@
                 _done();
         };
 
+    var _usingDone = false;
     bingo.extend({
         using: function (url) {
             /// <summary>
             /// bingo.using('/js/file1.js').then <br />
             /// </summary>
             /// <param name="p">url</param>
-
-            return bingo.route(url).usingPromise();
+            if (_usingDone) {
+                _usingDone = false;
+                return bingo.config().using(url);
+            } else {
+                try {
+                    _usingDone = true;
+                    return bingo.route(url).usingPromise();
+                } finally {
+                    _usingDone = false;
+                }
+            }
         },
         usingAll: function (lv) {
             bingo.isNumeric(lv) || (lv = bingo.using.Normal);
@@ -1623,11 +1633,22 @@
         return xhr;
     };
 
+    var _ajaxDoing = false;
     bingo.ajax = function (url, p) {
-        return bingo.route(url).ajaxPromise(p);
+        if (_ajaxDoing) {
+            _ajaxDoing = false;
+            return bingo.config().ajax(url, p);
+        } else {
+            try {
+                _ajaxDoing = true;
+                return bingo.route(url).ajaxPromise(p);
+            } finally {
+                _ajaxDoing = false;
+            }
+        }
     };
 
-    var _tagTestReg = /^\s*<(\w+|!)[^>]*>/;
+    var _tagTestReg = /^\s*<(\w+|!)[^>]*>/, _tmpling = false;
     bingo.tmpl = function (p, aP) {
         /// <summary>
         /// bingo.tmpl('tmpl/aaaa/user').then(...;<br />
@@ -1640,7 +1661,17 @@
                 if (!p || _tagTestReg.test(p)) {
                     return _Promise.resolve(p);
                 } else {
-                    return bingo.route(p).tmplPromise(aP);
+                    if (_tmpling) {
+                        _tmpling = false;
+                        return bingo.config().tmpl(p, aP);
+                    } else {
+                        try {
+                            _tmpling = true;
+                            return bingo.route(p).tmplPromise(aP);
+                        } finally {
+                            _tmpling = false;
+                        }
+                    }
                 }
             } else
                 node = document.getElementById(p.substr(1));
