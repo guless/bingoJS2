@@ -202,6 +202,11 @@
             $removeComp: function (name) {
                 this.bgIsDispose || delete this._bgpri_.comp[name];
             },
+            $setCompCfg: function (p, name) {
+                var cfg = this._bgpri_.compCfg[name] || {};
+                bingo.extend(cfg, p);
+                this._bgpri_.compCfg[name] = cfg;
+            },
             $defComp: function (p, name) {
                 var init;
                 bingo.eachProp(p, function (item, name) {
@@ -214,14 +219,28 @@
                         this[name] = item;
                 }, this);
 
-                init && init.call(this);
-
+                var cfg = {};
                 if (name) {
-                    var comp = this.$parentView()._bgpri_.comp;
+                    var pView = this.$parentView();
+                    var comp = pView._bgpri_.comp;
                     comp[name] = this;
+                    cfg = pView._bgpri_.compCfg[name] || {};
+                    delete pView._bgpri_.compCfg[name];
                 }
 
+                init && init.call(this, cfg);
+
                 return this;
+            },
+            $createComp: function (p) {
+                var pNode = p.context || this.$getNode();
+                var name = p.name || bingo.makeAutoId();
+                var src = p.src;
+                var tmpl = '<bg:component bg-src="' + src + '" bg-name="' + name + '"></bg:component>';
+                this.$setCompCfg(p, name);
+                return bingo.compile(this).html(tmpl).appendTo(pNode).compile().then(function () {
+                    return this.$getComp(name);
+                }.bind(this));
             }
         };  //end _def
         //var _defKey = Object.keys(_def).concat(_eDef);
@@ -237,7 +256,8 @@
                 obsList: [],
                 obsListUn: [],
                 comp: {},
-                initPm:[],
+                compCfg: {},
+                initPm: [],
                 initPmSrv:[],
                 readyPm:[],
                 readyAllPm: []

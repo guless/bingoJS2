@@ -1,9 +1,9 @@
 ﻿
 bingo.component('select2', {
     $tmpl: '<select style="visibility:visible" bg-for="item in datas" bg-model="id"><option value="{{item[idName]}}">{{bingo.htmlEncode(item[textName])}}</option></select>',
-    $init: function () {
+    $init: function (p) {
         //$(this.$getNode()).css('visibility', 'visible');
-        console.log('comp select2 init');
+        console.log('comp select2 init', p);
         this.$observe('id', function (c) {
             console.log(c);
             this.bgTrigger('onChange', [c]);

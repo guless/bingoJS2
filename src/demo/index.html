@@ -144,6 +144,14 @@
             $view.$ready(function () {
                 console.log('$view.$ready');
                 //$node.css('visibility', 'visible');
+                setTimeout(function () {
+                    $comp.create({
+                        src: 'select',
+                        context: $view.$getNode(),
+                        name: 'select100',
+                        p1:'textparams'
+                    });
+                }, 2000);
             });
             $view.$readyAll(function () {
                 console.log('$view.$readyAll');
@@ -264,8 +272,8 @@
         //定义组件select
         var select = bingo.component({
             $tmpl: '<select style="visibility:visible" bg-for="item in datas" bg-model="id"><option value="{{item[idName]}}">{{item[idName]}}!{{bingo.htmlEncode(item[textName])}}</option></select>',
-            $init: function () {
-                console.log('comp select init', this.$parentView());
+            $init: function (p) {
+                console.log('comp select init', p);
                 //$(this.$getNode()).css('visibility', 'visible');
                 this.$observe('id', function (c) {
                     console.log(c);

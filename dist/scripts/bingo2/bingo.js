@@ -2491,6 +2491,11 @@
             $removeComp: function (name) {
                 this.bgIsDispose || delete this._bgpri_.comp[name];
             },
+            $setCompCfg: function (p, name) {
+                var cfg = this._bgpri_.compCfg[name] || {};
+                bingo.extend(cfg, p);
+                this._bgpri_.compCfg[name] = cfg;
+            },
             $defComp: function (p, name) {
                 var init;
                 bingo.eachProp(p, function (item, name) {
@@ -2503,14 +2508,28 @@
                         this[name] = item;
                 }, this);
 
-                init && init.call(this);
-
+                var cfg = {};
                 if (name) {
-                    var comp = this.$parentView()._bgpri_.comp;
+                    var pView = this.$parentView();
+                    var comp = pView._bgpri_.comp;
                     comp[name] = this;
+                    cfg = pView._bgpri_.compCfg[name] || {};
+                    delete pView._bgpri_.compCfg[name];
                 }
 
+                init && init.call(this, cfg);
+
                 return this;
+            },
+            $createComp: function (p) {
+                var pNode = p.context || this.$getNode();
+                var name = p.name || bingo.makeAutoId();
+                var src = p.src;
+                var tmpl = '<bg:component bg-src="' + src + '" bg-name="' + name + '"></bg:component>';
+                this.$setCompCfg(p, name);
+                return bingo.compile(this).html(tmpl).appendTo(pNode).compile().then(function () {
+                    return this.$getComp(name);
+                }.bind(this));
             }
         };  //end _def
         //var _defKey = Object.keys(_def).concat(_eDef);
@@ -2526,7 +2545,8 @@
                 obsList: [],
                 obsListUn: [],
                 comp: {},
-                initPm:[],
+                compCfg: {},
+                initPm: [],
                 initPmSrv:[],
                 readyPm:[],
                 readyAllPm: []
@@ -3012,8 +3032,34 @@
         colgroup: [2, "<table><tbody></tbody><colgroup>", "</colgroup></table>"],
         map: [1, "<map>", "</map>"],
         div: [1, "<div>", "</div>"]
-    }, _parseHTML = function (html, node, script) {
-        var tagName = node ? node.tagName.toLowerCase() : '';
+    }, _scriptType = /\/(java|ecma)script/i,
+    _cleanScript = /^\s*<!(?:\[CDATA\[|\-\-)|[\]\-]{2}>\s*$/g, _globalEval = function (node) {
+        if (node.src) {
+            bingo.using(node.src);
+        } else {
+            var data = (node.text || node.textContent || node.innerHTML || "").replace(_cleanScript, "");
+            if (data) {
+                (window.execScript || function (data) {
+                    window["eval"].call(window, data);
+                })(data);
+            }
+        }
+    }, _parseSrcipt = function (container, script) {
+        bingo.each(container.querySelectorAll('script'), function (node) {
+            if (!node.type || _scriptType.test(node.type)) {
+                _removeNode(node);
+                script && _globalEval(node);
+            }
+        });
+    }, _parseHTML = function (html, p, script) {
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="html"></param>
+        /// <param name="p">可以父节点或父节点tagName</param>
+        /// <param name="script">是否运行script</param>
+        /// <returns value=''></returns>
+        var tagName = p ? (bingo.isString(p) ? p : p.tagName.toLowerCase()) : '';
         var wrap = _wrapMap[tagName] || _wrapMap.div, depth = wrap[0];
         html = wrap[1] + html + wrap[2];
         var container = doc.createElement('div');
@@ -3021,6 +3067,7 @@
         while (depth--) {
             container = container.lastChild;
         }
+        _parseSrcipt(container, script);
         return container.childNodes;
     }, _insertDom = function (nodes, refNode, fName) {
         bingo.each(nodes, function (item) {
@@ -3228,7 +3275,7 @@
                                 }
                                 tmpl = bingo.trim(tmpl) || '<div></div>';
                                 var pNode = node.parentNode;
-                                var nT = _parseHTML(tmpl, pNode);
+                                var nT = _parseHTML(tmpl, pNode, true);
                                 if (nT.length > 1) {
                                     //如果多个节点，自动用div包起来,所以tmpl一定要用完整节点包起来
                                     node = _parseHTML('<div></div>', pNode)[0];
@@ -3387,7 +3434,7 @@
                     obj[itemName] = data;
                     withDataList.push(obj);
 
-                    list = list.concat(_compiles.injWithTmpl(_parseHTML(tmpl, this.node), index));
+                    list = list.concat(_compiles.injWithTmpl(_parseHTML(tmpl, this.node, true), index));
                     //htmls.push(_compiles.injWithTmpl(tmpl, index, pIndex));
                 }, this);
 
@@ -3556,16 +3603,8 @@
     bingo.each(['$comp', '$component'], function (name) {
         bingo.service(name, ['$view', function ($view) {
             var fn = function (name) { return $view.$getComp(name); };
-            fn.create = function (pNode, src, name) {
-                pNode || (pNode = $view.$getNode());
-                return bingo.aFramePromise().then(function () {
-                    var tmpl = '<bg:component bg-src="' + src + '" bg-name="' + name + '"></bg:component>';
-                    //var node = bingo.parseHTML(tmpl, pNode)[0];
-                    //pNode.appendChild(node);
-                    return bingo.compile($view).html(tmpl).appendTo(pNode).compile().then(function () {
-                        return fn(name);
-                    });
-                });
+            fn.create = function (p) {
+                return $view.$createComp(p);
             };
 
             return fn;

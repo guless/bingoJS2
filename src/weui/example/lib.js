@@ -82,16 +82,18 @@
             },
             showLoading: function (msg, timeout) {
                 var pNode = _getPageNode[0];
-                return $component.create(pNode, 'comp/loading', 'loading').then(function (comp) {
-                    comp.msg = msg || '数据加载中';
-                    comp.timeout = timeout || 10000;
+                return $component.create({
+                    context: pNode, src: 'comp/loading', name: 'loading',
+                    msg: msg || '数据加载中',
+                    timeout: timeout || 10000
                 });
             },
             showComplete: function (msg, time) {
                 var pNode = _getPageNode[0];
-                return $component.create(pNode, 'comp/complete', 'complete').then(function (comp) {
-                    comp.msg = msg || '已完成';
-                    comp.time = time || 2000;
+                return $component.create({
+                    context: pNode, src: 'comp/complete', name: 'complete',
+                    msg: msg || '操作成功',
+                    time: time || 2000
                 });
             },
             $params: function () {
@@ -136,7 +138,7 @@
     app.component('loading', {
         $tmpl: 'comp/loading',
         msg: '', timeout: -1,
-        $init: function () {
+        $init: function (p) {
             var tFn = function () {
                 tid = null;
                 this.$remove();
@@ -146,13 +148,15 @@
                 tid && clearTimeout(tid);
                 tid = setTimeout(tFn, c.value);
             }.bind(this));
+            this.msg = p.msg;
+            this.timeout = p.timeout;
         }
     });
 
     app.component('complete', {
         $tmpl: 'comp/complete',
         msg: '', time: -1,
-        $init: function () {
+        $init: function (p) {
             var tFn = function () {
                 tid = null;
                 this.$remove();
@@ -162,6 +166,8 @@
                 tid && clearTimeout(tid);
                 tid = setTimeout(tFn, c.value);
             });
+            this.msg = p.msg;
+            this.time = p.time;
         }
     });
 

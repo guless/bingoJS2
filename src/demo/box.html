@@ -104,7 +104,7 @@
                         i++;
                         var id = bingo.makeAutoId();
                         //创建一个box组件
-                        $comp.create($view.node, 'box', id).then(function () {
+                        $comp.create({ context: $view.node, src: 'box', name: id }).then(function () {
                             createBox();
 
                             //box组件释放时i计数减一
@@ -129,7 +129,7 @@
             window.box = bingo.component({
                 $tmpl: '<div bg-style="{top:top}" style="background-color:blue;width: 50px; position: absolute; height: 50px; display:none; "></div>',
                 top: 0,
-                $init: function () {
+                $init: function (p) {
 
                     //初始box参数
                     var color = colors[parseInt(Math.random() * 4)];
