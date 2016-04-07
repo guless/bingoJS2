@@ -735,10 +735,11 @@
                 })(data);
             }
         }
-    }, _parseSrcipt = function (container) {
+    }, _parseSrcipt = function (container, script) {
         bingo.each(container.querySelectorAll('script'), function (node) {
             if (!node.type || _scriptType.test(node.type)) {
-                _globalEval(node);
+                _removeNode(node);
+                script && _globalEval(node);
             }
         });
     }, _parseHTML = function (html, p, script) {
@@ -757,7 +758,7 @@
         while (depth--) {
             container = container.lastChild;
         }
-        script && _parseSrcipt(container);
+        _parseSrcipt(container, script);
         return container.childNodes;
     }, _insertDom = function (nodes, refNode, fName) {
         bingo.each(nodes, function (item) {
@@ -965,7 +966,7 @@
                                 }
                                 tmpl = bingo.trim(tmpl) || '<div></div>';
                                 var pNode = node.parentNode;
-                                var nT = _parseHTML(tmpl, pNode);
+                                var nT = _parseHTML(tmpl, pNode, true);
                                 if (nT.length > 1) {
                                     //如果多个节点，自动用div包起来,所以tmpl一定要用完整节点包起来
                                     node = _parseHTML('<div></div>', pNode)[0];
@@ -1124,7 +1125,7 @@
                     obj[itemName] = data;
                     withDataList.push(obj);
 
-                    list = list.concat(_compiles.injWithTmpl(_parseHTML(tmpl, this.node), index));
+                    list = list.concat(_compiles.injWithTmpl(_parseHTML(tmpl, this.node, true), index));
                     //htmls.push(_compiles.injWithTmpl(tmpl, index, pIndex));
                 }, this);
 
