@@ -723,8 +723,33 @@
         colgroup: [2, "<table><tbody></tbody><colgroup>", "</colgroup></table>"],
         map: [1, "<map>", "</map>"],
         div: [1, "<div>", "</div>"]
-    }, _parseHTML = function (html, node, script) {
-        var tagName = node ? node.tagName.toLowerCase() : '';
+    }, _scriptType = /\/(java|ecma)script/i,
+    _cleanScript = /^\s*<!(?:\[CDATA\[|\-\-)|[\]\-]{2}>\s*$/g, _globalEval = function (node) {
+        if (node.src) {
+            bingo.using(node.src);
+        } else {
+            var data = (node.text || node.textContent || node.innerHTML || "").replace(_cleanScript, "");
+            if (data) {
+                (window.execScript || function (data) {
+                    window["eval"].call(window, data);
+                })(data);
+            }
+        }
+    }, _parseSrcipt = function (container) {
+        bingo.each(container.querySelectorAll('script'), function (node) {
+            if (!node.type || _scriptType.test(node.type)) {
+                _globalEval(node);
+            }
+        });
+    }, _parseHTML = function (html, p, script) {
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="html"></param>
+        /// <param name="p">可以父节点或父节点tagName</param>
+        /// <param name="script">是否运行script</param>
+        /// <returns value=''></returns>
+        var tagName = p ? (bingo.isString(p) ? p : p.tagName.toLowerCase()) : '';
         var wrap = _wrapMap[tagName] || _wrapMap.div, depth = wrap[0];
         html = wrap[1] + html + wrap[2];
         var container = doc.createElement('div');
@@ -732,6 +757,7 @@
         while (depth--) {
             container = container.lastChild;
         }
+        script && _parseSrcipt(container);
         return container.childNodes;
     }, _insertDom = function (nodes, refNode, fName) {
         bingo.each(nodes, function (item) {
