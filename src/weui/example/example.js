@@ -67,7 +67,7 @@
         $view.$layout('progress', function (c) {
             progress = ++progress % 100;
             $view.progress = progress + '%';
-        });
+        },2);
         $view.start = function () {
             if ($(this).hasClass('weui_btn_disabled')) {
                 return;
