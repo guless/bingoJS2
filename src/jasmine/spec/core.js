@@ -2,7 +2,7 @@
 
 describe('core --- bingoJS ' + bingo.version , function () {
 
-    var undefined, $ = jLite;
+    var undefined;
     function fnTTTT() { };
 
     it('try catch', function () {

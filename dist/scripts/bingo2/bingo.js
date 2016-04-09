@@ -19,7 +19,7 @@
 
     var bingo = window.bingo = {
         //主版本号.子版本号.修正版本号.编译版本号(日期)
-        version: { major: 2, minor: 0, rev: 0, build: 'beta', toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
+        version: { major: 2, minor: 0, rev: 0, build: 'beta1', toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
         _no_observe:true,//防止observe
         isDebug: false,
         prdtVersion: '',
@@ -304,11 +304,17 @@
         },
         _doNext: function (res, type) {
             if (res && bingo.isFunction(res.then)) {
+                if (res.state == _rejected && !res._thenH) {
+                    this.state = type;
+                    this._result = null;
+                    this._end();
+                    return;
+                }
                 this.state = _pending;
                 this._result = undefined;
                 res.then(function (res) {
                     this._doNext(res, _fulfilled);
-                }.bind(this), function (res) {
+                }.bind(this)).catch(function (res) {
                     this._doNext(res, _rejected);
                 }.bind(this));
                 return;
@@ -571,6 +577,7 @@
                 bingo.eachProp(this, function (item, n) {
                     if (item && item.bgAutoDispose === true)
                         item.bgDispose();
+                    this[n] = null;
                 }, this);
                 this.bgIsDispose = true;
                 this.bgDisposeStatus = 2;
@@ -2998,6 +3005,7 @@
             };
         }
     }
+    bingo.isAFrame = !!_rAFrame;
 
     bingo.aFrame = function (fn, frN) {
         /// <summary>

@@ -40,11 +40,17 @@
         },
         _doNext: function (res, type) {
             if (res && bingo.isFunction(res.then)) {
+                if (res.state == _rejected && !res._thenH) {
+                    this.state = type;
+                    this._result = null;
+                    this._end();
+                    return;
+                }
                 this.state = _pending;
                 this._result = undefined;
                 res.then(function (res) {
                     this._doNext(res, _fulfilled);
-                }.bind(this), function (res) {
+                }.bind(this)).catch(function (res) {
                     this._doNext(res, _rejected);
                 }.bind(this));
                 return;

@@ -708,6 +708,7 @@
             };
         }
     }
+    bingo.isAFrame = !!_rAFrame;
 
     bingo.aFrame = function (fn, frN) {
         /// <summary>

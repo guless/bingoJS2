@@ -60,6 +60,7 @@ gulp.task('watch', function () {
 
 gulp.task('server', function () {
     yargs.p = yargs.p || 8080;
+    var index = yargs.t ? '/jasmine/core.html' : '/weui/example/index.html';
     browserSync.init({
         server: {
             baseDir: "./dist"
@@ -73,7 +74,7 @@ gulp.task('server', function () {
         port: yargs.p,
         open: "external",
         //startPath: '/demo/box.html'
-        startPath: '/weui/example/index.html'
+        startPath: index
     });
 });
 

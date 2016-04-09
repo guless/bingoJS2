@@ -147,6 +147,7 @@
                 bingo.eachProp(this, function (item, n) {
                     if (item && item.bgAutoDispose === true)
                         item.bgDispose();
+                    this[n] = null;
                 }, this);
                 this.bgIsDispose = true;
                 this.bgDisposeStatus = 2;
