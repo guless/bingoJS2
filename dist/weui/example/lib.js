@@ -83,7 +83,7 @@
             showLoading: function (msg, timeout) {
                 var pNode = _getPageNode[0];
                 return $component.create({
-                    context: pNode, src: 'comp/loading', name: 'loading',
+                    context: pNode, src: 'comp/loading', name: '',
                     msg: msg || '数据加载中',
                     timeout: timeout || 10000
                 });
@@ -91,7 +91,7 @@
             showComplete: function (msg, time) {
                 var pNode = _getPageNode[0];
                 return $component.create({
-                    context: pNode, src: 'comp/complete', name: 'complete',
+                    context: pNode, src: 'comp/complete', name: '',
                     msg: msg || '操作成功',
                     time: time || 2000
                 });
@@ -136,9 +136,14 @@
     }]);//end service $ui
 
     app.component('loading', {
+        //模板
         $tmpl: 'comp/loading',
         msg: '', timeout: -1,
-        $init: function (p) {
+        //编译阶段, node还是原始的node, 这里可以分析原始node内容
+        $compile: ['$compCfg', function (p) {
+        }],
+        //初始化
+        $init: ['$compCfg', function (p) {
             var tFn = function () {
                 tid = null;
                 this.$remove();
@@ -150,13 +155,13 @@
             }.bind(this));
             this.msg = p.msg;
             this.timeout = p.timeout;
-        }
+        }]
     });
 
     app.component('complete', {
         $tmpl: 'comp/complete',
         msg: '', time: -1,
-        $init: function (p) {
+        $init: ['$compCfg', function (p) {
             var tFn = function () {
                 tid = null;
                 this.$remove();
@@ -168,7 +173,7 @@
             });
             this.msg = p.msg;
             this.time = p.time;
-        }
+        }]
     });
 
 })(bingoV2);

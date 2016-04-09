@@ -200,14 +200,24 @@
                 return this._bgpri_.comp[name];
             },
             $removeComp: function (name) {
-                this.bgIsDispose || delete this._bgpri_.comp[name];
+                if (!this.bgIsDispose) {
+                    var comp = this._bgpri_.comp[name];
+                    if (comp) {
+                        delete this._bgpri_.comp[name];
+                        comp.bgIsDispose || comp.$remove();
+                    }
+                }
             },
-            $setCompCfg: function (p, name) {
-                var cfg = this._bgpri_.compCfg[name] || {};
-                bingo.extend(cfg, p);
-                this._bgpri_.compCfg[name] = cfg;
+            $compileComp: function (p, node, name) {
+                if (p.$compile) {
+                    bingo.inject(p.$compile, this, {
+                        node: node,
+                        $compCfg: this._bgpri_.compCfg[name] || {}
+                    }, p);
+                    delete p.$compile;
+                }
             },
-            $defComp: function (p, name) {
+            $initComp: function (p, name) {
                 var init;
                 bingo.eachProp(p, function (item, name) {
                     if (bingo.inArray(name, _eDef) >= 0) {
@@ -219,16 +229,17 @@
                         this[name] = item;
                 }, this);
 
-                var cfg = {};
-                if (name) {
-                    var pView = this.$parentView();
-                    var comp = pView._bgpri_.comp;
-                    comp[name] = this;
-                    cfg = pView._bgpri_.compCfg[name] || {};
-                    delete pView._bgpri_.compCfg[name];
-                }
+                var pView = this.$parentView();
+                var comp = pView._bgpri_.comp;
+                comp[name] = this;
+                var cfg = pView._bgpri_.compCfg[name] || {};
+                delete pView._bgpri_.compCfg[name];
 
-                init && init.call(this, cfg);
+                bingo.inject(init, pView, {
+                    node: this.$getNode(),
+                    $compCfg: cfg
+                }, this);
+                //init && init.call(this, cfg);
 
                 return this;
             },
@@ -237,7 +248,11 @@
                 var name = p.name || bingo.makeAutoId();
                 var src = p.src;
                 var tmpl = '<bg:component bg-src="' + src + '" bg-name="' + name + '"></bg:component>';
-                this.$setCompCfg(p, name);
+
+                var cfg = this._bgpri_.compCfg[name] || {};
+                bingo.extend(cfg, p);
+                this._bgpri_.compCfg[name] = cfg;
+
                 return bingo.compile(this).html(tmpl).appendTo(pNode).compile().then(function () {
                     return this.$getComp(name);
                 }.bind(this));

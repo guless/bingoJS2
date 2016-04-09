@@ -571,8 +571,8 @@
                 bingo.eachProp(this, function (item, n) {
                     if (item && item.bgAutoDispose === true)
                         item.bgDispose();
-                    n != 'bgIsDispose' && (this[n] = null);
                 }, this);
+                this.bgIsDispose = true;
                 this.bgDisposeStatus = 2;
             }
         },
@@ -2262,10 +2262,10 @@
             compile: ['$compile', 'node', '$attr', '$location', function ($compile, node, $attr, $location) {
 
                 //只要最后一次，防止连续点击链接
-                var _node = node.cloneNode(false), _last = null, _href = function (url, type) {
+                var _node = node.cloneNode(false), _last = null, _href = function (url) {
                     if (bingo.location.bgTrigger('onLoadBefore', [url, $location]) === false) return;
                     _last && !_last.bgIsDispose && _last.stop();
-                    _last = type == 0 ? $compile(url).htmlTo(node) : $compile(_node.outerHTML).replaceTo(node);
+                    _last = $compile(_node.outerHTML).replaceTo(node);
                     return _last.compile().then(function () {
                         _last = null;
                         if ($attr.bgIsDispose) return;
@@ -2277,10 +2277,11 @@
                 $location().onHref(function (url) {
                     _node.setAttribute(_tagCtrl, url);
                     _node.setAttribute(_tagRoute, url);
-                    _href(url, 1);
+                    _href(url);
                 });
                 
-                return _href($attr.content, 0);
+                //console.log('bg-route init==============>');
+                //return _href($attr.content, 0);
             }]
         };
     }); //end bg-route
@@ -2489,14 +2490,24 @@
                 return this._bgpri_.comp[name];
             },
             $removeComp: function (name) {
-                this.bgIsDispose || delete this._bgpri_.comp[name];
+                if (!this.bgIsDispose) {
+                    var comp = this._bgpri_.comp[name];
+                    if (comp) {
+                        delete this._bgpri_.comp[name];
+                        comp.bgIsDispose || comp.$remove();
+                    }
+                }
             },
-            $setCompCfg: function (p, name) {
-                var cfg = this._bgpri_.compCfg[name] || {};
-                bingo.extend(cfg, p);
-                this._bgpri_.compCfg[name] = cfg;
+            $compileComp: function (p, node, name) {
+                if (p.$compile) {
+                    bingo.inject(p.$compile, this, {
+                        node: node,
+                        $compCfg: this._bgpri_.compCfg[name] || {}
+                    }, p);
+                    delete p.$compile;
+                }
             },
-            $defComp: function (p, name) {
+            $initComp: function (p, name) {
                 var init;
                 bingo.eachProp(p, function (item, name) {
                     if (bingo.inArray(name, _eDef) >= 0) {
@@ -2508,16 +2519,17 @@
                         this[name] = item;
                 }, this);
 
-                var cfg = {};
-                if (name) {
-                    var pView = this.$parentView();
-                    var comp = pView._bgpri_.comp;
-                    comp[name] = this;
-                    cfg = pView._bgpri_.compCfg[name] || {};
-                    delete pView._bgpri_.compCfg[name];
-                }
+                var pView = this.$parentView();
+                var comp = pView._bgpri_.comp;
+                comp[name] = this;
+                var cfg = pView._bgpri_.compCfg[name] || {};
+                delete pView._bgpri_.compCfg[name];
 
-                init && init.call(this, cfg);
+                bingo.inject(init, pView, {
+                    node: this.$getNode(),
+                    $compCfg: cfg
+                }, this);
+                //init && init.call(this, cfg);
 
                 return this;
             },
@@ -2526,7 +2538,11 @@
                 var name = p.name || bingo.makeAutoId();
                 var src = p.src;
                 var tmpl = '<bg:component bg-src="' + src + '" bg-name="' + name + '"></bg:component>';
-                this.$setCompCfg(p, name);
+
+                var cfg = this._bgpri_.compCfg[name] || {};
+                bingo.extend(cfg, p);
+                this._bgpri_.compCfg[name] = cfg;
+
                 return bingo.compile(this).html(tmpl).appendTo(pNode).compile().then(function () {
                     return this.$getComp(name);
                 }.bind(this));
@@ -4290,7 +4306,7 @@
                 include: false,
                 compilePre: ['$view', 'node', '$inject', function (pView, node, $inject) {
                     var attrVal = _attr(node, isInner ? 'bg-component' : 'bg-src'),
-                        val, compName = _attr(node, 'bg-name');
+                        val, compName = _attr(node, 'bg-name') || bingo.makeAutoId();
 
                     if (!bingo.isNullEmpty(attrVal)) {
                         if (pView.bgTestProps(attrVal))
@@ -4300,6 +4316,7 @@
                     }
                     var init = function (def) {
                         def = bingo.isFunction(def) ? $inject(def) : def;
+                        pView.$compileComp(def, node, compName);
                         //取得定义后， 得到$tmpl
                         this.tmpl = def.$tmpl || node;
                         this._bgcompdef_ = { def: def, name: compName };
@@ -4336,10 +4353,9 @@
                    
                     $view.bgOnDispose(function () {
                         pView.$removeComp(compName);
-                        //console.log('bg:component dispose', node.tagName);
                     });
                     if (def) {
-                        var co = $view.$defComp(def, compName);
+                        var co = $view.$initComp(def, compName);
                         co.bgToObserve();
                         return $compile().nodes([node]).compile();
                     }

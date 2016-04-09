@@ -626,7 +626,7 @@
                 include: false,
                 compilePre: ['$view', 'node', '$inject', function (pView, node, $inject) {
                     var attrVal = _attr(node, isInner ? 'bg-component' : 'bg-src'),
-                        val, compName = _attr(node, 'bg-name');
+                        val, compName = _attr(node, 'bg-name') || bingo.makeAutoId();
 
                     if (!bingo.isNullEmpty(attrVal)) {
                         if (pView.bgTestProps(attrVal))
@@ -636,6 +636,7 @@
                     }
                     var init = function (def) {
                         def = bingo.isFunction(def) ? $inject(def) : def;
+                        pView.$compileComp(def, node, compName);
                         //取得定义后， 得到$tmpl
                         this.tmpl = def.$tmpl || node;
                         this._bgcompdef_ = { def: def, name: compName };
@@ -672,10 +673,9 @@
                    
                     $view.bgOnDispose(function () {
                         pView.$removeComp(compName);
-                        //console.log('bg:component dispose', node.tagName);
                     });
                     if (def) {
-                        var co = $view.$defComp(def, compName);
+                        var co = $view.$initComp(def, compName);
                         co.bgToObserve();
                         return $compile().nodes([node]).compile();
                     }

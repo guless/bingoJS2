@@ -129,7 +129,7 @@
             window.box = bingo.component({
                 $tmpl: '<div bg-style="{top:top}" style="background-color:blue;width: 50px; position: absolute; height: 50px; display:none; "></div>',
                 top: 0,
-                $init: function (p) {
+                $init:  ['$compCfg',function (p) {
 
                     //初始box参数
                     var color = colors[parseInt(Math.random() * 4)];
@@ -160,7 +160,7 @@
                     //改变top值， 开始动画
                     t++;
                     this.top = fun(t, 0, height, d);
-                }
+                }]
             });
             
         })(bingoV2);
