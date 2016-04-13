@@ -1,0 +1,88 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <title></title>
+
+    <script src="js/other/JSON.js"></script>
+
+    <script src="js/bingo/console.js"></script>
+    <script src="js/bingo/core.js"></script>
+    <script src="js/bingo/datavalue.js"></script>
+    <script src="js/bingo/Event.js"></script>
+    <script src="js/bingo/variable.js"></script>
+    <script src="js/bingo/Class.js"></script>
+    <script src="js/bingo/linq.js"></script>
+    <script src="js/bingo/equals.js"></script>
+    <script src="js/bingo/fetch.js"></script>
+    <script src="js/bingo/package.js"></script>
+    <script src="js/bingo/route.js"></script>
+    <script src="js/bingo/cache.js"></script>
+    
+    <script type="text/javascript">
+        bingo.component = function () {
+        };
+    </script>
+</head>
+<body>
+
+    <!--普通组件-->
+    <div bg-component="component1">
+        <div>{{title}}</div>
+        <div>{{desc}}</div>
+    </div>
+    <script type="text/javascript">
+        bingo.component('component1', {
+            title: '组件1',
+            desc: '测试组件1'
+        });
+    </script>
+
+     <!--普通组件, 动态模板-->
+    <div bg-component="component2">
+    </div>
+    <script type="text/javascript">
+        bingo.component('component2', {
+            tmpl: 'tmpl/component2',//设置模板
+            title: '组件1',
+            desc: '测试组件1'
+        });
+    </script>
+
+    <!--动态加载组件-->
+    <div bg-component="component/component2">
+        <div>{{title}}</div>
+        <div>{{desc}}</div>
+    </div>
+
+
+    <div bg-action="action1">
+        <div bg-component="component1">
+            <div>{{title}}</div>
+            <div>{{desc}}</div>
+        </div>
+        <div bg-component="component2">
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        bingo.action('action1', function ($view) {
+            //用action， 管理业务组件
+
+            $view.component('component1', {
+                title: '组件1',
+                desc: '测试组件1'
+            });
+
+            $view.component('component2', {
+                tmpl: 'tmpl/component2',//设置模板
+                title: '组件1',
+                desc: '测试组件1'
+            });
+
+        });
+    </script>
+
+
+</body>
+</html>

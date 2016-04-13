@@ -1,0 +1,37 @@
+{
+  "name": "bingojs",
+  "version": "2.0.0",
+  "description": "front MV",
+  "main": "index.js",
+  "scripts": {
+    "start": "gulp -ws",
+    "prebuild": "gulp clean",
+    "build": "gulp build",
+    "pretest": "gulp clean",
+    "test": "gulp -wst"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/guless/bingoJS2.git"
+  },
+  "homepage": "https://github.com/guless/bingoJS2",
+  "bugs": {
+    "url": "https://github.com/guless/bingoJS2/issues"
+  },
+  "keywords": [
+    "bingojs",
+    "mv"
+  ],
+  "author": "bingojs team",
+  "license": "MIT",
+  "devDependencies": {
+    "browser-sync": "^2.11.2",
+    "gulp": "^3.9.1",
+    "gulp-changed": "^1.3.0",
+    "gulp-clean": "^0.3.2",
+    "gulp-concat": "^2.6.0",
+    "gulp-plumber": "^1.1.0",
+    "gulp-uglify": "^1.5.3",
+    "yargs": "^4.3.2"
+  }
+}
