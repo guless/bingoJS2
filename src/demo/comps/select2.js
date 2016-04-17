@@ -18,11 +18,4 @@ bingo.component('select2', {
 });
 
 
-(function () {
-    return;
-
-
-
-})();
-
 

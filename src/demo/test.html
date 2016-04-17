@@ -1,0 +1,145 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <title></title>
+</head>
+<body>
+    test start
+    <script type="text/html" id="tmpl1">
+        {{view}}
+            <div style="color:red;font-size:[size];"></div>
+            <div onclick="[user.click]"></div>
+            {{if user.enabled}}
+                {{if user.role == 'admin'}}
+                {{/if}}
+            {{else}}
+                
+            {{/if}}
+        {{/view}}
+        {{user}}
+          test
+        {{/user}}
+    </script>
+    <script src="../scripts/bingo2/bingo.js"></script>
+    <script type="text/javascript">
+
+        //tran command
+        (function () {
+            var tmpl = document.getElementById('tmpl1').innerHTML;
+            console.log(tmpl);
+            var s = "{{cls aaaa}} asdfasdf{{cls bbb }} {{a /}}{{/cls}} {{/cls}}sdfsdf";
+            var regEx = /\{\{([^\s]*?)\s*?(.*?)\}\}((?:.|\n|\r)*)\{\{\/\1\}\}/gi;
+
+            console.log('s ===> ', bingo.sliceArray(regEx.exec(s)));
+
+            regEx.lastIndex = 0;
+            tmpl.replace(regEx, function (find) {
+                console.log('replace', arguments);
+                return find;
+            });
+            
+            //console.log('tmpl ===> ', (regEx.exec(tmpl)));
+
+        })();
+
+        //todo: comp
+        (function () {
+            return;
+
+            var view = {
+                //拥有的节点
+                _bgNode: null,
+                name: ''
+            };
+
+            var compItem = {
+                name: '',
+                //拥有的节点
+                _bgNode: null,
+                view: view,
+                children: [],
+                //编译前的nodes, 包括cmd节点
+                _bgNodes: [],
+                //编译后的nodes
+                nodes: [],
+                command: null,
+                content: '',
+                attrs: function () {
+                    if (this._bgOldCtn != this.content) {
+                        this._bgOldCtn = this.content;
+                        this._bgAttrs = tranAtrr;//分析
+                    }
+                    return this._bgAttrs;
+                },
+                value: function () { },
+                result: function () {
+                },
+                eval: function () {
+                },
+                render: function () {
+                },
+                observe: function () {
+                },
+                layout: function () {
+                }
+            };
+
+            bingo.command('name', function (cp, attrs) {
+
+                return cp.render(function (context) {
+                    return context;
+                    return bingo.tmpl(url);
+                }).layout(function (c) {
+                    return '';
+                });
+
+            });
+
+        })();
+
+        //todo: route
+        (function () {
+            return;
+            var app = bingo.app('demo');
+
+            //设置tmpl资源路由
+            app.route('tmpl', {
+                type:'tmpl',
+                //路由url, 如: view/system/user/list
+                url: '{tmpl*}',
+                //路由到目标url, 生成:modules/system/user/list.html
+                to: '{tmpl*}.html',
+                //变量默认值, 框架提供内部用的变量: app, controller, component, service
+                defaultValue: { app: 'demo', tmpl: '' }
+            });
+
+            //设置actionS资源路由
+            app.route('ctrl', {
+                type: 'controller',
+                url: 'ctrl/{controller*}',
+                to: '{controller*}.js',
+                defaultValue: { controller: '' }
+            });
+
+            //设置component资源路由
+            app.route('component', {
+                type: 'component',
+                url: 'comp/{component*}',
+                to: 'comps/{component*}.js',
+                defaultValue: { component: '' }
+            });
+
+            //设置service资源路由
+            app.route('service', {
+                type: 'service',
+                url: '{service*}',
+                to: '{service*}.js',
+                defaultValue: { service: '' }
+            });
+
+
+        })();
+    </script>
+</body>
+</html>

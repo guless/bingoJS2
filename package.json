@@ -8,7 +8,7 @@
     "prebuild": "gulp clean",
     "build": "gulp build",
     "pretest": "gulp clean",
-    "test": "gulp -wst"
+    "test": "gulp -wsn"
   },
   "repository": {
     "type": "git",

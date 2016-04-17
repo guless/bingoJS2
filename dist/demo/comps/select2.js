@@ -16,3 +16,6 @@ bingo.component('select2', {
         return this.bgOn('onChange', fn);
     }
 });
+
+
+
