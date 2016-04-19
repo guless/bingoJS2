@@ -8,7 +8,12 @@
     test start
     <script type="text/html" id="tmpl1">
         {{view}}
-            <div style="color:red;font-size:[size];"></div>
+            <div style="color:red;font-size:{{test+'asdfa'}};asdfa:{{user}}" aaaaa="{{aaa}}"></div>
+        <input type="text" value="{{user.name}}" />
+
+        {{text user.desc /}}
+        {{print user.desc /}}
+
             <div onclick="[user.click]"></div>
             {{if user.enabled}}
                 {{if user.role == 'admin'}}
@@ -43,10 +48,26 @@
             regEx.lastIndex = 0;
             var list = [];
             tmpl.replace(regEx, function (find, cmd, attrs, content) {
-                console.log('replace', arguments);
+                //console.log('replace', arguments);
                 return find;
             });
-            
+
+
+            var _domNodeReg = /\<[^\>]+?\>/gi,
+                _domAttrReg = /\S+\s*=\s*(['"])[^'"]*?\{\{.*?\}\}[^'"]*\1/gi;
+            var s = tmpl.replace(_domNodeReg, function (find, pos, content) {
+                console.log('domNodeReg', arguments);
+                _domAttrReg.lastIndex = 0;
+                return find.replace(_domAttrReg, function (findAttr) {
+                    console.log('domAttrReg', arguments);
+                    return 'bg-' + findAttr;
+                });
+                return find;
+            });
+            console.log(s);
+
+            console.log(/(\!)(?!\1)*/.exec('!asf\\1daf!!'));
+
             //console.log('tmpl ===> ', (regEx.exec(tmpl)));
 
         })();
