@@ -20,21 +20,29 @@
         {{user}}
           test
         {{/user}}
+        {{if test}}
+            if
+        {{/if}}
+        {{view /}}
+        {{view controller="user/form" /}}
     </script>
     <script src="../scripts/bingo2/bingo.js"></script>
+    <script src="compiles.js"></script>
     <script type="text/javascript">
 
         //tran command
         (function () {
             var tmpl = document.getElementById('tmpl1').innerHTML;
-            console.log(tmpl);
+            //console.log(tmpl);
             var s = "{{cls aaaa}} asdfasdf{{cls bbb }} {{a /}}{{/cls}} {{/cls}}sdfsdf";
-            var regEx = /\{\{([^\s]*?)\s*?(.*?)\}\}((?:.|\n|\r)*)\{\{\/\1\}\}/gi;
+            var regEx = /\{\{\s*(\S+)\s*?(.*?)\/\}\}|\{\{\s*(\S+)\s*?(.*?)\}\}((?:.|\n|\r)*)\{\{\/\3\}\}/gi;
+            var _scriptTag = '<' + 'script type="text/html"></' + 'script>';
 
-            console.log('s ===> ', bingo.sliceArray(regEx.exec(s)));
+            //console.log('s ===> ', bingo.sliceArray(regEx.exec(s)));
 
             regEx.lastIndex = 0;
-            tmpl.replace(regEx, function (find) {
+            var list = [];
+            tmpl.replace(regEx, function (find, cmd, attrs, content) {
                 console.log('replace', arguments);
                 return find;
             });
