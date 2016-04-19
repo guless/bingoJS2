@@ -21,13 +21,16 @@ srcList = srcList.map(function (item) {
     return [bgSrcPath , item].join('/');
 });
 
-gulp.task('build', ['build:concat', 'build:uglify', 'build:copy']);
-gulp.task('rebuild', ['clean', 'build']);
+gulp.task('build', ['clean'], function () {
+    return gulp.start('build:start');
+});
 
 gulp.task('clean', function () {
     return gulp.src(distPath)
         .pipe(clean());
 });
+
+gulp.task('build:start', ['build:concat', 'build:uglify', 'build:copy']);
 
 gulp.task('build:concat', function () {
     return gulp.src(srcList)
@@ -82,7 +85,16 @@ gulp.task('server', function () {
 //  -w: 实时监听
 //  -s: 启动服务器
 //  -p: 服务器启动端口，默认8080
-gulp.task('default', ['build'], function () {
+//gulp.task('default', ['build'], function () {
+//    if (yargs.s) {
+//        gulp.start('server');
+//    }
+
+//    if (yargs.w) {
+//        gulp.start('watch');
+//    }
+//});
+gulp.task('default', function () {
     if (yargs.s) {
         gulp.start('server');
     }
