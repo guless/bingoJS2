@@ -7,7 +7,7 @@
 <body>
     test start
     <script type="text/html" id="tmpl1">
-        {{view}}
+        {{view controller="user/list"}}
             <div style="color:red;font-size:[test+'asdfa'];asdfa:[user]" aaaaa="[aaa]"></div>
         <input type="text" value="[user.name]" />
 
@@ -18,10 +18,13 @@
         <div onclick='[user.aaaa("")]'></div>
             {{if user.enabled}}
                 {{if user.role == 'admin'}}
+        asdfsdfddd
                 {{/if}}
             {{else}}
-                
-            {{/if}}
+                else1
+            {{else}}!
+                test else
+            !{{/if}}
         {{/view}}
         {{user}}
           test
@@ -40,27 +43,76 @@
         //tran command
         (function () {
             var tmpl = document.getElementById('tmpl1').innerHTML;
-            //console.log(tmpl);
-            var s = "{{cls aaaa}} asdfasdf{{cls bbb }} {{a /}}{{/cls}} {{/cls}}sdfsdf";
-            var regEx = /\{\{\s*(\S+)\s*?(.*?)\/\}\}|\{\{\s*(\S+)\s*?(.*?)\}\}((?:.|\n|\r)*)\{\{\/\3\}\}/gi;
+
+
+            //指令解释:
+            //{{cmd /}}
+            //{{cmd attr="asdf" /}}
+            //{{cmd attr="asdf"}} content {{/cmd}}
+            var _commandEx = /\{\{\s*(\S+)\s*(.*?)\/\}\}|\{\{\s*(\S+)\s*?(.*?)\}\}((?:.|\n|\r)*)\{\{\/\3\}\}/gi;
+            var _checkElse = /\{\{\s*(\/?if|else)\s*(.*?)\}\}/gi;
             var _scriptTag = '<' + 'script type="text/html"></' + 'script>';
 
-            //console.log('s ===> ', bingo.sliceArray(regEx.exec(s)));
+            var _traverseCmd = function (tmpl) {
+                _commandEx.lastIndex = 0;
+                var list = [];
+                tmpl.replace(_commandEx, function (find, cmd, attrs, cmd1, attrs1, content1) {
+                    //console.log('_commandEx', arguments);
+                    if (cmd1 == 'if')
+                        _traverseElse(content1);
+                    list.push(cmd ? {
+                        cmd: cmd,
+                        attrs: attrs,
+                        content: '',
+                        children: []
+                    } : {
+                        cmd: cmd1,
+                        attrs: attrs1,
+                        content: content1,
+                        children: _traverseCmd(content1)
+                    });
+                    return find;
+                });
+                return list;
+            }, _traverseElse = function (content) {
+                var lv = 0, item, cmd, index =-1;
+                _checkElse.lastIndex = 0;
+                console.log('else content', content);
+                var elseList = [];
+                while (item = _checkElse.exec(content)) {
+                    (lv < 0) && (lv = 0);
+                    cmd = item[1]
+                    if (cmd == 'if')
+                        lv++;
+                    else {
+                        lv--;
+                        if (lv < 0) {
+                            if (index >= 0) {
+                                elseList.push(content.substr(index, item.index - index));
+                            }
+                            //查找到位置加查找的长度
+                            index = item.index + item[0].length;
+                        }
 
-            regEx.lastIndex = 0;
-            var list = [];
-            tmpl.replace(regEx, function (find, cmd, attrs, content) {
-                //console.log('replace', arguments);
-                return find;
-            });
+                        console.log('checkElse', lv, cmd, index);
+                    }
+                }
+                if (lv < 0)
+                    elseList.push(content.substr(index));
+                console.log('elseList', elseList);
+            };
+            var cmdList = _traverseCmd(tmpl);
+            console.log('cmdList', cmdList);
 
 
+            //查找dom 节点 <div>
             var _domNodeReg = /\<[^>]+\>/gi,
+                //解释可绑定的节点属性: attr="fasdf[user.name]"
                 _domAttrReg = /(\S+)\s*=\s*(\"(?:\\\"|[^"])*?\[.+?\](?:\\\"|[^"])*\"|\'(?:\\\'|[^'])*?\[.+?\](?:\\\'|[^'])*\')/gi;
 
             var _domAttrList = [];
             var s = tmpl.replace(_domNodeReg, function (find, pos, content) {
-                console.log('domNodeReg', arguments);
+                //console.log('domNodeReg', arguments);
                 _domAttrReg.lastIndex = 0;
                 return find.replace(_domAttrReg, function (findAttr, name, dot, content) {
                     _domAttrList.push({
@@ -81,6 +133,10 @@
             //console.log('tmpl ===> ', (regEx.exec(tmpl)));
 
         })();
+
+        //render-->comp-->create-->ctrl-->layout-->ready
+        //render-->comp-->create-->子comp-->子create-->ctrl-->layout-->子ctrl-->子layout-->ready
+        //cp <---> view
 
         //todo: comp
         (function () {
