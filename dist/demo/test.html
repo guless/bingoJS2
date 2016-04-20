@@ -8,13 +8,14 @@
     test start
     <script type="text/html" id="tmpl1">
         {{view}}
-            <div style="color:red;font-size:{{test+'asdfa'}};asdfa:{{user}}" aaaaa="{{aaa}}"></div>
-        <input type="text" value="{{user.name}}" />
+            <div style="color:red;font-size:[test+'asdfa'];asdfa:[user]" aaaaa="[aaa]"></div>
+        <input type="text" value="[user.name]" />
 
         {{text user.desc /}}
         {{print user.desc /}}
 
-            <div onclick="[user.click]"></div>
+            <div onclick="[user.click('asdf')]"></div>
+        <div onclick='[user.aaaa("")]'></div>
             {{if user.enabled}}
                 {{if user.role == 'admin'}}
                 {{/if}}
@@ -31,6 +32,7 @@
         {{view /}}
         {{view controller="user/form" /}}
     </script>
+    <script type="text/html" id="tmpl2"><div t="asdf" aaa="test('a\'sdfas[user.name]df')" bbb='atest[user.name]'></div></script>
     <script src="../scripts/bingo2/bingo.js"></script>
     <script src="compiles.js"></script>
     <script type="text/javascript">
@@ -53,20 +55,28 @@
             });
 
 
-            var _domNodeReg = /\<[^\>]+?\>/gi,
-                _domAttrReg = /\S+\s*=\s*(['"])[^'"]*?\{\{.*?\}\}[^'"]*\1/gi;
+            var _domNodeReg = /\<[^>]+\>/gi,
+                _domAttrReg = /(\S+)\s*=\s*(\"(?:\\\"|[^"])*?\[.+?\](?:\\\"|[^"])*\"|\'(?:\\\'|[^'])*?\[.+?\](?:\\\'|[^'])*\')/gi;
+
+            var _domAttrList = [];
             var s = tmpl.replace(_domNodeReg, function (find, pos, content) {
                 console.log('domNodeReg', arguments);
                 _domAttrReg.lastIndex = 0;
-                return find.replace(_domAttrReg, function (findAttr) {
-                    console.log('domAttrReg', arguments);
+                return find.replace(_domAttrReg, function (findAttr, name, dot, content) {
+                    _domAttrList.push({
+                        name: name,
+                        content:content
+                    });
                     return 'bg-' + findAttr;
                 });
                 return find;
             });
             console.log(s);
+            console.log('domAttrReg', _domAttrList);
 
-            console.log(/(\!)(?!\1)*/.exec('!asf\\1daf!!'));
+            //var tmpl2 = document.getElementById('tmpl2').innerHTML;
+            //_domAttrReg = /\s*(\S+)\s*=\s*(\"(?:\\\"|[^"])*?\[.*?\](?:\\\"|[^"])*\"|\'(?:\\\'|[^'])*?\[.*?\](?:\\\'|[^'])*\')/gi;
+            //console.log(_domAttrReg.exec(tmpl2));
 
             //console.log('tmpl ===> ', (regEx.exec(tmpl)));
 
