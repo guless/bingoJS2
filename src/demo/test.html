@@ -7,6 +7,7 @@
 <body>
     test start
     <script type="text/html" id="tmpl1">
+        asdfsadf
         {{view controller="user/list"}}
             <div style="color:red;font-size:[test+'asdfa'];asdfa:[user]" aaaaa="[aaa]"></div>
         <input type="text" value="[user.name]" />
@@ -20,9 +21,9 @@
                 {{if user.role == 'admin'}}
         asdfsdfddd
                 {{/if}}
-            {{else}}
-                else1
-            {{else}}!
+            {{else}}@
+                else1{{text else /}}
+            @{{else}}!
                 test else
             !{{/if}}
         {{/view}}
@@ -51,55 +52,79 @@
             //{{cmd attr="asdf"}} content {{/cmd}}
             var _commandEx = /\{\{\s*(\S+)\s*(.*?)\/\}\}|\{\{\s*(\S+)\s*?(.*?)\}\}((?:.|\n|\r)*)\{\{\/\3\}\}/gi;
             var _checkElse = /\{\{\s*(\/?if|else)\s*(.*?)\}\}/gi;
-            var _scriptTag = '<' + 'script type="text/html"></' + 'script>';
+            var _scriptTag = '<' + 'script type="text/html" bg-id="{0}"></' + 'script>',
+                _getIdTag = function (id) { return _scriptTag.replace('{0}', id); };
 
             var _traverseCmd = function (tmpl) {
                 _commandEx.lastIndex = 0;
                 var list = [];
-                tmpl.replace(_commandEx, function (find, cmd, attrs, cmd1, attrs1, content1) {
+                tmpl = tmpl.replace(_commandEx, function (find, cmd, attrs, cmd1, attrs1, content1) {
                     //console.log('_commandEx', arguments);
-                    if (cmd1 == 'if')
-                        _traverseElse(content1);
-                    list.push(cmd ? {
-                        cmd: cmd,
-                        attrs: attrs,
-                        content: '',
-                        children: []
-                    } : {
-                        cmd: cmd1,
-                        attrs: attrs1,
-                        content: content1,
-                        children: _traverseCmd(content1)
-                    });
-                    return find;
+                    var id = bingo.makeAutoId();
+                    if (cmd) {
+                        list.push({
+                            id:id,
+                            cmd: cmd,
+                            attrs: attrs,
+                            content: '',
+                            childCmd: null
+                        });
+                    } else {
+                        var elseList = null;
+                        if (cmd1 == 'if') {
+                            var elseContent = _traverseElse(content1);
+                            content1 = elseContent.content;
+                            elseList = elseContent.elseList;
+                        }
+                        list.push({
+                            id: id,
+                            cmd: cmd1,
+                            attrs: attrs1,
+                            content: content1,
+                            elseList:elseList,
+                            childCmd: _traverseCmd(content1)
+                        });
+                    }
+                    
+                    return _getIdTag(id);
                 });
-                return list;
+                return { tmpl: tmpl, cmdList: list };
             }, _traverseElse = function (content) {
-                var lv = 0, item, cmd, index =-1;
+                var lv = 0, item, cmd, index =-1, start=-1;
                 _checkElse.lastIndex = 0;
-                console.log('else content', content);
                 var elseList = [];
                 while (item = _checkElse.exec(content)) {
-                    (lv < 0) && (lv = 0);
-                    cmd = item[1]
-                    if (cmd == 'if')
-                        lv++;
-                    else {
-                        lv--;
-                        if (lv < 0) {
-                            if (index >= 0) {
-                                elseList.push(content.substr(index, item.index - index));
+                    cmd = item[1];
+                    switch (cmd) {
+                        case 'if':
+                            lv++;
+                            break;
+                        case 'else':
+                            if (lv <= 0) {
+                                if (start == -1) start = item.index;
+                                if (index >= 0) {
+                                    elseList.push(content.substr(index, item.index - index));
+                                }
+                                //查找到位置加查找的长度
+                                index = item.index + item[0].length;
                             }
-                            //查找到位置加查找的长度
-                            index = item.index + item[0].length;
-                        }
-
-                        console.log('checkElse', lv, cmd, index);
+                            break;
+                        case '/if':
+                            lv--;
+                            break;
                     }
+                    
                 }
-                if (lv < 0)
+                if (lv <= 0) {
                     elseList.push(content.substr(index));
-                console.log('elseList', elseList);
+
+                    bingo.each(elseList, function (item, index) {
+                        elseList[index] = _traverseCmd(item);
+                    });
+
+                }
+
+                return { content: start > -1 ? content.substr(0, start) : content, elseList: elseList };
             };
             var cmdList = _traverseCmd(tmpl);
             console.log('cmdList', cmdList);
