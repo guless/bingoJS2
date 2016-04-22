@@ -271,6 +271,8 @@
 
     var Promise = function (fn) {
         return new Promise.fn._init(fn);
+    }, _isPromise = function (p) {
+        return p && !!p.then;
     };
     Promise.fn = Promise.prototype = {
         constructor: Promise,
@@ -375,15 +377,15 @@
                 var resList = [], len = list.length;
                 if (list.length > 0) {
                     bingo.each(list, function (item, index) {
-                        if (!item || !item.then) {
-                            resList[index] = item;
-                            (--len) || resolve(resList);
-                        } else {
+                        if (_isPromise(item)) {
                             var tFn = function (res) {
                                 resList[index] = res;
                                 (--len) || resolve(resList);
                             };
                             item.then(tFn, alway ? tFn : reject);
+                        } else {
+                            resList[index] = item;
+                            (--len) || resolve(resList);
                         }
                     });
                 } else
@@ -398,10 +400,10 @@
                 var list = _makeArgs(args, fn);
                 if (list.length > 0)
                     bingo.each(list, function (item, index) {
-                        if (!item || !item.then)
-                            resolve(item);
-                        else
+                        if (_isPromise(item))
                             item.then(resolve, reject);
+                        else
+                            resolve(item);
                     });
                 else
                     resolve();
@@ -424,6 +426,7 @@
     };
     Promise.when = Promise.all;
 
+    Promise.isPromise = _isPromise;
     bingo.Promise = Promise;
 
 })(bingo);

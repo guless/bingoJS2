@@ -1,6 +1,9 @@
 ﻿//tran command
 (function () {
 
+    var _Promise = bingo.Promise,
+        _isPromise = _Promise.isPromise;
+
     //新建view
     var _newView = function () {
         return {
@@ -21,14 +24,23 @@
                 return bingo.extend(this, p);
             },
             _getContent: function () {
-                if (this._renderFn)
-                    return this._renderFn();
+                if (this._tmplFn)
+                    return this._tmplFn();
                 else
                     return this.content;
             },
-            render: function (fn) {
-                this._renderFn = fn;
+            tmpl: function (fn) {
+                this._tmplFn = fn;
                 return this;
+            },
+            render: function () {
+                var ret = this._getContent();
+                if (_isPromise(ret))
+                    ret.then(function (s) {
+                        this.childCmd = _traverseCmd(s);
+                    }.bind(this));
+                else
+                    this.childCmd = _traverseCmd(ret);
             },
             laout: function (p, fn) {
 
@@ -48,11 +60,11 @@
             _commands[name] = fn;
     };
 
-    _defCommand('test', function (cp) {
+    _defCommand('include', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
-        cp.render(function () {
-            return cp.content;
+        cp.tmpl(function () {
+            return bingo.tmpl(cp.attrs.src);
         });
         return cp;
     });
@@ -68,7 +80,9 @@
     //{{cmd attr="asdf"}} content {{/cmd}}
     var _commandReg = /\{\{\s*(\S+)\s*(.*?)\/\}\}|\{\{\s*(\S+)\s*?(.*?)\}\}((?:.|\n|\r)*)\{\{\/\3\}\}/gi,
         //解释else
-        _checkElse = /\{\{\s*(\/?if|else)\s*(.*?)\}\}/gi;
+        _checkElse = /\{\{\s*(\/?if|else)\s*(.*?)\}\}/gi,
+        //解释指令属性: attr="fasdf"
+        _cmdAttrReg = /(\S+)\s*=\s*(?:\"((?:\\\"|[^"])*?)\"|\'((?:\\\'|[^'])*?)\')/gi;
 
     //scriptTag
     var _scriptTag = '<' + 'script type="text/html" bg-id="{0}"></' + 'script>',
@@ -79,15 +93,20 @@
         var list = [];
         tmpl = tmpl.replace(_commandReg, function (find, cmd, attrs, cmd1, attrs1, content1) {
             //console.log('_commandEx', arguments);
-            var id = bingo.makeAutoId(), temp;
+            var id = bingo.makeAutoId(), tmCP = _newCP(), cmdDef;
             if (cmd) {
-                temp = {
+                cmdDef = _defCommand(cmd);
+                tmCP.extend({
                     id: id,
                     cmd: cmd,
-                    attrs: attrs,
+                    attrs: _traverseAttr(attrs),
                     content: '',
                     childCmd: null
-                };
+                });
+                if (cmdDef) {
+                    cmdDef(tmCP);
+                    tmCP.render();
+                }
             } else {
                 var elseList = null;
                 if (cmd1 == 'if') {
@@ -95,15 +114,22 @@
                     content1 = elseContent.content;
                     elseList = elseContent.elseList;
                 }
-                temp = {
+                cmdDef = _defCommand(cmd1);
+                tmCP.extend({
                     id: id,
                     cmd: cmd1,
-                    attrs: attrs1,
+                    attrs: _traverseAttr(attrs1),
                     content: content1,
                     elseList: elseList,
-                    childCmd: _traverseCmd(content1)
-                };
+                    childCmd: null
+                });
+                if (cmdDef) {
+                    cmdDef(tmCP);
+                }
+                tmCP.render();
             }
+
+            list.push(tmCP);
 
             return _getIdTag(id);
         });
@@ -144,6 +170,13 @@
         }
 
         return { content: start > -1 ? content.substr(0, start) : content, elseList: elseList };
+    }, _traverseAttr = function (s) {
+        _cmdAttrReg.lastIndex = 0;
+        var item, attrs = {};
+        while (item = _cmdAttrReg.exec(s)) {
+            attrs[item[1]] = item[2] || item[3];
+        }
+        return attrs;
     };
     var cmdList = _traverseCmd(tmpl);
     console.log('cmdList', cmdList);
