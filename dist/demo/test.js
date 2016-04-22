@@ -1,4 +1,4 @@
-﻿//tran command
+//tran command
 (function () {
 
     var _Promise = bingo.Promise,
