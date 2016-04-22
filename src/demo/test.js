@@ -2,7 +2,12 @@
 (function () {
 
     var _Promise = bingo.Promise,
-        _isPromise = _Promise.isPromise;
+        _isPromise = _Promise.isPromise, _promisePush = function (promises, p) {
+            _isPromise(p) && promises.push(p);
+            return p;
+        }, _retPromiseAll = function (promises) {
+            return promises.length > 0 ? _Promise.always(promises) : undefined;
+        };
 
     //新建view
     var _newView = function () {
@@ -82,7 +87,9 @@
         //解释else
         _checkElse = /\{\{\s*(\/?if|else)\s*(.*?)\}\}/gi,
         //解释指令属性: attr="fasdf"
-        _cmdAttrReg = /(\S+)\s*=\s*(?:\"((?:\\\"|[^"])*?)\"|\'((?:\\\'|[^'])*?)\')/gi;
+        _cmdAttrReg = /(\S+)\s*=\s*(?:\"((?:\\\"|[^"])*?)\"|\'((?:\\\'|[^'])*?)\')/gi,
+        //解释cmd过程同步动态加载
+        _cmdPromises = [];
 
     //scriptTag
     var _scriptTag = '<' + 'script type="text/html" bg-id="{0}"></' + 'script>',
@@ -105,7 +112,7 @@
                 });
                 if (cmdDef) {
                     cmdDef(tmCP);
-                    tmCP.render();
+                    _promisePush(_cmdPromises, tmCP.render());
                 }
             } else {
                 var elseList = null;
@@ -126,7 +133,7 @@
                 if (cmdDef) {
                     cmdDef(tmCP);
                 }
-                tmCP.render();
+                _promisePush(_cmdPromises, tmCP.render());
             }
 
             list.push(tmCP);
@@ -179,7 +186,9 @@
         return attrs;
     };
     var cmdList = _traverseCmd(tmpl);
-    console.log('cmdList', cmdList);
+    _Promise.always(_cmdPromises).then(function () {
+        console.log('cmdList', cmdList);
+    });
 
 
     //查找dom 节点 <div>
