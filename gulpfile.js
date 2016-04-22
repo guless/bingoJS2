@@ -75,7 +75,7 @@ gulp.task('server', function () {
             }
         },
         port: yargs.p,
-        open: "external",
+        open: false,// "external",
         //startPath: '/demo/box.html'
         startPath: index
     });

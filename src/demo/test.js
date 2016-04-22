@@ -9,22 +9,39 @@
             return promises.length > 0 ? _Promise.always(promises) : undefined;
         };
 
-    //新建view
-    var _newView = function () {
-        return {
-
+    var _newBase = function (p) {
+        //基础
+        var o = {
+            extend: function (p) {
+                return bingo.extend(this, p);
+            }
         };
-    };
+        return o.extend(p);
+    }, _newBindContext = function (p) {
+        //绑定上下文
 
-    //新建CP, 编译context
-    var _newCP = function () {
-        return {
-            view: null,
+        return _newBase({
             id: '',
+            contents: '',
+            value: function () { },
+            result: function () {
+            },
+            eval: function () {
+            }
+        }).extend(p);
+    }, _newView = function () {
+        //新建view
+        return _newBase({
+        });
+    }, _newCP = function () {
+        //新建command的CP参数对象
+
+        return _newBindContext({
+            view: null,
             cmd: '',
-            attrs: '',
-            content: '',
+            attrs: null,
             childCmd: null,
+            tranContext:null,
             extend: function (p) {
                 return bingo.extend(this, p);
             },
@@ -32,7 +49,7 @@
                 if (this._tmplFn)
                     return this._tmplFn();
                 else
-                    return this.content;
+                    return this.contents;
             },
             tmpl: function (fn) {
                 this._tmplFn = fn;
@@ -42,18 +59,29 @@
                 var ret = this._getContent();
                 if (_isPromise(ret))
                     ret.then(function (s) {
-                        this.childCmd = _traverseCmd(s);
+                        this.childCmd = _traverseCmd(s, this.tranContext);
                     }.bind(this));
                 else
-                    this.childCmd = _traverseCmd(ret);
+                    this.childCmd = _traverseCmd(ret, this.tranContext);
+                return ret;
             },
-            laout: function (p, fn) {
-
+            layout: function (p, fn) {
+                switch (arguments.length) {
+                    case 0:
+                        return this._layoutFn;
+                    case 1:
+                        this._layoutFn = p;
+                        return this;
+                    case 2:
+                        return this;
+                }
             },
             controller: function (fn) {
                 this._ctrl = fn;
             }
-        };
+        });
+    }, _newCPAttr = function (contents) {
+        return _newBindContext({ contents: contents });
     };
 
 
@@ -69,7 +97,11 @@
         /// <param name="cp" value="_newCP()"></param>
 
         cp.tmpl(function () {
-            return bingo.tmpl(cp.attrs.src);
+            return bingo.tmpl(cp.attrs['src'].contents);
+        }).layout(function () {
+            return cp.layout(function () {
+                cp.re;
+            }, function (c) { });
         });
         return cp;
     });
@@ -82,20 +114,34 @@
     //指令解释:
     //{{cmd /}}
     //{{cmd attr="asdf" /}}
-    //{{cmd attr="asdf"}} content {{/cmd}}
+    //{{cmd attr="asdf"}} contents {{/cmd}}
     var _commandReg = /\{\{\s*(\S+)\s*(.*?)\/\}\}|\{\{\s*(\S+)\s*?(.*?)\}\}((?:.|\n|\r)*)\{\{\/\3\}\}/gi,
         //解释else
         _checkElse = /\{\{\s*(\/?if|else)\s*(.*?)\}\}/gi,
         //解释指令属性: attr="fasdf"
         _cmdAttrReg = /(\S+)\s*=\s*(?:\"((?:\\\"|[^"])*?)\"|\'((?:\\\'|[^'])*?)\')/gi,
         //解释cmd过程同步动态加载
-        _cmdPromises = [];
+        _cmdPromises = [],
+        _newTranContext = function () {
+            return _newBase({
+                _promises: [],
+                promise: function (p) {
+                    if (arguments.length > 0) {
+                        _promisePush(this._promises, p);
+                    } else {
+                        var prs = this._promises;
+                        this._promises = [];
+                        return _Promise.always(prs);
+                    }
+                }
+            });
+        };
 
     //scriptTag
     var _scriptTag = '<' + 'script type="text/html" bg-id="{0}"></' + 'script>',
         _getIdTag = function (id) { return _scriptTag.replace('{0}', id); };
 
-    var _traverseCmd = function (tmpl) {
+    var _traverseCmd = function (tmpl, tranContext) {
         _commandReg.lastIndex = 0;
         var list = [];
         tmpl = tmpl.replace(_commandReg, function (find, cmd, attrs, cmd1, attrs1, content1) {
@@ -106,34 +152,36 @@
                 tmCP.extend({
                     id: id,
                     cmd: cmd,
+                    tranContext:tranContext,
                     attrs: _traverseAttr(attrs),
-                    content: '',
+                    contents: '',
                     childCmd: null
                 });
                 if (cmdDef) {
                     cmdDef(tmCP);
-                    _promisePush(_cmdPromises, tmCP.render());
+                    tranContext.promise(tmCP.render());
                 }
             } else {
                 var elseList = null;
                 if (cmd1 == 'if') {
-                    var elseContent = _traverseElse(content1);
-                    content1 = elseContent.content;
+                    var elseContent = _traverseElse(content1, tranContext);
+                    content1 = elseContent.contents;
                     elseList = elseContent.elseList;
                 }
                 cmdDef = _defCommand(cmd1);
                 tmCP.extend({
                     id: id,
                     cmd: cmd1,
+                    tranContext: tranContext,
                     attrs: _traverseAttr(attrs1),
-                    content: content1,
+                    contents: content1,
                     elseList: elseList,
                     childCmd: null
                 });
                 if (cmdDef) {
                     cmdDef(tmCP);
                 }
-                _promisePush(_cmdPromises, tmCP.render());
+                tranContext.promise(tmCP.render());
             }
 
             list.push(tmCP);
@@ -141,11 +189,11 @@
             return _getIdTag(id);
         });
         return { tmpl: tmpl, cmdList: list };
-    }, _traverseElse = function (content) {
+    }, _traverseElse = function (contents, tranContext) {
         var lv = 0, item, cmd, index = -1, start = -1;
         _checkElse.lastIndex = 0;
         var elseList = [];
-        while (item = _checkElse.exec(content)) {
+        while (item = _checkElse.exec(contents)) {
             cmd = item[1];
             switch (cmd) {
                 case 'if':
@@ -155,7 +203,7 @@
                     if (lv <= 0) {
                         if (start == -1) start = item.index;
                         if (index >= 0) {
-                            elseList.push(content.substr(index, item.index - index));
+                            elseList.push(contents.substr(index, item.index - index));
                         }
                         //查找到位置加查找的长度
                         index = item.index + item[0].length;
@@ -168,25 +216,25 @@
 
         }
         if (lv <= 0) {
-            elseList.push(content.substr(index));
+            elseList.push(contents.substr(index));
 
             bingo.each(elseList, function (item, index) {
-                elseList[index] = _traverseCmd(item);
+                elseList[index] = _traverseCmd(item, tranContext);
             });
 
         }
 
-        return { content: start > -1 ? content.substr(0, start) : content, elseList: elseList };
+        return { contents: start > -1 ? contents.substr(0, start) : contents, elseList: elseList };
     }, _traverseAttr = function (s) {
         _cmdAttrReg.lastIndex = 0;
         var item, attrs = {};
         while (item = _cmdAttrReg.exec(s)) {
-            attrs[item[1]] = item[2] || item[3];
+            attrs[item[1]] = _newCPAttr(item[2] || item[3]);
         }
         return attrs;
     };
-    var cmdList = _traverseCmd(tmpl);
-    _Promise.always(_cmdPromises).then(function () {
+    var _tranContext = _newTranContext(), cmdList = _traverseCmd(tmpl, _tranContext);
+    _tranContext.promise().then(function () {
         console.log('cmdList', cmdList);
     });
 
@@ -197,13 +245,13 @@
         _domAttrReg = /(\S+)\s*=\s*(\"(?:\\\"|[^"])*?\[.+?\](?:\\\"|[^"])*\"|\'(?:\\\'|[^'])*?\[.+?\](?:\\\'|[^'])*\')/gi;
 
     var _domAttrList = [];
-    var s = tmpl.replace(_domNodeReg, function (find, pos, content) {
+    var s = tmpl.replace(_domNodeReg, function (find, pos, contents) {
         //console.log('domNodeReg', arguments);
         _domAttrReg.lastIndex = 0;
-        return find.replace(_domAttrReg, function (findAttr, name, dot, content) {
+        return find.replace(_domAttrReg, function (findAttr, name, dot, contents) {
             _domAttrList.push({
                 name: name,
-                content: content
+                contents: contents
             });
             return 'bg-' + findAttr;
         });
