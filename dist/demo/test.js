@@ -21,7 +21,6 @@
         //绑定上下文
 
         return _newBase({
-            id: '',
             contents: '',
             value: function () { },
             result: function () {
@@ -29,15 +28,16 @@
             eval: function () {
             }
         }).extend(p);
-    }, _newView = function () {
+    }, _newView = function (p) {
         //新建view
         return _newBase({
-        });
-    }, _newCP = function () {
+        }).extend(p);
+    }, _newCP = function (p) {
         //新建command的CP参数对象
 
         return _newBindContext({
             view: null,
+            app:null,
             cmd: '',
             attrs: null,
             childCmd: null,
@@ -79,9 +79,10 @@
             controller: function (fn) {
                 this._ctrl = fn;
             }
-        });
+        }).extend(p);
     }, _newCPAttr = function (contents) {
-        return _newBindContext({ contents: contents });
+        return _newBindContext({ contents: contents
+        });
     };
 
 
@@ -97,12 +98,19 @@
         /// <param name="cp" value="_newCP()"></param>
 
         cp.tmpl(function () {
-            return bingo.tmpl(cp.attrs['src'].contents);
-        }).layout(function () {
+            return bingo.tmpl(cp.attrs.getContens('src'));
+        });
+
+        cp.layout(function () {
             return cp.layout(function () {
                 cp.re;
             }, function (c) { });
         });
+
+        cp.controller(function ($view) {
+            $view.title = '标题';
+        });
+
         return cp;
     });
 
@@ -143,52 +151,45 @@
 
     var _traverseCmd = function (tmpl, tranContext) {
         _commandReg.lastIndex = 0;
-        var list = [];
+        var list = [], view, app;
         tmpl = tmpl.replace(_commandReg, function (find, cmd, attrs, cmd1, attrs1, content1) {
             //console.log('_commandEx', arguments);
-            var id = bingo.makeAutoId(), tmCP = _newCP(), cmdDef;
-            if (cmd) {
-                cmdDef = _defCommand(cmd);
-                tmCP.extend({
-                    id: id,
-                    cmd: cmd,
-                    tranContext:tranContext,
-                    attrs: _traverseAttr(attrs),
-                    contents: '',
-                    childCmd: null
-                });
-                if (cmdDef) {
-                    cmdDef(tmCP);
-                    tranContext.promise(tmCP.render());
-                }
-            } else {
-                var elseList = null;
-                if (cmd1 == 'if') {
-                    var elseContent = _traverseElse(content1, tranContext);
-                    content1 = elseContent.contents;
-                    elseList = elseContent.elseList;
-                }
-                cmdDef = _defCommand(cmd1);
-                tmCP.extend({
-                    id: id,
-                    cmd: cmd1,
-                    tranContext: tranContext,
-                    attrs: _traverseAttr(attrs1),
-                    contents: content1,
-                    elseList: elseList,
-                    childCmd: null
-                });
-                if (cmdDef) {
-                    cmdDef(tmCP);
-                }
-                tranContext.promise(tmCP.render());
+            var id = bingo.makeAutoId(), elseList, item;
+            if (cmd1 == 'if') {
+                var elseContent = _traverseElse(content1, tranContext);
+                content1 = elseContent.contents;
+                elseList = elseContent.elseList;
             }
-
-            list.push(tmCP);
+            item = {
+                id: id,
+                cmd: cmd1 || cmd,
+                tranContext: tranContext,
+                attrs: _traverseAttr(attrs1 || attrs),
+                contents: content1 || '',
+                elseList: elseList,
+                childCmd: null
+            };
+            (item.cmd == 'view') && (view = item);
+            list.push(item);
 
             return _getIdTag(id);
         });
-        return { tmpl: tmpl, cmdList: list };
+
+        var cmdList = [], tmCP, cmdDef;
+        view && (tranContext.view = _newView({
+            name: view.attrs.getContens('name'),
+            app: bingo.app(view.attrs.getContens('app'))
+        }));
+        bingo.each(list, function (item) {
+            tmCP = _newCP(item);
+            tmCP.view = tranContext.view;
+            tmCP.app = tmCP.view.app;
+            cmdDef = _defCommand(item.cmd);
+            cmdDef && cmdDef(tmCP);
+            tranContext.promise(tmCP.render());
+            cmdList.push(tmCP);
+        });
+        return { tmpl: tmpl, cmdList: cmdList };
     }, _traverseElse = function (contents, tranContext) {
         var lv = 0, item, cmd, index = -1, start = -1;
         _checkElse.lastIndex = 0;
@@ -227,15 +228,22 @@
         return { contents: start > -1 ? contents.substr(0, start) : contents, elseList: elseList };
     }, _traverseAttr = function (s) {
         _cmdAttrReg.lastIndex = 0;
-        var item, attrs = {};
+        var item, attrs = {
+            getContens: function (name) {
+                return this[name] ? this[name].contents : '';
+            }
+        };
         while (item = _cmdAttrReg.exec(s)) {
             attrs[item[1]] = _newCPAttr(item[2] || item[3]);
         }
         return attrs;
     };
+
+    //console.time('aaaa');
     var _tranContext = _newTranContext(), cmdList = _traverseCmd(tmpl, _tranContext);
     _tranContext.promise().then(function () {
         console.log('cmdList', cmdList);
+        //console.timeEnd('aaaa');
     });
 
 
