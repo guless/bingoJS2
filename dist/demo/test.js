@@ -1,5 +1,6 @@
 //tran command
 (function () {
+    //todo 节点删除释放机制
 
     var _Promise = bingo.Promise,
         _isPromise = _Promise.isPromise, _promisePush = function (promises, p) {
@@ -30,15 +31,28 @@
         }).extend(p);
     }, _newView = function (p) {
         //新建view
-        return _newBase({
+        var view = _newBase({
+            controller: function (fn) {
+                this._ctrl = fn;
+            },
+            _doneCtrl: function () {
+                var ctrl = this._ctrl;
+                if (ctrl) {
+                    this._ctrl = null;
+                    ctrl.call(this, this);
+                }
+            }
         }).extend(p);
+        _addView(view);
+        return view;
     }, _newCP = function (p) {
         //新建command的CP参数对象
-        return _newBindContext({
+        var cp = _newBindContext({
             view: null,
             app:null,
             cmd: '',
             attrs: null,
+            _nodes:[],
             getAttr:function(name){
                 return this.attrs.getAttr(name);
             },
@@ -68,18 +82,23 @@
             text: function (s) {
             },
             tmpl: function (fn) {
-                this._tmplFn = fn;
+                this._tmplFn = bingo.isFunction(fn) ? fn : function () { return fn; };
                 return this;
             },
-            render: function () {
+            _render: function () {
                 var ret = this._getContent();
                 if (_isPromise(ret))
                     ret.then(function (s) {
-                        return _traverseCmd(s, this);
+                        _traverseCmd(s, this);
                     }.bind(this));
                 else
-                    ret = _traverseCmd(ret, this);
-                return ret;
+                     _traverseCmd(ret, this);
+                _promisePush(_renderPromise, ret)
+                return this;
+            },
+            render: function () {
+                this._render();
+                return _renderThread();
             },
             layout: function (p, fn) {
                 switch (arguments.length) {
@@ -94,8 +113,17 @@
             },
             controller: function (fn) {
                 this._ctrl = fn;
+            },
+            _doneCtrl: function () {
+                var ctrl = this._ctrl;
+                if (ctrl) {
+                    this._ctrl = null;
+                    ctrl.call(this, this.view);
+                }
             }
         }).extend(p);
+        _cpList.push(cp);
+        return cp;
     }, _newCPAttr = function (contents) {
         return _newBindContext({
             contents: contents,
@@ -111,6 +139,23 @@
             _commands[name] = fn;
     };
 
+    bingo.controller('view1', function ($view) {
+        console.log('view controller');
+    });
+
+    _defCommand('view', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+
+        var ctrl = cp.getAttr('controller');
+        if (ctrl) {
+            ctrl = bingo.controller(ctrl);
+            ctrl && cp.view.controller(ctrl.fn);
+        }
+
+        return cp;
+    });
+
+
     _defCommand('for', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
@@ -118,9 +163,7 @@
 
         var itemName = 'item', dataName = 'datas';
         cp.contents = dataName;
-        cp.tmpl(function () {
-            return '';
-        });
+        cp.tmpl('');
 
         cp.layout(function () {
             return cp.result();
@@ -131,6 +174,27 @@
         return cp;
     });
 
+    _defCommand('if', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+
+        cp.tmpl('');
+
+        cp.layout(function () {
+            return cp.attrs.result();
+        }, function (c) {
+            cp.html(c.value ? cp.contents : '') ;
+        });
+
+        bingo.each(cp.elseList, function (item) {
+            cp.layout(function () {
+                return item.attrs.result();
+            }, function (c) {
+                item.html(c.value ? item.contents : '');
+            });
+        });
+
+        return cp;
+    });
 
     _defCommand('include', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
@@ -168,11 +232,10 @@
 
     _defCommand('select', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
-        cp.tmpl(function () {
-            return '{{view /}}<select>{{for item in datas}}<option value="1"></option>{{/for}}</select>'
-        });
+        cp.tmpl('{{view /}}<select>{{for item in datas}}<option value="1"></option>{{/for}}</select>');
 
         cp.controller(function ($view) {
+            console.log('select1 controller');
             $view.idName = '';
             $view.textName = '';
             $view.id = '';
@@ -200,6 +263,20 @@
     //scriptTag
     var _scriptTag = '<' + 'script type="text/html" bg-id="{0}"></' + 'script>',
         _getIdTag = function (id) { return _scriptTag.replace('{0}', id); };
+
+    var _allViews = [],
+        _addView = function (view) {
+            _allViews.push(view);
+            _viewList.push(view);
+        },
+        _removeView = function (view) {
+            _allViews = bingo.removeArrayItem(view, _allViews);
+            _viewList = bingo.removeArrayItem(view, _viewList);
+        },
+        _getView = function (name) {
+            var index = bingo.inArray(function (item) { return item.name == name; }, _allViews);
+            return index > -1 ? _allViews[index] : null;
+        };
 
     var _traverseCmd = function (tmpl, cp) {
         _commandReg.lastIndex = 0;
@@ -236,8 +313,7 @@
             view = cp.view;
         }
 
-        var children = [], tempCP, cmdDef, elseList,
-                promises = [];
+        var children = [], tempCP, cmdDef, elseList;
         bingo.each(list, function (item) {
             tempCP = _newCP(item);
             tempCP.view = view;
@@ -252,16 +328,17 @@
                         app: app,
                         view: view, contents: item
                     });
-                    _promisePush(promises, cpT.render());
+                    //_promisePush(promises, cpT.render());
                     elseList[index] = cpT;
                 });
             }
-            _promisePush(promises, tempCP.render());
+            tempCP._render();
+            //_promisePush(promises, tempCP.render());
             children.push(tempCP);
         });
         cp.children = children;
         cp.tmplTag = tmpl;
-        return _retPromiseAll(promises);
+        //return _retPromiseAll(promises);
     }, _traverseElse = function (contents) {
         var lv = 0, item, cmd, index = -1, start = -1;
         _checkElse.lastIndex = 0;
@@ -295,7 +372,8 @@
         return { contents: start > -1 ? contents.substr(0, start) : contents, elseList: elseList };
     }, _traverseAttr = function (s) {
         _cmdAttrReg.lastIndex = 0;
-        var item, attrs = {
+        var item, attrs = _newBindContext({
+            contents: s,
             getAttr: function (name) {
                 return this[name] ? this[name].contents : '';
             },
@@ -305,11 +383,35 @@
                 else
                     this[name] = _newCPAttr(contents);
             }
-        };
+        });
         while (item = _cmdAttrReg.exec(s)) {
             attrs.setAttr(item[1], item[2] || item[3]);
         }
         return attrs;
+    }, _renderPromise = [], _renderThread = function () {
+        var promises = _renderPromise;
+        _renderPromise = [];
+        return _Promise.all(promises).then(function () {
+            if (_renderPromise.length > 0) return _renderStep();
+        });
+    }, _cpList = [], _ctrlStep = function () {
+        var cpList = _cpList;
+        if (cpList.length > 0) {
+            _cpList = [];
+            bingo.each(cpList, function (cp) {
+                cp._doneCtrl();
+                _ctrlStep();
+            });
+        }
+    }, _viewList = [], _ctrlStepView = function () {
+        var viewList = _viewList;
+        if (viewList.length > 0) {
+            _viewList = [];
+            bingo.each(viewList, function (view) {
+                view._doneCtrl();
+                _ctrlStepView();
+            });
+        }
     };
 
     /* 检测 scope */
@@ -379,7 +481,7 @@
             container = container.lastChild;
         }
         _parseSrcipt(container, script);
-        return container.childNodes;
+        return bingo.sliceArray(container.childNodes);
     }, _insertDom = function (nodes, refNode, fName) {
         //fName:appendTo, insertBefore
         var p;
@@ -398,11 +500,16 @@
 
     var _traverseCP = function (node, tmpl, fName, cp) {
         var nodes = _parseHTML(tmpl, node, true);
+        console.log(cp.cmd, nodes.length);
         if (nodes.length > 0) {
             var pNode = nodes[0].parentNode;
             _traverseNodes(nodes, cp);
-            _insertDom(pNode.childNodes, node, fName);
-        }
+            nodes = bingo.sliceArray(pNode.childNodes);
+            if (nodes.length == 0)
+                nodes.push(_parseHTML(_getIdTag(cp.id))[0]);
+        } else
+            nodes.push(_parseHTML(_getIdTag(cp.id))[0]);
+        _insertDom(nodes, node, fName);
     }, _traverseNodes = function (nodes, cp) {
 
         var id, tempCP;
@@ -432,11 +539,15 @@
             app:view ? view.app : null,
             view: view, contents: p.tmpl
         });
-        _Promise.resolve().then(function () { return cp.render(); }).then(function () {
+        cp.render().then(function () {
             console.log('compile', cp);
+            _ctrlStep();
+            _ctrlStepView();
             var node = _query('#context1');
             var fr = _traverseCP(node, cp.tmplTag, 'appendTo', cp);
             console.log('_traverseCP', node.innerHTML);
+
+            console.log('render End', new Date());
         });
     };
 
@@ -477,6 +588,13 @@
     });
     console.log(s);
     console.log('domAttrReg', _domAttrList);
+
+    //测试各浏览器删除script节点兼容性
+    //var ns = _query('script');
+    //bingo.linkNode(ns, function () { console.log('okkkkkk'); });
+    //ns.parentNode.removeChild(ns);
+
+
 
     //var tmpl2 = document.getElementById('tmpl2').innerHTML;
     //_domAttrReg = /\s*(\S+)\s*=\s*(\"(?:\\\"|[^"])*?\[.*?\](?:\\\"|[^"])*\"|\'(?:\\\'|[^'])*?\[.*?\](?:\\\'|[^'])*\')/gi;
