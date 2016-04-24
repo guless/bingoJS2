@@ -36,6 +36,7 @@
         {{if test}}
             if
         {{/if}}
+        {{select name="select1" link="{id:'@id', datas:'@datas', idName:'id', textName:'name'}" /}}
         {{include src="test/include1.html" /}}
     </script>
     <script type="text/html" id="tmpl2"><div t="asdf" aaa="test('a\'sdfas[user.name]df')" bbb='atest[user.name]'></div></script>

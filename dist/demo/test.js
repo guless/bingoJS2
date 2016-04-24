@@ -34,12 +34,17 @@
         }).extend(p);
     }, _newCP = function (p) {
         //新建command的CP参数对象
-
         return _newBindContext({
             view: null,
             app:null,
             cmd: '',
             attrs: null,
+            getAttr:function(name){
+                return this.attrs.getAttr(name);
+            },
+            setAttr: function (name, contents) {
+                this.attrs.setAttr(name, contents);
+            },
             children: null,
             getChild: function (id) {
                 var item;
@@ -52,14 +57,15 @@
                 });
                 return item;
             },
-            extend: function (p) {
-                return bingo.extend(this, p);
-            },
             _getContent: function () {
                 if (this._tmplFn)
                     return this._tmplFn();
                 else
                     return this.contents;
+            },
+            html: function (s) {
+            },
+            text: function (s) {
             },
             tmpl: function (fn) {
                 this._tmplFn = fn;
@@ -92,7 +98,7 @@
         }).extend(p);
     }, _newCPAttr = function (contents) {
         return _newBindContext({
-            contents: contents
+            contents: contents,
         });
     };
 
@@ -105,25 +111,77 @@
             _commands[name] = fn;
     };
 
-    _defCommand('include', function (cp) {
+    _defCommand('for', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
+        var src = cp.getAttr('src');
+
+        var itemName = 'item', dataName = 'datas';
+        cp.contents = dataName;
         cp.tmpl(function () {
-            return bingo.tmpl(cp.attrs.getContens('src'));
+            return '';
         });
 
         cp.layout(function () {
-            return cp.layout(function () {
-                cp.re;
-            }, function (c) { });
-        });
-
-        cp.controller(function ($view) {
-            $view.title = '标题';
+            return cp.result();
+        }, function (c) {
+            cp.html(c.value);
         });
 
         return cp;
     });
+
+
+    _defCommand('include', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+
+        cp.tmpl(function () {
+            return bingo.tmpl(cp.getAttr('src'));
+        });
+
+        return cp;
+    });
+
+    _defCommand('html', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+
+        cp.layout(function () {
+            return cp.result();
+        }, function (c) {
+            cp.html(c.value);
+        });
+
+        return cp;
+    });
+
+    _defCommand('text', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+
+        cp.layout(function () {
+            return cp.result();
+        }, function (c) {
+            cp.text(c.value);
+        });
+
+        return cp;
+    });
+
+    _defCommand('select', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+        cp.tmpl(function () {
+            return '{{view /}}<select>{{for item in datas}}<option value="1"></option>{{/for}}</select>'
+        });
+
+        cp.controller(function ($view) {
+            $view.idName = '';
+            $view.textName = '';
+            $view.id = '';
+            $view.datas = '';
+        });
+
+        return cp;
+    });
+
 
 
     var tmpl = document.getElementById('tmpl1').innerHTML;
@@ -168,9 +226,9 @@
         });
 
         if (view) {
-            app = bingo.app(view.attrs.getContens('app'));
+            app = bingo.app(view.attrs.getAttr('app'));
             view = _newView({
-                name: view.attrs.getContens('name'),
+                name: view.attrs.getAttr('name'),
                 app: app
             });
         } else {
@@ -238,15 +296,29 @@
     }, _traverseAttr = function (s) {
         _cmdAttrReg.lastIndex = 0;
         var item, attrs = {
-            getContens: function (name) {
+            getAttr: function (name) {
                 return this[name] ? this[name].contents : '';
+            },
+            setAttr: function (name, contents) {
+                if (this[name])
+                    this[name].contents = contents;
+                else
+                    this[name] = _newCPAttr(contents);
             }
         };
         while (item = _cmdAttrReg.exec(s)) {
-            attrs[item[1]] = _newCPAttr(item[2] || item[3]);
+            attrs.setAttr(item[1], item[2] || item[3]);
         }
         return attrs;
     };
+
+    /* 检测 scope */
+    var _qScope = ":scope ";
+    try {
+        _docEle.querySelector(":scope body");
+    } catch (e) {
+        _qScope = '';
+    }
 
     var _doc = document,
         _docEle = _doc.documentElement, _queryAll = function (selector, context) {
@@ -256,14 +328,6 @@
             context || (context = _docEle);
             return context.querySelector(_qScope + selector);
         };
-
-    /* 检测 scope */
-    var _qScope = ":scope ";
-    try {
-        _docEle.querySelector(":scope body");
-    } catch (e) {
-        _qScope = '';
-    }
 
 
     var _removeNode = function (node) {
@@ -314,31 +378,31 @@
         while (depth--) {
             container = container.lastChild;
         }
-        var fr = document.createDocumentFragment();
-        bingo.each(container.childNodes, function (item) {
-            fr.appendChild(item);
-        });
         _parseSrcipt(container, script);
-        return fr.childNodes;
+        return container.childNodes;
     }, _insertDom = function (nodes, refNode, fName) {
         //fName:appendTo, insertBefore
-        bingo.each(nodes, function (item) {
-            if (item) {
-                if (fName == 'appendTo')
-                    refNode.appendChild(item);
-                else
-                    refNode.parentNode[fName](item, refNode);
-            }
-        });
+        var p;
+        if (nodes.length > 1) {
+            p = document.createDocumentFragment();
+            bingo.each(nodes, function (item) {
+                p.appendChild(item);
+            });
+        } else
+            p = nodes[0];
+        if (fName == 'appendTo')
+            refNode.appendChild(p);
+        else
+            refNode.parentNode[fName](p, refNode);
     };
 
     var _traverseCP = function (node, tmpl, fName, cp) {
-
         var nodes = _parseHTML(tmpl, node, true);
-        _traverseNodes(nodes, cp);
-        var fr = nodes.length > 0 ? nodes[0].parentNode : null
-        _insertDom([fr], node, fName);
-
+        if (nodes.length > 0) {
+            var pNode = nodes[0].parentNode;
+            _traverseNodes(nodes, cp);
+            _insertDom(pNode.childNodes, node, fName);
+        }
     }, _traverseNodes = function (nodes, cp) {
 
         var id, tempCP;
@@ -348,7 +412,7 @@
                 if (id) {
                     tempCP = cp.getChild(id);
                     if (tempCP) {
-                        console.log('tempCP', tempCP);
+                        //console.log('tempCP', tempCP);
                         _traverseCP(item, tempCP.tmplTag, 'insertBefore', tempCP);
                         _removeNode(item);
                     }
@@ -377,7 +441,7 @@
     };
 
     var _rootView = _newView({
-        name: 'rootView',
+        name: '',
         app: bingo.app('')
     });
     _compile({
