@@ -10,6 +10,13 @@
             return promises.length > 0 ? _Promise.always(promises) : undefined;
         };
 
+    var _isLinkNodeType = function (type) {
+        return type == 1 || type == 8;
+    },
+    _linkNodes = function (nodes) {
+
+    };
+
     var _newBase = function (p) {
         //基础
         var o = {
@@ -52,7 +59,10 @@
             app:null,
             cmd: '',
             attrs: null,
-            _nodes:[],
+            nodes: [],
+            setNodes: function (nodes) {
+                this.nodes = nodes;
+            },
             getAttr:function(name){
                 return this.attrs.getAttr(name);
             },
@@ -261,8 +271,7 @@
         _cmdAttrReg = /(\S+)\s*=\s*(?:\"((?:\\\"|[^"])*?)\"|\'((?:\\\'|[^'])*?)\')/gi;
 
     //scriptTag
-    var _scriptTag = '<' + 'script type="text/html" bg-id="{0}"></' + 'script>',
-        _getIdTag = function (id) { return _scriptTag.replace('{0}', id); };
+    var _getScriptTag = function (id) { return ['<' , 'script type="text/html" bg-id="', id, '"></', 'script>'].join(''); };
 
     var _allViews = [],
         _addView = function (view) {
@@ -299,7 +308,7 @@
             (item.cmd == 'view') && (view = item);
             list.push(item);
 
-            return _getIdTag(id);
+            return _getScriptTag(id);
         });
 
         if (view) {
@@ -498,29 +507,69 @@
             refNode.parentNode[fName](p, refNode);
     };
 
-    var _traverseCP = function (node, tmpl, fName, cp) {
-        var nodes = _parseHTML(tmpl, node, true);
-        console.log(cp.cmd, nodes.length);
+        //是否支持select注释
+    var _isComment = (_parseHTML('<option>test</option><!--test-->', 'select').length > 1),
+        _commentPrefix = 'bgcpid_',
+        //取得cp空白节点
+        _getCpEmptyNode = function (cp) {
+            var html = (_isComment) ?
+                ['<!--', _commentPrefix, cp.id, '-->'].join('') :
+                _getScriptTag(cp.id);
+            return _parseHTML(html)[0];
+        },
+        _isScriptTag = /script/i,
+        //取得render cp标签节点
+        _getEmptyRenderId = function (node) {
+            return (_isScriptTag.test(node.tagName)) ?
+                node.getAttribute('bg-id') : null;
+        },//,
+        //_getEmptyNodeId = function (node) {
+        //    if (_isComment) {
+        //        if (node.nodeType == 8) {
+        //            var val = node.nodeValue;
+        //            if (val.indexOf(_commentPrefix) == 0) {
+        //                return val.replace(_commentPrefix, '');
+        //            }
+        //        }
+        //    } else {
+        //        return (_isScriptTag.test(node.tagName)) ?
+        //            node.getAttribute('bg-id') : null;
+        //    }
+        //},
+
+        //检查是否空内容（没有nodeType==1和8）, 如果为空， 添加一个临时代表
+        _checkEmptyNodeCp = function (nodes, cp) {
+            var empty = nodes.length == 0;
+            if (!empty) {
+                empty = (bingo.inArray(function (item) {
+                    return _isLinkNodeType(item.nodeType);
+                }, nodes) < 0);
+            }
+            empty && nodes.push(_getCpEmptyNode(cp));
+        };
+
+    var _traverseCP = function (node, cp, fName) {
+        var nodes = _parseHTML(cp.tmplTag, node, true);
+        //console.log(cp.cmd, nodes.length);
         if (nodes.length > 0) {
             var pNode = nodes[0].parentNode;
             _traverseNodes(nodes, cp);
             nodes = bingo.sliceArray(pNode.childNodes);
-            if (nodes.length == 0)
-                nodes.push(_parseHTML(_getIdTag(cp.id))[0]);
-        } else
-            nodes.push(_parseHTML(_getIdTag(cp.id))[0]);
+        }
+        _checkEmptyNodeCp(nodes, cp);
         _insertDom(nodes, node, fName);
+        cp.setNodes(nodes);
     }, _traverseNodes = function (nodes, cp) {
 
         var id, tempCP;
         bingo.each(nodes, function (item) {
             if (item.nodeType == 1) {
-                id = _getBgTagId(item);
+                id = _getEmptyRenderId(item);
                 if (id) {
                     tempCP = cp.getChild(id);
                     if (tempCP) {
                         //console.log('tempCP', tempCP);
-                        _traverseCP(item, tempCP.tmplTag, 'insertBefore', tempCP);
+                        _traverseCP(item, tempCP, 'insertBefore');
                         _removeNode(item);
                     }
                 } else {
@@ -528,9 +577,6 @@
                 }
             }
         });
-    }, _isScriptTag = /script/i, _getBgTagId = function (node) {
-        return (_isScriptTag.test(node.tagName)) ?
-            node.getAttribute('bg-id') : null;
     };
 
     var _compile = function (p) {
@@ -544,7 +590,7 @@
             _ctrlStep();
             _ctrlStepView();
             var node = _query('#context1');
-            var fr = _traverseCP(node, cp.tmplTag, 'appendTo', cp);
+            var fr = _traverseCP(node, cp, 'appendTo');
             console.log('_traverseCP', node.innerHTML);
 
             console.log('render End', new Date());
@@ -594,6 +640,10 @@
     //bingo.linkNode(ns, function () { console.log('okkkkkk'); });
     //ns.parentNode.removeChild(ns);
 
+    //测试是否支持comment
+    //var nodes = _parseHTML('<option>asdfasf</option><!--test-->', 'select');
+    //var _isComment = nodes.length > 1;
+    //console.log('_parseHTML', _isComment, nodes);
 
 
     //var tmpl2 = document.getElementById('tmpl2').innerHTML;
