@@ -1,6 +1,6 @@
 ﻿//tran command
 (function () {
-    //todo 节点删除释放机制
+    //todo tranvse后layout
 
     var _Promise = bingo.Promise,
         _isPromise = _Promise.isPromise, _promisePush = function (promises, p) {
@@ -13,8 +13,23 @@
     var _isLinkNodeType = function (type) {
         return type == 1 || type == 8;
     },
-    _linkNodes = function (nodes) {
-
+    _linkNodes = function (nodes, callback) {
+        var count = 0;
+        bingo.each(nodes, function (item) {
+            if (_isLinkNodeType(item.nodeType)) {
+                count++;
+                item._cpLinkFn = function () {
+                    count--;
+                    if (count == 0 && callback) callback();
+                };
+                bingo.linkNode(item, item._cpLinkFn);
+            }
+        });
+    },
+    _unLinkNodes = function (nodes) {
+        bingo.each(nodes, function (item) {
+            bingo.unLinkNode(item, item._cpLinkFn);
+        });
     };
 
     var _newBase = function (p) {
@@ -56,12 +71,26 @@
         //新建command的CP参数对象
         var cp = _newBindContext({
             view: null,
+            childView:null,
             app:null,
             cmd: '',
             attrs: null,
-            nodes: [],
+            nodes: null,
             setNodes: function (nodes) {
+                _unLinkNodes(this.nodes);
                 this.nodes = nodes;
+                _linkNodes(nodes, function () {
+                    this.bgDispose();
+                }.bind(this));
+            },
+            removeNodes: function () {
+                if (this.nodes) {
+                    _unLinkNodes(this.nodes);
+                    bingo.each(this.nodes, function (item) {
+                        _removeNode(item);
+                    });
+                    this.nodes = [];
+                }
             },
             getAttr:function(name){
                 return this.attrs.getAttr(name);
@@ -69,7 +98,11 @@
             setAttr: function (name, contents) {
                 this.attrs.setAttr(name, contents);
             },
+            parent:null,
             children: null,
+            removeChild: function (cp) {
+                this.children = bingo.removeArrayItem(cp, this.children);
+            },
             getChild: function (id) {
                 var item;
                 //console.log(id, this.children);
@@ -88,6 +121,17 @@
                     return this.contents;
             },
             html: function (s) {
+                if (arguments.length > 0) {
+                    this._clear();
+                    this.contents = s;
+                    _compile(this);
+                } else {
+                    var list = [];
+                    bingo.each(this.nodes, function (item) {
+                        list.push(item.nodeType == 1 ? item.outerHTML : item.textContent);
+                    });
+                    return list.join('');
+                }
             },
             text: function (s) {
             },
@@ -130,8 +174,25 @@
                     this._ctrl = null;
                     ctrl.call(this, this.view);
                 }
+            },
+            _clear: function () {
+                this.removeNodes();
+                bingo.each(this.children, function (item) {
+                    item.bgDispose();
+                });
+                if (this.childView)
+                    this.childView.bgDispose();
             }
         }).extend(p);
+
+        cp.bgOnDispose(function () {
+            var parent = this.parent;
+            if (parent && !parent.bgIsDispose) {
+                parent.removeChild(this);
+            }
+            this._clear();
+        });
+
         _cpList.push(cp);
         return cp;
     }, _newCPAttr = function (contents) {
@@ -317,6 +378,7 @@
                 name: view.attrs.getAttr('name'),
                 app: app
             });
+            cp.childView = view;
         } else {
             app = cp.app;
             view = cp.view;
@@ -327,6 +389,7 @@
             tempCP = _newCP(item);
             tempCP.view = view;
             tempCP.app = app;
+            tempCP.parent = cp;
             cmdDef = _defCommand(item.cmd);
             cmdDef && cmdDef(tempCP);
             elseList = item.elseList;
@@ -556,6 +619,7 @@
             _traverseNodes(nodes, cp);
             nodes = bingo.sliceArray(pNode.childNodes);
         }
+
         _checkEmptyNodeCp(nodes, cp);
         _insertDom(nodes, node, fName);
         cp.setNodes(nodes);
@@ -579,9 +643,11 @@
         });
     };
 
+    //_compile({view:view, tmpl:tmpl});
+    //_compile({cp:cp});
     var _compile = function (p) {
         var view = p.view;
-        var cp = _newCP({
+        var cp = p.cp || _newCP({
             app:view ? view.app : null,
             view: view, contents: p.tmpl
         });

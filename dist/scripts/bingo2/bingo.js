@@ -582,6 +582,7 @@
                         item.bgDispose();
                     this[n] = null;
                 }, this);
+                this.bgDispose = bingo.noop;
                 this.bgIsDispose = true;
                 this.bgDisposeStatus = 2;
             }
