@@ -32,6 +32,34 @@
         });
     };
 
+    var _vm = {
+        _cacheName: '__contextFun__',
+        bindContext: function (cacheobj, content, hasRet, view, node, withData) {
+
+            var cacheName = [content, hasRet].join('_');
+            var contextCache = (cacheobj[_vm._cacheName] || (cacheobj[_vm._cacheName] = {}));
+            if (contextCache[cacheName]) return contextCache[cacheName];
+
+            hasRet && (content = ['try { return ', content, ';} catch (e) {bingo.observe.error(e);}'].join(''));
+            console.log('bind', node || view);
+            return contextCache[cacheName] = (new Function('_this_', '$view', '$withData', 'bingo', [
+                    'with ($view) {',
+                        //如果有withData, 影响性能
+                        withData ? 'with ($withData) {' : '',
+                            'return function (event) {',
+                                content,
+                            '}.bind(_this_);',
+                        withData ? '}' : '',
+                    '}'].join('')))(node || view, view, withData, bingo);//bingo(多版本共存)
+        }
+    }; //end _vm
+
+    //bingo.bindContext = function (owner, content, view, node, withData, event, hasRet) {
+    //    var fn = _vm.bindContext(owner, content, hasRet, view, node, withData);
+    //    return fn(event);
+    //};
+
+
     var _newBase = function (p) {
         //基础
         var o = {
@@ -42,16 +70,67 @@
         return o.extend(p);
     }, _newBindContext = function (p) {
         //绑定上下文
-
+        var _pri = {
+            withData: {},
+            valueObj: function ($this) {
+                if (this.valueParams) return this.valueParams;
+                var contents = $this.contents, withData = this.withData,
+                    view = $this.view,
+                    hasW = !!withData && withData.bgTestProps(contents),
+                    hasView = hasW ? false : view.bgTestProps(contents),
+                    hasWin = hasView ? false : window.bgTestProps(contents),
+                    obj = hasW ? withData : hasW ? window : view;
+                return (this.valueParams = [obj, hasW || hasView || hasWin]);
+            }
+        };
         return _newBase({
+            view:null,
+            node:null,
             contents: '',
-            value: function () { },
-            result: function () {
+            withData: function (name, p) {
+                _pri.withData[name] = p;
             },
-            eval: function () {
+            bindContext: function (contents, isRet) {
+                return _vm.bindContext(this, contents, isRet, this.view, this.node, _pri.withData);
+            },
+            hasProps: function () {
+                return _pri.valueObj(this)[0].bgTestProps(this.contents);
+            },
+            value: function (val) {
+                var contents = this.contents, obj = _pri.valueObj(this)[0];
+                if (arguments.length == 0) {
+                    return obj.bgDataValue(contents);
+                } else {
+                    this.view.$updateAsync();
+                    obj.bgDataValue(contents, val);
+                }
+            },
+            result: function (event) {
+                /// <summary>
+                /// 执行内容, 一定会返回结果, 不会报出错误, 没有经过过滤器
+                /// 在执行之前可以改变contents
+                /// </summary>
+                /// <param name="event">可选, 事件</param>
+                var fn = this.bindContext(this.contents, true);
+                return fn(event);
+            },
+            eval: function (event) {
+                /// <summary>
+                /// 执行内容, 根据执行返回结果, 会报出错误
+                /// 在执行之前可以改变contents
+                /// </summary>
+                /// <param name="event">可选, 事件</param>
+                var fn = this.bindContext(this.contents, false);
+                return fn(event);
             }
         }).extend(p);
     }, _newView = function (p) {
+
+        var _pri = {
+            obsList: [],
+            obsListUn: []
+        };
+
         //新建view
         var view = _newBase({
             controller: function (fn) {
@@ -63,14 +142,81 @@
                     this._ctrl = null;
                     ctrl.call(this, this);
                 }
+            },
+            $observe: function (p, fn, dispoer, check) {
+                var fn1 = function () {
+                    //这里会重新检查非法绑定
+                    //所以尽量先定义变量到$view, 再绑定
+                    this.$updateAsync();
+                    return fn.apply(this, arguments);
+                }.bind(this);
+                fn1.orgFn = fn.orgFn;//保存原来observe fn
+                var obs = !bingo.isFunction(p) ? bingo.observe(this, p, fn1)
+                    : bingo.observe(p, fn1);
+                //check是否检查, 如果不检查直接添加到obsList
+                if (!check || !obs.isObs)
+                    (obs.isObs ? _pri.obsList : _pri.obsListUn).push([obs, dispoer, check]);
+                return obs;
+            },
+            $layout: function (p, fn, fnN, dispoer, check) {
+                return this.$observe(p, bingo.aFrameProxy(fn, fnN), dispoer, check);
+            },
+            $layoutAfter: function (p, fn, dispoer, check) {
+                return this.$layout(p, fn, 1, dispoer, check);
+            },
+            $update: function (force) {
+                if (!this.$isReady) return;
+                this.bgToObserve(true);
+
+                //检查非法观察者
+                _pri.obsListUn = _pri.obsListUn.filter(function (item, index) {
+                    var dispoer = item[1], obs = item[0], check = item[2];
+                    if (dispoer && dispoer.bgIsDispose) {
+                        obs.unObserve();
+                        return false;
+                    }
+                    if (!obs.bgIsDispose) {
+                        if (!obs.isSucc)
+                            obs.refresh();
+                        else if (!obs.isObs)
+                            force ? obs.refresh() : obs.check();//check();
+
+                        if (obs.isObs) {
+                            //如果不是check, 添加到_obsList
+                            if (!item[2]) _pri.obsList.push(item);
+                            return false;
+                        }
+                    }
+                    return true;
+                }, this);
+            },
+            $updateAsync: function () {
+                if (this._upastime_) clearTimeout(this._upastime_);
+                this._upastime_ = setTimeout(function () { this.$update(); }.bind(this), 1);
             }
         }).extend(p);
+
+        view.bgOnDispose(function () {
+            bingo.each(_pri.obsList, function (item) {
+                item[0].bgIsDispose || item[0].unObserve();
+            });
+
+            bingo.each(_pri.obsList, function (item) {
+                item[0].bgIsDispose || item[0].unObserve();
+            });
+        });
+
+        //编译时同步用
         _addView(view);
         return view;
     }, _newCP = function (p) {
+
+        var _pri = {
+            obsList:[]
+        };
+
         //新建command的CP参数对象
         var cp = _newBindContext({
-            view: null,
             childView:null,
             app:null,
             cmd: '',
@@ -124,7 +270,7 @@
                 if (arguments.length > 0) {
                     this._clear();
                     this.contents = s;
-                    _compile(this);
+                    _compile({ cp: this });
                 } else {
                     var list = [];
                     bingo.each(this.nodes, function (item) {
@@ -154,17 +300,6 @@
                 this._render();
                 return _renderThread();
             },
-            layout: function (p, fn) {
-                switch (arguments.length) {
-                    case 0:
-                        return this._layoutFn;
-                    case 1:
-                        this._layoutFn = p;
-                        return this;
-                    case 2:
-                        return this;
-                }
-            },
             controller: function (fn) {
                 this._ctrl = fn;
             },
@@ -182,6 +317,44 @@
                 });
                 if (this.childView)
                     this.childView.bgDispose();
+            },
+            publish: function () {
+                return;
+                bingo.each(_pri.obsList, function () {
+                    this.bgIsDispose || this.publish();
+                });
+            },
+            observe: function (wFn, fn) {
+                if (arguments.length == 1) {
+                    fn = wFn;
+                    wFn = function () {
+                        return this.result();
+                    }.bind(this);
+                }
+                var obs = this.view.$observe(wFn, fn, this, true);
+                _pri.obsList.push(obs);
+                return obs;
+            },
+            observeValue: function (fn) {
+                this.hasProps() || this.value(undefined);
+                return this.observe(function () { return this.value(); }.bind(this), fn);
+            },
+            layout: function (wFn, fn) {
+                if (arguments.length == 1) {
+                    fn = wFn;
+                    wFn = function () {
+                        return this.result();
+                    }.bind(this);
+                }
+                var obs = this.view.$layout(wFn, fn, 0, this, true);
+                _pri.obsList.push(obs);
+                _initList.push(obs);
+                //_promisePush(this._pms, obs.publish(true));
+                return obs;
+            },
+            layoutValue: function (fn) {
+                this.hasProps() || this.value(undefined);
+                return this.layout(function () { return this.value(); }.bind(this), fn);
             }
         }).extend(p);
 
@@ -190,9 +363,13 @@
             if (parent && !parent.bgIsDispose) {
                 parent.removeChild(this);
             }
+            bingo.each(_pri.obsList, function (obs) {
+                obs.bgIsDispose || obs.unObserve();
+            });
             this._clear();
         });
 
+        //编译时同步用
         _cpList.push(cp);
         return cp;
     }, _newCPAttr = function (contents) {
@@ -258,7 +435,7 @@
 
         bingo.each(cp.elseList, function (item) {
             cp.layout(function () {
-                return item.attrs.result();
+                return item.attrs && item.attrs.result();
             }, function (c) {
                 item.html(c.value ? item.contents : '');
             });
@@ -386,13 +563,14 @@
 
         var children = [], tempCP, cmdDef, elseList;
         bingo.each(list, function (item) {
+            console.log('cmd', item.cmd, view);
             tempCP = _newCP(item);
             tempCP.view = view;
+            tempCP.attrs.view = view;
             tempCP.app = app;
             tempCP.parent = cp;
             cmdDef = _defCommand(item.cmd);
-            cmdDef && cmdDef(tempCP);
-            elseList = item.elseList;
+            elseList = tempCP.elseList;
             if (elseList) {
                 var cpT
                 bingo.each(elseList, function (item, index) {
@@ -400,10 +578,12 @@
                         app: app,
                         view: view, contents: item
                     });
+                    cpT.render();
                     //_promisePush(promises, cpT.render());
                     elseList[index] = cpT;
                 });
             }
+            cmdDef && cmdDef(tempCP);
             tempCP._render();
             //_promisePush(promises, tempCP.render());
             children.push(tempCP);
@@ -463,7 +643,7 @@
     }, _renderPromise = [], _renderThread = function () {
         var promises = _renderPromise;
         _renderPromise = [];
-        return _Promise.all(promises).then(function () {
+        return _Promise.always(promises).then(function () {
             if (_renderPromise.length > 0) return _renderStep();
         });
     }, _cpList = [], _ctrlStep = function () {
@@ -483,6 +663,16 @@
                 view._doneCtrl();
                 _ctrlStepView();
             });
+        }
+    }, _initList = [], _initStepView = function () {
+        var initList = _initList;
+        if (initList.length > 0) {
+            _initList = [];
+            var promises = [];
+            bingo.each(initList, function (obs) {
+                _promisePush(promises, obs.publish(true));
+            });
+            return _Promise.always(promises);
         }
     };
 
@@ -658,7 +848,7 @@
             var node = _query('#context1');
             var fr = _traverseCP(node, cp, 'appendTo');
             console.log('_traverseCP', node.innerHTML);
-
+            _initStepView();
             console.log('render End', new Date());
         });
     };
