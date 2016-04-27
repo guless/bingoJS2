@@ -18,17 +18,21 @@
         bingo.each(nodes, function (item) {
             if (_isLinkNodeType(item.nodeType)) {
                 count++;
-                item._cpLinkFn = function () {
+               var fn = function () {
                     count--;
+                    var a = item;
                     if (count == 0 && callback) callback();
-                };
-                bingo.linkNode(item, item._cpLinkFn);
+               };
+               (item._cpLinkFn || (item._cpLinkFn = [])).push(fn);
+               bingo.linkNode(item, fn);
             }
         });
     },
     _unLinkNodes = function (nodes) {
         bingo.each(nodes, function (item) {
-            bingo.unLinkNode(item, item._cpLinkFn);
+            item._cpLinkFn && bingo.each(item._cpLinkFn, function (fn) {
+                bingo.unLinkNode(item, fn);
+            });
         });
     };
 
@@ -41,7 +45,7 @@
             if (contextCache[cacheName]) return contextCache[cacheName];
 
             hasRet && (content = ['try { return ', content, ';} catch (e) {bingo.observe.error(e);}'].join(''));
-            console.log('bind', node || view);
+            //console.log('bind', node || view);
             return contextCache[cacheName] = (new Function('_this_', '$view', '$withData', 'bingo', [
                     'with ($view) {',
                         //如果有withData, 影响性能
@@ -128,19 +132,22 @@
 
         var _pri = {
             obsList: [],
-            obsListUn: []
+            obsListUn: [],
+            ctrls:[]
         };
 
         //新建view
         var view = _newBase({
             controller: function (fn) {
-                this._ctrl = fn;
+                _pri.ctrls.push(fn);
             },
             _doneCtrl: function () {
-                var ctrl = this._ctrl;
-                if (ctrl) {
-                    this._ctrl = null;
-                    ctrl.call(this, this);
+                var ctrls = _pri.ctrls;
+                if (ctrls) {
+                    _pri.ctrls = [];
+                    bingo.each(ctrls, function (item) {
+                        item && item.call(this, this);
+                    }, this);
                 }
             },
             $observe: function (p, fn, dispoer, check) {
@@ -212,7 +219,28 @@
     }, _newCP = function (p) {
 
         var _pri = {
-            obsList:[]
+            obsList: [],
+            removeNodes: function (nodes) {
+                if (nodes) {
+                    _unLinkNodes(nodes);
+                    bingo.each(nodes, function (item) {
+                        _removeNode(item);
+                    });
+                }
+            },
+            clear: function (cp) {
+                bingo.each(cp.children, function (item) {
+                    item.bgDispose();
+                });
+                if (cp.childView)
+                    cp.childView.bgDispose();
+            },
+            getContent: function (cp) {
+                if (cp._tmplFn)
+                    return cp._tmplFn();
+                else
+                    return cp.contents;
+            }
         };
 
         //新建command的CP参数对象
@@ -228,15 +256,6 @@
                 _linkNodes(nodes, function () {
                     this.bgDispose();
                 }.bind(this));
-            },
-            removeNodes: function () {
-                if (this.nodes) {
-                    _unLinkNodes(this.nodes);
-                    bingo.each(this.nodes, function (item) {
-                        _removeNode(item);
-                    });
-                    this.nodes = [];
-                }
             },
             getAttr:function(name){
                 return this.attrs.getAttr(name);
@@ -260,17 +279,15 @@
                 });
                 return item;
             },
-            _getContent: function () {
-                if (this._tmplFn)
-                    return this._tmplFn();
-                else
-                    return this.contents;
-            },
             html: function (s) {
                 if (arguments.length > 0) {
-                    this._clear();
+                    _pri.clear(this);
                     this.contents = s;
-                    _compile({ cp: this });
+                    var nodes = this.nodes;
+                    this.nodes = [];
+                    _compile({ cp: this, context: nodes[0] }).then(function () {
+                        _pri.removeNodes(nodes);
+                    });
                 } else {
                     var list = [];
                     bingo.each(this.nodes, function (item) {
@@ -286,7 +303,7 @@
                 return this;
             },
             _render: function () {
-                var ret = this._getContent();
+                var ret = _pri.getContent(this);
                 if (_isPromise(ret))
                     ret.then(function (s) {
                         _traverseCmd(s, this);
@@ -309,20 +326,6 @@
                     this._ctrl = null;
                     ctrl.call(this, this.view);
                 }
-            },
-            _clear: function () {
-                this.removeNodes();
-                bingo.each(this.children, function (item) {
-                    item.bgDispose();
-                });
-                if (this.childView)
-                    this.childView.bgDispose();
-            },
-            publish: function () {
-                return;
-                bingo.each(_pri.obsList, function () {
-                    this.bgIsDispose || this.publish();
-                });
             },
             observe: function (wFn, fn) {
                 if (arguments.length == 1) {
@@ -366,7 +369,8 @@
             bingo.each(_pri.obsList, function (obs) {
                 obs.bgIsDispose || obs.unObserve();
             });
-            this._clear();
+            _pri.removeNodes(this.nodes);
+            _pri.clear(this);
         });
 
         //编译时同步用
@@ -387,8 +391,14 @@
             _commands[name] = fn;
     };
 
-    bingo.controller('view1', function ($view) {
-        console.log('view controller');
+    bingo.controller('view_test1', function ($view) {
+        console.log('view controller', $view);
+        //user.desc
+        $view.user = {
+            desc: 'desc',
+            enabled: true,
+            role:'test'
+        };
     });
 
     _defCommand('view', function (cp) {
@@ -437,7 +447,7 @@
             cp.layout(function () {
                 return item.attrs && item.attrs.result();
             }, function (c) {
-                item.html(c.value ? item.contents : '');
+                cp.html(c.value ? item.contents : '');
             });
         });
 
@@ -458,7 +468,7 @@
         /// <param name="cp" value="_newCP()"></param>
 
         cp.layout(function () {
-            return cp.result();
+            return cp.attrs.result();
         }, function (c) {
             cp.html(c.value);
         });
@@ -470,7 +480,7 @@
         /// <param name="cp" value="_newCP()"></param>
 
         cp.layout(function () {
-            return cp.result();
+            return cp.attrs.result();
         }, function (c) {
             cp.text(c.value);
         });
@@ -528,6 +538,8 @@
     var _traverseCmd = function (tmpl, cp) {
         _commandReg.lastIndex = 0;
         var list = [], view, app;
+        //console.log(cp.cmd, cp)
+        bingo.isString(tmpl) || (tmpl = bingo.toStr(tmpl));
         tmpl = tmpl.replace(_commandReg, function (find, cmd, attrs, cmd1, attrs1, content1) {
             //console.log('_commandEx', arguments);
             var id = bingo.makeAutoId(), elseList, item;
@@ -563,7 +575,7 @@
 
         var children = [], tempCP, cmdDef, elseList;
         bingo.each(list, function (item) {
-            console.log('cmd', item.cmd, view);
+            //console.log('cmd', item.cmd, view);
             tempCP = _newCP(item);
             tempCP.view = view;
             tempCP.attrs.view = view;
@@ -666,14 +678,14 @@
         }
     }, _initList = [], _initStepView = function () {
         var initList = _initList;
+        var promises = [];
         if (initList.length > 0) {
             _initList = [];
-            var promises = [];
             bingo.each(initList, function (obs) {
                 _promisePush(promises, obs.publish(true));
             });
-            return _Promise.always(promises);
         }
+        return _Promise.always(promises);
     };
 
     /* 检测 scope */
@@ -801,8 +813,8 @@
             empty && nodes.push(_getCpEmptyNode(cp));
         };
 
-    var _traverseCP = function (node, cp, fName) {
-        var nodes = _parseHTML(cp.tmplTag, node, true);
+    var _traverseCP = function (node, cp, optName) {
+        var nodes = _parseHTML(cp.tmplTag, optName == 'appendTo' ? node : node.parentNode, true);
         //console.log(cp.cmd, nodes.length);
         if (nodes.length > 0) {
             var pNode = nodes[0].parentNode;
@@ -811,7 +823,7 @@
         }
 
         _checkEmptyNodeCp(nodes, cp);
-        _insertDom(nodes, node, fName);
+        _insertDom(nodes, node, optName);
         cp.setNodes(nodes);
     }, _traverseNodes = function (nodes, cp) {
 
@@ -833,23 +845,30 @@
         });
     };
 
-    //_compile({view:view, tmpl:tmpl});
-    //_compile({cp:cp});
+    //_compile({view:view, tmpl:tmpl, context:'#context1'});
+    //_compile({cp:cp, context:node});
     var _compile = function (p) {
         var view = p.view;
         var cp = p.cp || _newCP({
             app:view ? view.app : null,
             view: view, contents: p.tmpl
         });
-        cp.render().then(function () {
-            console.log('compile', cp);
+        return cp.render().then(function () {
+            console.log('compile',cp.cmd, cp);
             _ctrlStep();
             _ctrlStepView();
-            var node = _query('#context1');
-            var fr = _traverseCP(node, cp, 'appendTo');
+            var node,opName;
+            if (p.cp) {
+                node = p.context;
+                opName = 'insertBefore';
+            } else {
+                node = bingo.isString(p.context) ? _query(p.context) : p.context;
+                opName = 'appendTo';
+            }
+            var fr = _traverseCP(node, cp, opName);
             console.log('_traverseCP', node.innerHTML);
-            _initStepView();
             console.log('render End', new Date());
+            return _initStepView();
         });
     };
 
@@ -859,7 +878,8 @@
     });
     _compile({
         tmpl: tmpl,
-        view: _rootView
+        view: _rootView,
+        context: '#context1'
     });
 
     //console.time('aaaa');

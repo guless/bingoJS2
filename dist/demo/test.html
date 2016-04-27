@@ -12,35 +12,13 @@
     <div id="context1"></div>
     <script type="text/html" id="tmpl1">
         asdfsadfdfaaaa
-        {{view controller="view1" name='view1' app="demo"}}
+        {{view controller="view_test1" name='view1' app="demo" /}}
             <div style="color:red;font-size:[test+'asdfa'];asdfa:[user]" aaaaa="[aaa]"></div>
         <input type="text" value="[user.name]" />
 
-        {{text user.desc /}}
-        {{print user.desc /}}
-
-            <div onclick="[user.click('asdf')]"></div>
-        <div onclick='[user.aaaa("")]'></div>
-            {{if user.enabled}}
-                {{if user.role == 'admin'}}
-        aaaaaaa
-                {{else}}
-                   bbbbb
-                {{/if}}
-            {{else}}@
-                else1{{text else /}}
-            @{{else}}!
-                test else
-            !{{/if}}
-        {{/view}}
-        {{user}}
-          test
-        {{/user}}
-        {{if test}}
-            if
-        {{/if}}
-        {{select name="select1" link="{id:'@id', datas:'@datas', idName:'id', textName:'name'}" /}}
-        {{include src="test/include1.html" /}}
+        {{text user.desc+"11" /}}
+        {{html user.desc+"_html" /}}
+        <div></div>
     </script>
     <script type="text/html" id="tmpl2"><div t="asdf" aaa="test('a\'sdfas[user.name]df')" bbb='atest[user.name]'></div></script>
     <script src="../scripts/bingo2/bingo.js"></script>
