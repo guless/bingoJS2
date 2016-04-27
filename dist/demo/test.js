@@ -13,15 +13,16 @@
     var _isLinkNodeType = function (type) {
         return type == 1 || type == 8;
     },
+    _isRemoveAll = function (nodes) {
+        return bingo.inArray(function (item, i) {
+            return  _isLinkNodeType(item.nodeType) ? !!item.parentNode : false;
+        }, nodes) < 0;
+    },
     _linkNodes = function (nodes, callback) {
-        var count = 0;
         bingo.each(nodes, function (item) {
             if (_isLinkNodeType(item.nodeType)) {
-                count++;
-               var fn = function () {
-                    count--;
-                    var a = item;
-                    if (count == 0 && callback) callback();
+                var fn = function () {
+                    if (callback && _isRemoveAll(nodes)) callback();
                };
                (item._cpLinkFn || (item._cpLinkFn = [])).push(fn);
                bingo.linkNode(item, fn);
@@ -149,6 +150,7 @@
                         item && item.call(this, this);
                     }, this);
                 }
+                this.bgToObserve();
             },
             $observe: function (p, fn, dispoer, check) {
                 var fn1 = function () {
@@ -251,7 +253,8 @@
             attrs: null,
             nodes: null,
             setNodes: function (nodes) {
-                _unLinkNodes(this.nodes);
+                //_unLinkNodes(this.nodes);
+                _pri.removeNodes(this.nodes);
                 this.nodes = nodes;
                 _linkNodes(nodes, function () {
                     this.bgDispose();
@@ -284,10 +287,8 @@
                     _pri.clear(this);
                     this.contents = s;
                     var nodes = this.nodes;
-                    this.nodes = [];
-                    _compile({ cp: this, context: nodes[0] }).then(function () {
-                        _pri.removeNodes(nodes);
-                    });
+                    //this.nodes = [];
+                    return _compile({ cp: this, context: nodes[0] });
                 } else {
                     var list = [];
                     bingo.each(this.nodes, function (item) {
@@ -327,21 +328,6 @@
                     ctrl.call(this, this.view);
                 }
             },
-            observe: function (wFn, fn) {
-                if (arguments.length == 1) {
-                    fn = wFn;
-                    wFn = function () {
-                        return this.result();
-                    }.bind(this);
-                }
-                var obs = this.view.$observe(wFn, fn, this, true);
-                _pri.obsList.push(obs);
-                return obs;
-            },
-            observeValue: function (fn) {
-                this.hasProps() || this.value(undefined);
-                return this.observe(function () { return this.value(); }.bind(this), fn);
-            },
             layout: function (wFn, fn) {
                 if (arguments.length == 1) {
                     fn = wFn;
@@ -349,15 +335,14 @@
                         return this.result();
                     }.bind(this);
                 }
-                var obs = this.view.$layout(wFn, fn, 0, this, true);
-                _pri.obsList.push(obs);
-                _initList.push(obs);
+                _initList.push(function () {
+                    var obs = this.view.$layout(wFn, fn, 0, this, true);
+                    _pri.obsList.push(obs);
+                    return obs.publish(true);
+                }.bind(this));
+                //_initList.push(obs);
                 //_promisePush(this._pms, obs.publish(true));
-                return obs;
-            },
-            layoutValue: function (fn) {
-                this.hasProps() || this.value(undefined);
-                return this.layout(function () { return this.value(); }.bind(this), fn);
+                //return obs;
             }
         }).extend(p);
 
@@ -395,10 +380,12 @@
         console.log('view controller', $view);
         //user.desc
         $view.user = {
-            desc: 'desc',
+            desc: 'asdfasdfasfdasdf11<br />asdfasdf<div>sdf</div> {{html "<div>div</div><div>div1</div>" /}}sdfssdf',
             enabled: true,
             role:'test'
         };
+
+        window.view1 = $view;
     });
 
     _defCommand('view', function (cp) {
@@ -681,8 +668,8 @@
         var promises = [];
         if (initList.length > 0) {
             _initList = [];
-            bingo.each(initList, function (obs) {
-                _promisePush(promises, obs.publish(true));
+            bingo.each(initList, function (fn) {
+                _promisePush(promises, fn());
             });
         }
         return _Promise.always(promises);
@@ -825,6 +812,7 @@
         _checkEmptyNodeCp(nodes, cp);
         _insertDom(nodes, node, optName);
         cp.setNodes(nodes);
+        //bingo.linkNodeTrigger(item);
     }, _traverseNodes = function (nodes, cp) {
 
         var id, tempCP;
