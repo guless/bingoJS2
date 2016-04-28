@@ -6,6 +6,15 @@
     <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
     <meta http-equiv="expires" content="Wed, 26 Feb 1997 08:21:57 GMT" />
     <title>test</title>
+    <style type="text/css">
+        div.splice {
+            margin-top:20px;
+            margin-bottom:5px;
+        }
+        div.content {
+            margin-left:20px;
+        }
+    </style>
 </head>
 <body id="1">
     test start aaa
@@ -13,11 +22,36 @@
     <script type="text/html" id="tmpl1">
         asdfsadfdfaaaa
         {{view controller="view_test1" name='view1' app="demo" /}}
-            <div style="color:red;font-size:[test+'asdfa'];asdfa:[user]" aaaaa="[aaa]"></div>
+        <div style="color:red;font-size:[test+'asdfa'];asdfa:[user]" aaaaa="[aaa]"></div>
         <input type="text" value="[user.name]" />
-
-        {{text1 user.desc+"11" /}}
-        {{html user.desc+"_html" /}}
+        <br />
+        <div class="splice">text==============================</div>
+        <div class="content">
+            {{text "text:"+user.desc+"11" /}}
+        </div>
+        <div class="splice">html==============================</div>
+        <div class="content">
+            {{html "html:"+user.desc+"_html" /}}
+        </div>
+        <div class="splice">if==============================</div>
+        <div class="content">
+            {{if if1}}asd
+                {{if if2}}
+                    if2 true
+                {{else aaa}}
+                    if2 aaa
+                {{else}}
+                    if2 false
+                {{/if}}
+            {{else}}
+                if1 false
+            {{/if}}
+        </div>
+        {{controller}}
+            $view.if1 = true;
+            $view.if2 = false;
+            $view.aaa = false;
+        {{/controller}}
         <div></div>
     </script>
     <script type="text/html" id="tmpl2"><div t="asdf" aaa="test('a\'sdfas[user.name]df')" bbb='atest[user.name]'></div></script>

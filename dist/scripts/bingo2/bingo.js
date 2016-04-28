@@ -1255,7 +1255,14 @@
     "use strict";
 
     //IE必须先添加到document才生效
-    var _ev = 'DOMNodeRemoved', _aT;
+    var _ev = 'DOMNodeRemoved', _aT,
+        _getCommentNodes = function (e) {
+            var r = [], o, s;
+            s = document.createTreeWalker(e, NodeFilter.SHOW_COMMENT, null, null);
+            while (o = s.nextNode()) r.push(o); //遍历迭代器
+            return r;
+        };
+    //window.getCommentNodes = _getCommentNodes;
     document.documentElement.addEventListener(_ev, function (e) {
         var target = e.target;
         setTimeout(function () {
@@ -1263,7 +1270,7 @@
             if (!parentNode) {
                 target.bgTrigger(_ev, [e]);
                 _aT || (_aT = setTimeout(function () { _aT = null; _linkAll.bgTrigger('onLinkNodeAll'); }, 0));
-                target.hasChildNodes() && bingo.each(target.querySelectorAll('*'), (function () {
+                target.hasChildNodes() && bingo.each(bingo.sliceArray(target.querySelectorAll('*')).concat(_getCommentNodes(target)), (function () {
                     this.bgTrigger(_ev, [e]);
                 }));
             }
@@ -3591,6 +3598,7 @@
             window.removeEventListener('load', _ready, false);
             //等待动态加载js完成后开始
             bingo.usingAll().then(function () {
+                return;
                 bingo.compile(_rootView).nodes(_docEle).compile().finally(function () {
                     return _rootView._bgpri_.sendReady();
                 });

@@ -246,6 +246,11 @@
                     return cp._tmplFn();
                 else
                     return cp.contents;
+            },
+            getPNode: function (cp) {
+                var nodes = cp.nodes;
+                var index = bingo.inArray(function (item) { return !!item.parentNode; }, nodes);
+                return index > -1 ? nodes[index] : null;
             }
         };
 
@@ -288,11 +293,9 @@
             html: function (s) {
                 if (arguments.length > 0) {
                     _pri.clear(this);
-                    this.contents = s;
-                    var nodes = this.nodes,
-                        index = bingo.inArray(function (item) { return !!item.parentNode;}, nodes) ;
+                    this.tmpl(s);
 
-                    return _compile({ cp: this, context: nodes[index] });
+                    return _compile({ cp: this, context: _pri.getPNode(this) });
                 } else {
                     var list = [];
                     bingo.each(this.nodes, function (item) {
@@ -302,6 +305,18 @@
                 }
             },
             text: function (s) {
+                if (arguments.length > 0) {
+                    _pri.clear(this);
+                    this.contents = this.tmplTag = bingo.htmlEncode(s);
+
+                    return _traverseCP(_pri.getPNode(this), this, 'insertBefore');
+                } else {
+                    var list = [];
+                    bingo.each(this.nodes, function (item) {
+                        list.push(item.textContent);
+                    });
+                    return list.join('');
+                }
             },
             tmpl: function (fn) {
                 this._tmplFn = bingo.isFunction(fn) ? fn : function () { return fn; };
@@ -332,7 +347,7 @@
                     ctrl.call(this, this.view);
                 }
             },
-            layout: function (wFn, fn) {
+            layout: function (wFn, fn, num, init) {
                 if (arguments.length == 1) {
                     fn = wFn;
                     wFn = function () {
@@ -340,13 +355,10 @@
                     }.bind(this);
                 }
                 _initList.push(function () {
-                    var obs = this.view.$layout(wFn, fn, 0, this, true);
+                    var obs = this.view.$layout(wFn, fn, num, this, true);
                     _pri.obsList.push(obs);
-                    return obs.publish(true);
+                    return (init !== false) ? obs.publish(true) : null;
                 }.bind(this));
-                //_initList.push(obs);
-                //_promisePush(this._pms, obs.publish(true));
-                //return obs;
             }
         }).extend(p);
 
@@ -355,10 +367,15 @@
             if (parent && !parent.bgIsDispose) {
                 parent.removeChild(this);
             }
+            bingo.each(this.elseList, function (cp) {
+                cp.bgIsDispose || cp.bgDispose();
+            });
             bingo.each(_pri.obsList, function (obs) {
                 obs.bgIsDispose || obs.unObserve();
             });
-            _pri.removeNodes(this.nodes);
+            if (!parent || !parent.bgIsDispose) {
+                _pri.removeNodes(this.nodes);
+            }
             _pri.clear(this);
         });
 
@@ -404,6 +421,18 @@
         return cp;
     });
 
+    _defCommand('controller', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+
+        cp.tmpl('');
+
+        cp.view.controller(function () {
+            cp.eval();
+        });
+
+        return cp;
+    });
+
 
     _defCommand('for', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
@@ -428,18 +457,38 @@
 
         cp.tmpl('');
 
+        var _contents = cp.contents,
+            _elseList = cp.elseList, _getContent = function (index, val) {
+            if (index == -1 && val)
+                return _contents;
+            else {
+                var ret = cp.attrs.result();
+                if (ret) return _contents;
+                var s;
+                bingo.each(_elseList, function (item, i) {
+                    if (!item.attrs.contents || (index == i && val)
+                        || item.attrs.result()) {
+                        s = item.contents
+                        return false;
+                    }
+                });
+                return s;
+            }
+        };
+
         cp.layout(function () {
             return cp.attrs.result();
         }, function (c) {
-            cp.html(c.value ? cp.contents : '') ;
+            //console.log('if====>', cp.contents);
+            cp.html(_getContent(-1, c.value));
         });
 
-        bingo.each(cp.elseList, function (item) {
-            cp.layout(function () {
-                return item.attrs && item.attrs.result();
+        bingo.each(_elseList, function (item, index) {
+            item.attrs.contents && cp.layout(function () {
+                return item.attrs.result();
             }, function (c) {
-                cp.html(c.value ? item.contents : '');
-            });
+                cp.html(_getContent(index, c.value));
+            }, 0, false);
         });
 
         return cp;
@@ -533,18 +582,21 @@
         bingo.isString(tmpl) || (tmpl = bingo.toStr(tmpl));
         tmpl = tmpl.replace(_commandReg, function (find, cmd, attrs, cmd1, attrs1, content1) {
             //console.log('_commandEx', arguments);
-            var id = bingo.makeAutoId(), elseList, item;
+            var id = bingo.makeAutoId(), elseList, whereList, item;
+            content1 && (content1 = bingo.trim(content1));
             if (cmd1 == 'if') {
                 var elseContent = _traverseElse(content1);
                 content1 = elseContent.contents;
                 elseList = elseContent.elseList;
+                whereList = elseContent.whereList;
             }
             item = {
                 id: id,
                 cmd: cmd1 || cmd,
                 attrs: _traverseAttr(attrs1 || attrs),
                 contents: content1 || '',
-                elseList: elseList
+                elseList: elseList,
+                whereList: whereList
             };
             (item.cmd == 'view') && (view = item);
             list.push(item);
@@ -564,7 +616,7 @@
             view = cp.view;
         }
 
-        var children = [], tempCP, cmdDef, elseList;
+        var children = [], tempCP, cmdDef, elseList, whereList;
         bingo.each(list, function (item) {
             //console.log('cmd', item.cmd, view);
             tempCP = _newCP(item);
@@ -575,16 +627,19 @@
             cmdDef = _defCommand(item.cmd);
             elseList = tempCP.elseList;
             if (elseList) {
-                var cpT
+                var cpT, whereList = tempCP.whereList;
                 bingo.each(elseList, function (item, index) {
                     cpT = _newCP({
                         app: app,
+                        attrs: _traverseAttr(whereList[index]),
                         view: view, contents: item
                     });
-                    cpT.render();
+                    cpT.attrs.view = view;
+                    //cpT._render();
                     //_promisePush(promises, cpT.render());
                     elseList[index] = cpT;
                 });
+                tempCP.whereList = null;
             }
             cmdDef && cmdDef(tempCP);
             tempCP._render();
@@ -597,15 +652,17 @@
     }, _traverseElse = function (contents) {
         var lv = 0, item, cmd, index = -1, start = -1;
         _checkElse.lastIndex = 0;
-        var elseList = [];
+        var elseList = [], whereList = [], wh;
         while (item = _checkElse.exec(contents)) {
             cmd = item[1];
+            wh = bingo.trim(item[2]);
             switch (cmd) {
                 case 'if':
                     lv++;
                     break;
                 case 'else':
                     if (lv <= 0) {
+                        whereList.push(wh);
                         if (start == -1) start = item.index;
                         if (index >= 0) {
                             elseList.push(contents.substr(index, item.index - index));
@@ -618,13 +675,12 @@
                     lv--;
                     break;
             }
-
-        }
+                    }
         if (lv <= 0) {
             elseList.push(contents.substr(index));
         }
 
-        return { contents: start > -1 ? contents.substr(0, start) : contents, elseList: elseList };
+        return { contents: start > -1 ? contents.substr(0, start) : contents, elseList: elseList, whereList: whereList };
     }, _traverseAttr = function (s) {
         _cmdAttrReg.lastIndex = 0;
         var item, attrs = _newBindContext({
@@ -806,8 +862,8 @@
             empty && nodes.push(_getCpEmptyNode(cp));
         };
 
-    var _traverseCP = function (node, cp, optName) {
-        var nodes = _parseHTML(cp.tmplTag, optName == 'appendTo' ? node : node.parentNode, true);
+    var _traverseCP = function (refNode, cp, optName) {
+        var nodes = _parseHTML(cp.tmplTag, optName == 'appendTo' ? refNode : refNode.parentNode, true);
         //console.log(cp.cmd, nodes.length);
         if (nodes.length > 0) {
             var pNode = nodes[0].parentNode;
@@ -816,9 +872,8 @@
         }
 
         _checkEmptyNodeCp(nodes, cp);
-        _insertDom(nodes, node, optName);
+        _insertDom(nodes, refNode, optName);
         cp.setNodes(nodes);
-        //bingo.linkNodeTrigger(item);
     }, _traverseNodes = function (nodes, cp) {
 
         var id, tempCP;

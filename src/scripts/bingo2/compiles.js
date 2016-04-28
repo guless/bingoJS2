@@ -1289,6 +1289,7 @@
             window.removeEventListener('load', _ready, false);
             //等待动态加载js完成后开始
             bingo.usingAll().then(function () {
+                return;
                 bingo.compile(_rootView).nodes(_docEle).compile().finally(function () {
                     return _rootView._bgpri_.sendReady();
                 });
