@@ -15,23 +15,27 @@
     },
     _isRemoveAll = function (nodes) {
         return bingo.inArray(function (item, i) {
-            return  _isLinkNodeType(item.nodeType) ? !!item.parentNode : false;
+            return _isLinkNodeType(item.nodeType) ? !!item.parentNode : false;
         }, nodes) < 0;
     },
-    _linkNodes = function (nodes, callback) {
+    _linkNodes = function (cacheName, nodes, callback) {
         bingo.each(nodes, function (item) {
             if (_isLinkNodeType(item.nodeType)) {
                 var fn = function () {
+                    //删除没用的node
+                    nodes = bingo.removeArrayItem(function (item) {
+                        return item == this || !item.parentNode;
+                    }.bind(this), nodes);
                     if (callback && _isRemoveAll(nodes)) callback();
                };
-               (item._cpLinkFn || (item._cpLinkFn = [])).push(fn);
+                (item[cacheName] || (item[cacheName] = [])).push(fn);
                bingo.linkNode(item, fn);
             }
         });
     },
-    _unLinkNodes = function (nodes) {
+    _unLinkNodes = function (cacheName, nodes) {
         bingo.each(nodes, function (item) {
-            item._cpLinkFn && bingo.each(item._cpLinkFn, function (fn) {
+            item[cacheName] && bingo.each(item[cacheName], function (fn) {
                 bingo.unLinkNode(item, fn);
             });
         });
@@ -224,7 +228,7 @@
             obsList: [],
             removeNodes: function (nodes) {
                 if (nodes) {
-                    _unLinkNodes(nodes);
+                    _unLinkNodes('_cpLinkC', nodes);
                     bingo.each(nodes, function (item) {
                         _removeNode(item);
                     });
@@ -253,10 +257,9 @@
             attrs: null,
             nodes: null,
             setNodes: function (nodes) {
-                //_unLinkNodes(this.nodes);
                 _pri.removeNodes(this.nodes);
                 this.nodes = nodes;
-                _linkNodes(nodes, function () {
+                _linkNodes('_cpLinkC', nodes, function () {
                     this.bgDispose();
                 }.bind(this));
             },
@@ -286,9 +289,10 @@
                 if (arguments.length > 0) {
                     _pri.clear(this);
                     this.contents = s;
-                    var nodes = this.nodes;
-                    //this.nodes = [];
-                    return _compile({ cp: this, context: nodes[0] });
+                    var nodes = this.nodes,
+                        index = bingo.inArray(function (item) { return !!item.parentNode;}, nodes) ;
+
+                    return _compile({ cp: this, context: nodes[index] });
                 } else {
                     var list = [];
                     bingo.each(this.nodes, function (item) {
@@ -380,7 +384,7 @@
         console.log('view controller', $view);
         //user.desc
         $view.user = {
-            desc: 'asdfasdfasfdasdf11<br />asdfasdf<div>sdf</div> {{html "<div>div</div><div>div1</div>" /}}sdfssdf',
+            desc: 'asdfasdfasfdasdf11<br />asdfasdf<div>sdf</div> {{html "<div>div</div><div>div1</div>asdf" /}}sdfssdf',
             enabled: true,
             role:'test'
         };
@@ -793,8 +797,10 @@
         _checkEmptyNodeCp = function (nodes, cp) {
             var empty = nodes.length == 0;
             if (!empty) {
+                //是否有element节点, 注释节点不算
                 empty = (bingo.inArray(function (item) {
-                    return _isLinkNodeType(item.nodeType);
+                    return item.nodeType == 1;
+                    //return _isLinkNodeType(item.nodeType);
                 }, nodes) < 0);
             }
             empty && nodes.push(_getCpEmptyNode(cp));

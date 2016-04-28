@@ -130,7 +130,8 @@
             return index;
         },
         removeArrayItem: function (ele, list) {
-            return list.filter(function (item) { return item != ele; });
+            var isF = bingo.isFunction(ele);
+            return list.filter(function (item) { return isF ? !ele.apply(this, arguments) : item != ele; });
         },
         makeAutoId: function () {
             var time = new Date().valueOf();
