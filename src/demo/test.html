@@ -22,9 +22,6 @@
     <script type="text/html" id="tmpl1">
         asdfsadfdfaaaa
         {{view controller="view_test1" name='view1' app="demo" /}}
-        <div style="color:red;font-size:[test+'asdfa'];asdfa:[user]" aaaaa="[aaa]"></div>
-        <input type="text" value="[user.name]" />
-        <br />
         <div class="splice">text==============================</div>
         <div class="content">
             {{text "text:"+user.desc+"11" /}}
@@ -52,7 +49,13 @@
             $view.if2 = false;
             $view.aaa = false;
         {{/controller}}
-        <div></div>
+        <div class="splice">attr==============================</div>
+        <div class="content">
+            <div style="color:red;font-size:[test+'asdfa'];asdfa:[user]" aaaaa="[aaa]"></div>
+            <input type="text" value="[user.name]" />
+            <input type="text" value='[user.name]' ab='[aaa]"asdf"' />
+            <br />
+        </div>
     </script>
     <script type="text/html" id="tmpl2"><div t="asdf" aaa="test('a\'sdfas[user.name]df')" bbb='atest[user.name]'></div></script>
     <script src="../scripts/bingo2/bingo.js"></script>

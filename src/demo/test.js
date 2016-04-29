@@ -921,16 +921,6 @@
         });
     };
 
-    var _rootView = _newView({
-        name: '',
-        app: bingo.app('')
-    });
-    _compile({
-        tmpl: tmpl,
-        view: _rootView,
-        context: '#context1'
-    });
-
     //console.time('aaaa');
     //var _tranContext = _newTranContext(), cmdList = _traverseCmd(tmpl, _tranContext);
     //_tranContext.promise().then(function () {
@@ -938,27 +928,57 @@
     //    //console.timeEnd('aaaa');
     //});
 
+    var _attrENode = document.createElement('div'),
+        _attrEReg = /^.*encode=['"](.*)['"].*$/i,
+        _attrEncode = function (s) {
+            _attrENode.setAttribute('encode', s);
+            return _attrENode.outerHTML.replace(_attrEReg, '$1');
+        };
+
+    bingo.attrEncode = _attrEncode;
+
 
     //查找dom 节点 <div>
     var _domNodeReg = /\<[^>]+\>/gi,
+        _domNodeRPReg = /\s*(\/?\>)$/,
+        _domAttrPotReg = /^['"](.*)['"]$/,
+        _domAttrOnlyReg = /^\[(.*)\]$/,
         //解释可绑定的节点属性: attr="fasdf[user.name]"
-        _domAttrReg = /(\S+)\s*=\s*(\"(?:\\\"|[^"])*?\[.+?\](?:\\\"|[^"])*\"|\'(?:\\\'|[^'])*?\[.+?\](?:\\\'|[^'])*\')/gi;
+        _domAttrReg = /\s*(\S+)\s*=\s*((\")(?:\\\"|[^"])*?\[.+?\](?:\\\"|[^"])*\"|(\')(?:\\\'|[^'])*?\[.+?\](?:\\\'|[^'])*\')/gi,
+        _domAttrParseN = _parseHTML('<div></div>');
 
-    var _domAttrList = [];
     var s = tmpl.replace(_domNodeReg, function (find, pos, contents) {
         //console.log('domNodeReg', arguments);
         _domAttrReg.lastIndex = 0;
-        return find.replace(_domAttrReg, function (findAttr, name, dot, contents) {
-            _domAttrList.push({
-                name: name,
-                contents: contents
-            });
-            return 'bg-' + findAttr;
+        var domAttrs = {}, has = false;
+        var findR = find.replace(_domAttrReg, function (findAttr, name, contents, dot, dot1) {
+            //console.log('fndR', arguments);
+            contents = contents.replace(_domAttrPotReg, '$1').replace(_domAttrOnlyReg, '$1');
+            //dot = dot || dot1;
+            domAttrs[name] = contents;
+            has = true;
+            return '';// 'bg-' + findAttr;
         });
-        return find;
+        if (has) {
+            findR = findR.replace(_domNodeRPReg, ' bg-virtual="' + _attrEncode(JSON.stringify(domAttrs)) + '" $1');
+            //console.log('findR', findR);
+        }
+        //virtual
+        return findR;
     });
     console.log(s);
-    console.log('domAttrReg', _domAttrList);
+    //console.log('domAttrReg', _domAttrList);
+
+
+    var _rootView = _newView({
+        name: '',
+        app: bingo.app('')
+    });
+    _compile({
+        tmpl: s,
+        view: _rootView,
+        context: '#context1'
+    });
 
     //测试各浏览器删除script节点兼容性
     //var ns = _query('script');

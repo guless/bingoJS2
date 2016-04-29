@@ -1256,9 +1256,9 @@
 
     //IE必须先添加到document才生效
     var _ev = 'DOMNodeRemoved', _aT,
-        _getCommentNodes = function (e) {
+        _queryNodes = function (e) {
             var r = [], o, s;
-            s = document.createTreeWalker(e, NodeFilter.SHOW_COMMENT, null, null);
+            s = document.createTreeWalker(e, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT | NodeFilter.SHOW_DOCUMENT | NodeFilter.SHOW_DOCUMENT_FRAGMENT, null, null);
             while (o = s.nextNode()) r.push(o); //遍历迭代器
             return r;
         };
@@ -1270,7 +1270,7 @@
             if (!parentNode) {
                 target.bgTrigger(_ev, [e]);
                 _aT || (_aT = setTimeout(function () { _aT = null; _linkAll.bgTrigger('onLinkNodeAll'); }, 0));
-                target.hasChildNodes() && bingo.each(bingo.sliceArray(target.querySelectorAll('*')).concat(_getCommentNodes(target)), (function () {
+                target.hasChildNodes() && bingo.each(_queryNodes(target), (function () {
                     this.bgTrigger(_ev, [e]);
                 }));
             }
