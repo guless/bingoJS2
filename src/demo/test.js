@@ -238,12 +238,13 @@
                 bingo.each(cp.$children, function (item) {
                     item.bgDispose();
                 });
-                bingo.each(cp.$virtualAttrs, function (item) {
+                bingo.each(cp.$virtualNodes, function (item) {
                     item.bgDispose();
                 });
                 if (cp.$childView)
                     cp.$childView.bgDispose();
-                cp.$children = cp.$virtualAttrs = cp.$childView = null;
+                cp.$children = cp.$childView = null;
+                cp.$virtualNodes = [];
             },
             getContent: function (cp) {
                 if (cp._tmplFn)
@@ -265,7 +266,7 @@
             $cmd: '',
             $attrs: null,
             $nodes: null,
-            $virtualAttrs:null,
+            $virtualNodes: [],
             $setNodes: function (nodes) {
                 _pri.removeNodes(this.$nodes);
                 this.$nodes = nodes;
@@ -409,10 +410,13 @@
                 },
                 _setCP: function (cp) {
                     this.$view = cp.$view;
-                    this.cp = cp;
+                    this.$cp = cp;
+                    var aT;
                     bingo.each(_names, function (item) {
-                        this[item].cp = cp;
-                        this[item].$view = cp.$view;
+                        aT = this[item];
+                        aT.$cp = cp;
+                        aT.$app = cp.$app;
+                        aT.$view = cp.$view;
                     }, this);
                 }
             });
@@ -423,7 +427,32 @@
             console.log('dispose attrs');
         });
         return _attrs;
-    }, _newVirtualAttr = function (contents) {
+    }, _newVirtualNode = function(cp, node) {
+        var vNode = _newBase({
+            $view: cp.$view,
+            $app: cp.$app,
+            $cp: cp,
+            $node: node,
+            $attrs: _newBase({}),
+            _addAttr: function (name, contents) {
+                var attr = this.$attrs[name] = _newVirtualAttr(contents);
+                attr.$cp = cp;
+                attr.$vNode = this;
+                attr.$node = this.$node;
+                attr.$app = cp.$app;
+                attr.$view = cp.$view;
+            }
+        });
+        _virtualAttrs(vNode, node);
+        cp.$virtualNodes.push(vNode);
+        vNode.bgOnDispose(function () {
+            var attrs = this.$attrs;
+            bingo.eachProp(attrs, function (item) {
+                item.bgDispose();
+            });
+        });
+        return vNode;
+    }, _newVirtualAttr = function(contents) {
         return _newBindContext({
             $contents: contents,
         });
@@ -899,7 +928,7 @@
         //console.log(cp.$cmd, nodes.length);
         if (nodes.length > 0) {
             var pNode = nodes[0].parentNode;
-            _virtualAttr(cp, nodes);
+            _virtualNodes(cp, nodes);
             _traverseNodes(nodes, cp);
             nodes = bingo.sliceArray(pNode.childNodes);
         }
@@ -973,17 +1002,19 @@
 
 
     //查找dom 节点 <div>
-    var _domNodeReg = /\<[^>]+\>/gi,
-        //解释可绑定的节点属性: attr="fasdf[user.name]"
-        _domAttrReg = /\s*(\S+)\s*=\s*((\")(?:\\\"|[^"])*?\[.+?\](?:\\\"|[^"])*\"|(\')(?:\\\'|[^'])*?\[.+?\](?:\\\'|[^'])*\')/gi,
+    var _domNodeReg = /\<.*?\[\[.*?\]\][^>]*\>/gi,
+        //解释可绑定的节点属性: attr="fasdf[[user.name]]"
+        _domAttrReg = /\s*(\S+)\s*=\s*((\")(?:\\\"|[^"])*?\[\[.+?\]\](?:\\\"|[^"])*\"|(\')(?:\\\'|[^'])*?\[\[.+?\]\](?:\\\'|[^'])*\')/gi,
         //用于解释节点属性时， 将内容压成bg-virtual
-        //如:<div value="[user.name]" style="[user.style]"></div>
+        //如:<div value="[user.name]" style="[[user.style]]"></div>
         //解释成<div  bg-virtual="{value:'user.name', style:'user.style'}"></div>
         _domNodeRPReg = /\s*(\/?\>)$/,
-        //如果绑定纯变量时去除"', 如valu="[user.name]", 解释后value=[user.name]
-        _domAttrPotReg = /^['"](.*)['"]$/,
-        //如果绑定纯变量时去除[], 如valu=[user.name], 解释后value=user.name
-        _domAttrOnlyReg = /^\[(.*)\]$/,
+        //如果绑定纯变量时去除"', 如valu="[[user.name]]", 解释后value=[[user.name]]
+        _domAttrPotReg = /^\s*['"](.*?)['"]\s*$/,
+        //如果绑定纯变量时去除[], 如valu=[[user.name]], 解释后value=user.name
+        _domAttrOnlyReg = /^\s*\[\[(.*?)\]\]\s*$/,
+        //转义多个绑定时， 如果style="[[ok]]asdf[[false]]sdf", 解释后 style="''+ ok + 'asdf' + false + 'sdf"
+        _domAttrMultReg = /\[\[(.*?)\]\]/g,
         _domAttrVirName = 'bg-virtual',
         _domAttrVirSt = [' ', _domAttrVirName, '="'].join(''),
         _domAttrVirEn = '" $1',
@@ -997,7 +1028,13 @@
             var findR = find.replace(_domAttrReg, function (findAttr, name, contents, dot, dot1) {
                 //console.log('fndR', arguments);
                 if (isV || name == 'bg-virtual') { has = false; isV = true; return; }
-                contents = contents.replace(_domAttrPotReg, '$1').replace(_domAttrOnlyReg, '$1');
+                dot = dot || dot1;
+                contents = contents.replace(_domAttrPotReg, '$1')
+                    .replace(_domAttrOnlyReg, '$1')
+
+                _domAttrMultReg.lastIndex = 0;
+                if (_domAttrMultReg.test(contents))
+                    contents = dot + contents.replace(_domAttrMultReg, dot + ' + ($1) + ' + dot) + dot;
                 //dot = dot || dot1;
                 domAttrs[name] = contents;
                 has = true;
@@ -1011,20 +1048,35 @@
             return isV ?find : findR;
         });
         return tmpl;
-    }, _virtualAttr = function (cp, nodes) {
+    }, _virtualNodes = function (cp, nodes) {
         var list = [], ltemp;
         bingo.each(nodes, function (item) {
             if (item.nodeType == 1) {
                 if (item.hasAttribute(_domAttrVirName))
-                    list.push(item);
+                    _newVirtualNode(cp, item);
                 if (item.hasChildNodes) {
                     ltemp = _queryAll(_domAttrQuery, item);
-                    if (ltemp.length > 0)
-                        list = list.concat(bingo.sliceArray(ltemp));
+                    if (ltemp.length > 0) {
+                        bingo.each(ltemp, function (cItem) {
+                            _newVirtualNode(cp, cItem);
+                        });
+                    }
                 }
             }
         });
-        console.log('_virtualAttr', list);
+        
+        if (cp && cp.$virtualNodes.length > 0)
+            console.log('_virtualNodes', cp.$virtualNodes);
+    },
+    _virtualAttrs = function (vNode, node) {
+        var attr = node.getAttribute(_domAttrVirName),
+            context = JSON.parse(attr);
+
+        var list = [];
+        bingo.eachProp(context, function (item, n) {
+            vNode._addAttr(n, item);
+        });
+
     };
     //console.log(_renderAttr(tmpl));
     //console.log('domAttrReg', _domAttrList);
