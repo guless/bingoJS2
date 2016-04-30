@@ -72,19 +72,19 @@
     var _newBase = function (p) {
         //基础
         var o = {
-            extend: function (p) {
+            $extend: function (p) {
                 return bingo.extend(this, p);
             }
         };
-        return o.extend(p);
+        return o.$extend(p);
     }, _newBindContext = function (p) {
         //绑定上下文
         var _pri = {
             withData: {},
             valueObj: function ($this) {
                 if (this.valueParams) return this.valueParams;
-                var contents = $this.contents, withData = this.withData,
-                    view = $this.view,
+                var contents = $this.$contents, withData = this.withData,
+                    view = $this.$view,
                     hasW = !!withData && withData.bgTestProps(contents),
                     hasView = hasW ? false : view.bgTestProps(contents),
                     hasWin = hasView ? false : window.bgTestProps(contents),
@@ -93,46 +93,46 @@
             }
         };
         return _newBase({
-            view:null,
-            node:null,
-            contents: '',
-            withData: function (name, p) {
+            $view:null,
+            $node:null,
+            $contents: '',
+            $withData: function (name, p) {
                 _pri.withData[name] = p;
             },
-            bindContext: function (contents, isRet) {
-                return _vm.bindContext(this, contents, isRet, this.view, this.node, _pri.withData);
+            $bindContext: function (contents, isRet) {
+                return _vm.bindContext(this, contents, isRet, this.$view, this.$node, _pri.withData);
             },
-            hasProps: function () {
-                return _pri.valueObj(this)[0].bgTestProps(this.contents);
+            $hasProps: function () {
+                return _pri.valueObj(this)[0].bgTestProps(this.$contents);
             },
-            value: function (val) {
-                var contents = this.contents, obj = _pri.valueObj(this)[0];
+            $value: function (val) {
+                var contents = this.$contents, obj = _pri.valueObj(this)[0];
                 if (arguments.length == 0) {
                     return obj.bgDataValue(contents);
                 } else {
-                    this.view.$updateAsync();
+                    this.$view.$updateAsync();
                     obj.bgDataValue(contents, val);
                 }
             },
-            result: function (event) {
+            $result: function (event) {
                 /// <summary>
                 /// 执行内容, 一定会返回结果, 不会报出错误, 没有经过过滤器
                 /// 在执行之前可以改变contents
                 /// </summary>
                 /// <param name="event">可选, 事件</param>
-                var fn = this.bindContext(this.contents, true);
+                var fn = this.$bindContext(this.$contents, true);
                 return fn(event);
             },
-            eval: function (event) {
+            $eval: function (event) {
                 /// <summary>
                 /// 执行内容, 根据执行返回结果, 会报出错误
                 /// 在执行之前可以改变contents
                 /// </summary>
                 /// <param name="event">可选, 事件</param>
-                var fn = this.bindContext(this.contents, false);
+                var fn = this.$bindContext(this.$contents, false);
                 return fn(event);
             }
-        }).extend(p);
+        }).$extend(p);
     }, _newView = function (p) {
 
         var _pri = {
@@ -143,7 +143,7 @@
 
         //新建view
         var view = _newBase({
-            controller: function (fn) {
+            $controller: function (fn) {
                 _pri.ctrls.push(fn);
             },
             _doneCtrl: function () {
@@ -207,7 +207,7 @@
                 if (this._upastime_) clearTimeout(this._upastime_);
                 this._upastime_ = setTimeout(function () { this.$update(); }.bind(this), 1);
             }
-        }).extend(p);
+        }).$extend(p);
 
         view.bgOnDispose(function () {
             bingo.each(_pri.obsList, function (item) {
@@ -235,24 +235,24 @@
                 }
             },
             clear: function (cp) {
-                bingo.each(cp.children, function (item) {
+                bingo.each(cp.$children, function (item) {
                     item.bgDispose();
                 });
-                bingo.each(cp.virtualAttrs, function (item) {
+                bingo.each(cp.$virtualAttrs, function (item) {
                     item.bgDispose();
                 });
-                if (cp.childView)
-                    cp.childView.bgDispose();
-                cp.children = cp.virtualAttrs = cp.childView = null;
+                if (cp.$childView)
+                    cp.$childView.bgDispose();
+                cp.$children = cp.$virtualAttrs = cp.$childView = null;
             },
             getContent: function (cp) {
                 if (cp._tmplFn)
                     return cp._tmplFn();
                 else
-                    return cp.contents;
+                    return cp.$contents;
             },
             getPNode: function (cp) {
-                var nodes = cp.nodes;
+                var nodes = cp.$nodes;
                 var index = bingo.inArray(function (item) { return !!item.parentNode; }, nodes);
                 return index > -1 ? nodes[index] : null;
             }
@@ -260,70 +260,70 @@
 
         //新建command的CP参数对象
         var cp = _newBindContext({
-            childView:null,
-            app:null,
-            cmd: '',
-            attrs: null,
-            nodes: null,
-            virtualAttrs:null,
-            setNodes: function (nodes) {
-                _pri.removeNodes(this.nodes);
-                this.nodes = nodes;
+            $childView:null,
+            $app:null,
+            $cmd: '',
+            $attrs: null,
+            $nodes: null,
+            $virtualAttrs:null,
+            $setNodes: function (nodes) {
+                _pri.removeNodes(this.$nodes);
+                this.$nodes = nodes;
                 _linkNodes('_cpLinkC', nodes, function () {
                     this.bgDispose();
                 }.bind(this));
             },
-            getAttr:function(name){
-                return this.attrs.getAttr(name);
+            $getAttr:function(name){
+                return this.$attrs.$getAttr(name);
             },
-            setAttr: function (name, contents) {
-                this.attrs.setAttr(name, contents);
+            $setAttr: function (name, contents) {
+                this.$attrs.$setAttr(name, contents);
             },
-            parent:null,
-            children: null,
-            removeChild: function (cp) {
-                this.children = bingo.removeArrayItem(cp, this.children);
+            $parent:null,
+            $children: null,
+            $removeChild: function (cp) {
+                this.$children = bingo.removeArrayItem(cp, this.$children);
             },
-            getChild: function (id) {
+            $getChild: function (id) {
                 var item;
-                //console.log(id, this.children);
-                bingo.each(this.children, function () {
-                    if (this.id == id) {
+                //console.log(id, this.$children);
+                bingo.each(this.$children, function () {
+                    if (this.$id == id) {
                         item = this;
                         return false;
                     }
                 });
                 return item;
             },
-            html: function (s) {
+            $html: function (s) {
                 if (arguments.length > 0) {
                     _pri.clear(this);
-                    this.tmpl(s);
+                    this.$tmpl(s);
 
                     return _compile({ cp: this, context: _pri.getPNode(this) });
                 } else {
                     var list = [];
-                    bingo.each(this.nodes, function (item) {
+                    bingo.each(this.$nodes, function (item) {
                         list.push(item.nodeType == 1 ? item.outerHTML : item.textContent);
                     });
                     return list.join('');
                 }
             },
-            text: function (s) {
+            $text: function (s) {
                 if (arguments.length > 0) {
                     _pri.clear(this);
-                    this.contents = this.tmplTag = bingo.htmlEncode(s);
+                    this.$contents = this.tmplTag = bingo.htmlEncode(s);
 
                     return _traverseCP(_pri.getPNode(this), this, 'insertBefore');
                 } else {
                     var list = [];
-                    bingo.each(this.nodes, function (item) {
+                    bingo.each(this.$nodes, function (item) {
                         list.push(item.textContent);
                     });
                     return list.join('');
                 }
             },
-            tmpl: function (fn) {
+            $tmpl: function (fn) {
                 this._tmplFn = bingo.isFunction(fn) ? fn : function () { return fn; };
                 return this;
             },
@@ -338,49 +338,49 @@
                 _promisePush(_renderPromise, ret)
                 return this;
             },
-            render: function () {
+            $render: function () {
                 this._render();
                 return _renderThread();
             },
-            controller: function (fn) {
+            $controller: function (fn) {
                 this._ctrl = fn;
             },
             _doneCtrl: function () {
                 var ctrl = this._ctrl;
                 if (ctrl) {
                     this._ctrl = null;
-                    ctrl.call(this, this.view);
+                    ctrl.call(this, this.$view);
                 }
             },
-            layout: function (wFn, fn, num, init) {
+            $layout: function (wFn, fn, num, init) {
                 if (arguments.length == 1) {
                     fn = wFn;
                     wFn = function () {
-                        return this.result();
+                        return this.$result();
                     }.bind(this);
                 }
                 _initList.push(function () {
-                    var obs = this.view.$layout(wFn, fn, num, this, true);
+                    var obs = this.$view.$layout(wFn, fn, num, this, true);
                     _pri.obsList.push(obs);
                     return (init !== false) ? obs.publish(true) : null;
                 }.bind(this));
             }
-        }).extend(p);
+        }).$extend(p);
 
         cp.bgOnDispose(function () {
-            var parent = this.parent;
+            var parent = this.$parent;
             if (parent && !parent.bgIsDispose) {
-                parent.removeChild(this);
+                parent.$removeChild(this);
             }
-            bingo.each(this.elseList, function (cp) {
+            bingo.each(this.$elseList, function (cp) {
                 cp.bgIsDispose || cp.bgDispose();
             });
             bingo.each(_pri.obsList, function (obs) {
                 obs.bgIsDispose || obs.unObserve();
             });
-            this.attrs.bgDispose();
+            this.$attrs.bgDispose();
             if (!parent || !parent.bgIsDispose) {
-                _pri.removeNodes(this.nodes);
+                _pri.removeNodes(this.$nodes);
             }
             _pri.clear(this);
         });
@@ -390,29 +390,29 @@
         return cp;
     }, _newCPAttr = function (contents) {
         return _newBindContext({
-            contents: contents,
+            $contents: contents,
         });
     }, _newCPAttrs = function (contents) {
         var _names = [],
             _attrs = _newBindContext({
-                contents: contents,
-                getAttr: function (name) {
-                    return this[name] ? this[name].contents : '';
+                $contents: contents,
+                $getAttr: function (name) {
+                    return this[name] ? this[name].$contents : '';
                 },
-                setAttr: function (name, contents) {
+                $setAttr: function (name, contents) {
                     if (this[name])
-                        this[name].contents = contents;
+                        this[name].$contents = contents;
                     else {
                         _names.push(name);
                         this[name] = _newCPAttr(contents);
                     }
                 },
                 _setCP: function (cp) {
-                    this.view = cp.view;
+                    this.$view = cp.$view;
                     this.cp = cp;
                     bingo.each(_names, function (item) {
                         this[item].cp = cp;
-                        this[item].view = cp.view;
+                        this[item].$view = cp.$view;
                     }, this);
                 }
             });
@@ -425,7 +425,7 @@
         return _attrs;
     }, _newVirtualAttr = function (contents) {
         return _newBindContext({
-            contents: contents,
+            $contents: contents,
         });
     };
 
@@ -453,10 +453,10 @@
     _defCommand('view', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
-        var ctrl = cp.getAttr('controller');
+        var ctrl = cp.$getAttr('controller');
         if (ctrl) {
             ctrl = bingo.controller(ctrl);
-            ctrl && cp.view.controller(ctrl.fn);
+            ctrl && cp.$view.$controller(ctrl.fn);
         }
 
         return cp;
@@ -465,10 +465,10 @@
     _defCommand('controller', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
-        cp.tmpl('');
+        cp.$tmpl('');
 
-        cp.view.controller(function () {
-            cp.eval();
+        cp.$view.$controller(function () {
+            cp.$eval();
         });
 
         return cp;
@@ -478,16 +478,16 @@
     _defCommand('for', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
-        var src = cp.getAttr('src');
+        var src = cp.$getAttr('src');
 
         var itemName = 'item', dataName = 'datas';
-        cp.contents = dataName;
-        cp.tmpl('');
+        cp.$contents = dataName;
+        cp.$tmpl('');
 
-        cp.layout(function () {
-            return cp.result();
+        cp.$layout(function () {
+            return cp.$result();
         }, function (c) {
-            cp.html(c.value);
+            cp.$html(c.value);
         });
 
         return cp;
@@ -496,20 +496,20 @@
     _defCommand('if', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
-        cp.tmpl('');
+        cp.$tmpl('');
 
-        var _contents = cp.contents,
-            _elseList = cp.elseList, _getContent = function (index, val) {
+        var _contents = cp.$contents,
+            _elseList = cp.$elseList, _getContent = function (index, val) {
             if (index == -1 && val)
                 return _contents;
             else {
-                var ret = cp.attrs.result();
+                var ret = cp.$attrs.$result();
                 if (ret) return _contents;
                 var s;
                 bingo.each(_elseList, function (item, i) {
-                    if (!item.attrs.contents || (index == i && val)
-                        || item.attrs.result()) {
-                        s = item.contents
+                    if (!item.$attrs.$contents || (index == i && val)
+                        || item.$attrs.$result()) {
+                        s = item.$contents
                         return false;
                     }
                 });
@@ -517,18 +517,18 @@
             }
         };
 
-        cp.layout(function () {
-            return cp.attrs.result();
+        cp.$layout(function () {
+            return cp.$attrs.$result();
         }, function (c) {
-            //console.log('if====>', cp.contents);
-            cp.html(_getContent(-1, c.value));
+            //console.log('if====>', cp.$contents);
+            cp.$html(_getContent(-1, c.value));
         });
 
         bingo.each(_elseList, function (item, index) {
-            item.attrs.contents && cp.layout(function () {
-                return item.attrs.result();
+            item.$attrs.$contents && cp.$layout(function () {
+                return item.$attrs.$result();
             }, function (c) {
-                cp.html(_getContent(index, c.value));
+                cp.$html(_getContent(index, c.value));
             }, 0, false);
         });
 
@@ -538,8 +538,8 @@
     _defCommand('include', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
-        cp.tmpl(function () {
-            return bingo.tmpl(cp.getAttr('src'));
+        cp.$tmpl(function () {
+            return bingo.tmpl(cp.$getAttr('src'));
         });
 
         return cp;
@@ -548,10 +548,10 @@
     _defCommand('html', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
-        cp.layout(function () {
-            return cp.attrs.result();
+        cp.$layout(function () {
+            return cp.$attrs.$result();
         }, function (c) {
-            cp.html(c.value);
+            cp.$html(c.value);
         });
 
         return cp;
@@ -560,10 +560,10 @@
     _defCommand('text', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
-        cp.layout(function () {
-            return cp.attrs.result();
+        cp.$layout(function () {
+            return cp.$attrs.$result();
         }, function (c) {
-            cp.text(c.value);
+            cp.$text(c.value);
         });
 
         return cp;
@@ -571,9 +571,9 @@
 
     _defCommand('select', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
-        cp.tmpl('{{view /}}<select>{{for item in datas}}<option value="1"></option>{{/for}}</select>');
+        cp.$tmpl('{{view /}}<select>{{for item in datas}}<option value="1"></option>{{/for}}</select>');
 
-        cp.controller(function ($view) {
+        cp.$controller(function ($view) {
             console.log('select1 controller');
             $view.idName = '';
             $view.textName = '';
@@ -612,7 +612,7 @@
             _viewList = bingo.removeArrayItem(view, _viewList);
         },
         _getView = function (name) {
-            var index = bingo.inArray(function (item) { return item.name == name; }, _allViews);
+            var index = bingo.inArray(function (item) { return item.$name == name; }, _allViews);
             return index > -1 ? _allViews[index] : null;
         };
 
@@ -632,62 +632,62 @@
                 whereList = elseContent.whereList;
             }
             item = {
-                id: id,
-                cmd: cmd1 || cmd,
-                attrs: _traverseAttr(attrs1 || attrs),
-                contents: content1 || '',
-                elseList: elseList,
-                whereList: whereList
+                $id: id,
+                $cmd: cmd1 || cmd,
+                $attrs: _traverseAttr(attrs1 || attrs),
+                $contents: content1 || '',
+                $elseList: elseList,
+                $whereList: whereList
             };
-            (item.cmd == 'view') && (view = item);
+            (item.$cmd == 'view') && (view = item);
             list.push(item);
 
             return _getScriptTag(id);
         });
 
         if (view) {
-            app = bingo.app(view.attrs.getAttr('app'));
+            app = bingo.app(view.$attrs.$getAttr('app'));
             view = _newView({
-                name: view.attrs.getAttr('name'),
-                app: app
+                $name: view.$attrs.$getAttr('name'),
+                $app: app
             });
-            cp.childView = view;
+            cp.$childView = view;
         } else {
-            app = cp.app;
-            view = cp.view;
+            app = cp.$app;
+            view = cp.$view;
         }
 
         var children = [], tempCP, cmdDef, elseList, whereList;
         bingo.each(list, function (item) {
-            //console.log('cmd', item.cmd, view);
+            //console.log('cmd', item.$cmd, view);
             tempCP = _newCP(item);
-            tempCP.view = view;
-            tempCP.attrs._setCP(tempCP);
-            tempCP.app = app;
-            tempCP.parent = cp;
-            cmdDef = _defCommand(item.cmd);
-            elseList = tempCP.elseList;
+            tempCP.$view = view;
+            tempCP.$attrs._setCP(tempCP);
+            tempCP.$app = app;
+            tempCP.$parent = cp;
+            cmdDef = _defCommand(item.$cmd);
+            elseList = tempCP.$elseList;
             if (elseList) {
-                var cpT, whereList = tempCP.whereList;
+                var cpT, whereList = tempCP.$whereList;
                 bingo.each(elseList, function (item, index) {
                     cpT = _newCP({
-                        app: app,
-                        attrs: _traverseAttr(whereList[index]),
-                        view: view, contents: item
+                        $app: app,
+                        $attrs: _traverseAttr(whereList[index]),
+                        $view: view, $contents: item
                     });
-                    cpT.attrs._setCP(cpT);
+                    cpT.$attrs._setCP(cpT);
                     //cpT._render();
-                    //_promisePush(promises, cpT.render());
+                    //_promisePush(promises, cpT.$render());
                     elseList[index] = cpT;
                 });
-                tempCP.whereList = null;
+                tempCP.$whereList = null;
             }
             cmdDef && cmdDef(tempCP);
             tempCP._render();
-            //_promisePush(promises, tempCP.render());
+            //_promisePush(promises, tempCP.$render());
             children.push(tempCP);
         });
-        cp.children = children;
+        cp.$children = children;
         cp.tmplTag = tmpl;
         //return _retPromiseAll(promises);
     }, _traverseElse = function (contents) {
@@ -726,7 +726,7 @@
         _cmdAttrReg.lastIndex = 0;
         var item, attrs = _newCPAttrs(s);
         while (item = _cmdAttrReg.exec(s)) {
-            attrs.setAttr(item[1], item[2] || item[3]);
+            attrs.$setAttr(item[1], item[2] || item[3]);
         }
         return attrs;
     }, _renderPromise = [], _renderThread = function () {
@@ -855,8 +855,8 @@
         //取得cp空白节点
         _getCpEmptyNode = function (cp) {
             var html = (_isComment) ?
-                ['<!--', _commentPrefix, cp.id, '-->'].join('') :
-                _getScriptTag(cp.id);
+                ['<!--', _commentPrefix, cp.$id, '-->'].join('') :
+                _getScriptTag(cp.$id);
             return _parseHTML(html)[0];
         },
         _isScriptTag = /script/i,
@@ -896,7 +896,7 @@
         var tmpl = _renderAttr(cp.tmplTag);
         //console.log('tmpltmpltmpltmpl', tmpl);
         var nodes = _parseHTML(tmpl, optName == 'appendTo' ? refNode : refNode.parentNode, true);
-        //console.log(cp.cmd, nodes.length);
+        //console.log(cp.$cmd, nodes.length);
         if (nodes.length > 0) {
             var pNode = nodes[0].parentNode;
             _virtualAttr(cp, nodes);
@@ -906,7 +906,7 @@
 
         _checkEmptyNodeCp(nodes, cp);
         _insertDom(nodes, refNode, optName);
-        cp.setNodes(nodes);
+        cp.$setNodes(nodes);
     }, _traverseNodes = function (nodes, cp) {
 
         var id, tempCP;
@@ -914,7 +914,7 @@
             if (item.nodeType == 1) {
                 id = _getEmptyRenderId(item);
                 if (id) {
-                    tempCP = cp.getChild(id);
+                    tempCP = cp.$getChild(id);
                     if (tempCP) {
                         //console.log('tempCP', tempCP);
                         _traverseCP(item, tempCP, 'insertBefore');
@@ -932,11 +932,11 @@
     var _compile = function (p) {
         var view = p.view;
         var cp = p.cp || _newCP({
-            app:view ? view.app : null,
-            view: view, contents: p.tmpl
+            $app:view ? view.$app : null,
+            $view: view, $contents: p.tmpl
         });
-        return cp.render().then(function () {
-            console.log('compile',cp.cmd, cp);
+        return cp.$render().then(function () {
+            console.log('compile',cp.$cmd, cp);
             _ctrlStep();
             _ctrlStepView();
             var node,opName;
@@ -1031,8 +1031,8 @@
 
 
     var _rootView = _newView({
-        name: '',
-        app: bingo.app('')
+        $name: '',
+        $app: bingo.app('')
     });
     _compile({
         tmpl: tmpl,
@@ -1077,7 +1077,7 @@
     var view = {
         //拥有的节点
         _bgNode: null,
-        name: ''
+        $name: ''
     };
 
     var compItem = {
