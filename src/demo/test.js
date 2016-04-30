@@ -223,7 +223,7 @@
         _addView(view);
         return view;
     }, _newCP = function (p) {
-
+        //todo asdfsf
         var _pri = {
             obsList: [],
             removeNodes: function (nodes) {
@@ -238,8 +238,12 @@
                 bingo.each(cp.children, function (item) {
                     item.bgDispose();
                 });
+                bingo.each(cp.virtualAttrs, function (item) {
+                    item.bgDispose();
+                });
                 if (cp.childView)
                     cp.childView.bgDispose();
+                cp.children = cp.virtualAttrs = cp.childView = null;
             },
             getContent: function (cp) {
                 if (cp._tmplFn)
@@ -261,6 +265,7 @@
             cmd: '',
             attrs: null,
             nodes: null,
+            virtualAttrs:null,
             setNodes: function (nodes) {
                 _pri.removeNodes(this.nodes);
                 this.nodes = nodes;
@@ -373,6 +378,7 @@
             bingo.each(_pri.obsList, function (obs) {
                 obs.bgIsDispose || obs.unObserve();
             });
+            this.attrs.bgDispose();
             if (!parent || !parent.bgIsDispose) {
                 _pri.removeNodes(this.nodes);
             }
@@ -383,6 +389,41 @@
         _cpList.push(cp);
         return cp;
     }, _newCPAttr = function (contents) {
+        return _newBindContext({
+            contents: contents,
+        });
+    }, _newCPAttrs = function (contents) {
+        var _names = [],
+            _attrs = _newBindContext({
+                contents: contents,
+                getAttr: function (name) {
+                    return this[name] ? this[name].contents : '';
+                },
+                setAttr: function (name, contents) {
+                    if (this[name])
+                        this[name].contents = contents;
+                    else {
+                        _names.push(name);
+                        this[name] = _newCPAttr(contents);
+                    }
+                },
+                _setCP: function (cp) {
+                    this.view = cp.view;
+                    this.cp = cp;
+                    bingo.each(_names, function (item) {
+                        this[item].cp = cp;
+                        this[item].view = cp.view;
+                    }, this);
+                }
+            });
+        _attrs.bgOnDispose(function () {
+            bingo.each(_names, function (item) {
+                this[name].bgDispose();
+            }, this);
+            console.log('dispose attrs');
+        });
+        return _attrs;
+    }, _newVirtualAttr = function (contents) {
         return _newBindContext({
             contents: contents,
         });
@@ -621,7 +662,7 @@
             //console.log('cmd', item.cmd, view);
             tempCP = _newCP(item);
             tempCP.view = view;
-            tempCP.attrs.view = view;
+            tempCP.attrs._setCP(tempCP);
             tempCP.app = app;
             tempCP.parent = cp;
             cmdDef = _defCommand(item.cmd);
@@ -634,7 +675,7 @@
                         attrs: _traverseAttr(whereList[index]),
                         view: view, contents: item
                     });
-                    cpT.attrs.view = view;
+                    cpT.attrs._setCP(cpT);
                     //cpT._render();
                     //_promisePush(promises, cpT.render());
                     elseList[index] = cpT;
@@ -683,18 +724,7 @@
         return { contents: start > -1 ? contents.substr(0, start) : contents, elseList: elseList, whereList: whereList };
     }, _traverseAttr = function (s) {
         _cmdAttrReg.lastIndex = 0;
-        var item, attrs = _newBindContext({
-            contents: s,
-            getAttr: function (name) {
-                return this[name] ? this[name].contents : '';
-            },
-            setAttr: function (name, contents) {
-                if (this[name])
-                    this[name].contents = contents;
-                else
-                    this[name] = _newCPAttr(contents);
-            }
-        });
+        var item, attrs = _newCPAttrs(s);
         while (item = _cmdAttrReg.exec(s)) {
             attrs.setAttr(item[1], item[2] || item[3]);
         }
@@ -863,10 +893,13 @@
         };
 
     var _traverseCP = function (refNode, cp, optName) {
-        var nodes = _parseHTML(cp.tmplTag, optName == 'appendTo' ? refNode : refNode.parentNode, true);
+        var tmpl = _renderAttr(cp.tmplTag);
+        //console.log('tmpltmpltmpltmpl', tmpl);
+        var nodes = _parseHTML(tmpl, optName == 'appendTo' ? refNode : refNode.parentNode, true);
         //console.log(cp.cmd, nodes.length);
         if (nodes.length > 0) {
             var pNode = nodes[0].parentNode;
+            _virtualAttr(cp, nodes);
             _traverseNodes(nodes, cp);
             nodes = bingo.sliceArray(pNode.childNodes);
         }
@@ -936,37 +969,64 @@
         };
 
     bingo.attrEncode = _attrEncode;
+    bingo.attrDecode = bingo.htmlDecode;
 
 
     //查找dom 节点 <div>
     var _domNodeReg = /\<[^>]+\>/gi,
-        _domNodeRPReg = /\s*(\/?\>)$/,
-        _domAttrPotReg = /^['"](.*)['"]$/,
-        _domAttrOnlyReg = /^\[(.*)\]$/,
         //解释可绑定的节点属性: attr="fasdf[user.name]"
         _domAttrReg = /\s*(\S+)\s*=\s*((\")(?:\\\"|[^"])*?\[.+?\](?:\\\"|[^"])*\"|(\')(?:\\\'|[^'])*?\[.+?\](?:\\\'|[^'])*\')/gi,
-        _domAttrParseN = _parseHTML('<div></div>');
+        //用于解释节点属性时， 将内容压成bg-virtual
+        //如:<div value="[user.name]" style="[user.style]"></div>
+        //解释成<div  bg-virtual="{value:'user.name', style:'user.style'}"></div>
+        _domNodeRPReg = /\s*(\/?\>)$/,
+        //如果绑定纯变量时去除"', 如valu="[user.name]", 解释后value=[user.name]
+        _domAttrPotReg = /^['"](.*)['"]$/,
+        //如果绑定纯变量时去除[], 如valu=[user.name], 解释后value=user.name
+        _domAttrOnlyReg = /^\[(.*)\]$/,
+        _domAttrVirName = 'bg-virtual',
+        _domAttrVirSt = [' ', _domAttrVirName, '="'].join(''),
+        _domAttrVirEn = '" $1',
+        _domAttrQuery = '[' + _domAttrVirName + ']';
 
-    var s = tmpl.replace(_domNodeReg, function (find, pos, contents) {
-        //console.log('domNodeReg', arguments);
-        _domAttrReg.lastIndex = 0;
-        var domAttrs = {}, has = false;
-        var findR = find.replace(_domAttrReg, function (findAttr, name, contents, dot, dot1) {
-            //console.log('fndR', arguments);
-            contents = contents.replace(_domAttrPotReg, '$1').replace(_domAttrOnlyReg, '$1');
-            //dot = dot || dot1;
-            domAttrs[name] = contents;
-            has = true;
-            return '';// 'bg-' + findAttr;
+    var _renderAttr = function (tmpl) {
+        tmpl = tmpl.replace(_domNodeReg, function (find, pos, contents) {
+            //console.log('domNodeReg', arguments);
+            _domAttrReg.lastIndex = 0;
+            var domAttrs = {}, has = false, isV = false;
+            var findR = find.replace(_domAttrReg, function (findAttr, name, contents, dot, dot1) {
+                //console.log('fndR', arguments);
+                if (isV || name == 'bg-virtual') { has = false; isV = true; return; }
+                contents = contents.replace(_domAttrPotReg, '$1').replace(_domAttrOnlyReg, '$1');
+                //dot = dot || dot1;
+                domAttrs[name] = contents;
+                has = true;
+                return '';// 'bg-' + findAttr;
+            });
+            if (has) {
+                findR = findR.replace(_domNodeRPReg, [_domAttrVirSt, _attrEncode(JSON.stringify(domAttrs)), _domAttrVirEn].join(''));
+                //console.log('findR', findR);
+            }
+            //virtual
+            return isV ?find : findR;
         });
-        if (has) {
-            findR = findR.replace(_domNodeRPReg, ' bg-virtual="' + _attrEncode(JSON.stringify(domAttrs)) + '" $1');
-            //console.log('findR', findR);
-        }
-        //virtual
-        return findR;
-    });
-    console.log(s);
+        return tmpl;
+    }, _virtualAttr = function (cp, nodes) {
+        var list = [], ltemp;
+        bingo.each(nodes, function (item) {
+            if (item.nodeType == 1) {
+                if (item.hasAttribute(_domAttrVirName))
+                    list.push(item);
+                if (item.hasChildNodes) {
+                    ltemp = _queryAll(_domAttrQuery, item);
+                    if (ltemp.length > 0)
+                        list = list.concat(bingo.sliceArray(ltemp));
+                }
+            }
+        });
+        console.log('_virtualAttr', list);
+    };
+    //console.log(_renderAttr(tmpl));
     //console.log('domAttrReg', _domAttrList);
 
 
@@ -975,10 +1035,17 @@
         app: bingo.app('')
     });
     _compile({
-        tmpl: s,
+        tmpl: tmpl,
         view: _rootView,
         context: '#context1'
     });
+
+    //测试
+    var attrMethod = true;
+    attrMethod = attrMethod && ('hasChildNodes' in document.body);
+    attrMethod = attrMethod && ('hasAttribute' in document.body);
+    attrMethod = attrMethod && ('getAttribute' in document.body);
+    console.log('attrMethod====>', attrMethod);
 
     //测试各浏览器删除script节点兼容性
     //var ns = _query('script');
