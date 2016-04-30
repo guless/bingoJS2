@@ -80,6 +80,7 @@
     }, _newBindContext = function (p) {
         //绑定上下文
         var _pri = {
+            obsList: [],
             withData: {},
             valueObj: function ($this) {
                 if (this.valueParams) return this.valueParams;
@@ -92,7 +93,7 @@
                 return (this.valueParams = [obj, hasW || hasView || hasWin]);
             }
         };
-        return _newBase({
+        var bind = _newBase({
             $view:null,
             $node:null,
             $contents: '',
@@ -131,8 +132,33 @@
                 /// <param name="event">可选, 事件</param>
                 var fn = this.$bindContext(this.$contents, false);
                 return fn(event);
+            },
+            $layout: function (wFn, fn, num, init) {
+                if (arguments.length == 1) {
+                    fn = wFn;
+                    wFn = function () {
+                        return this.$result();
+                    }.bind(this);
+                }
+                _initList.push(function () {
+                    var obs = this.$view.$layout(wFn, fn, num, this, true);
+                    _pri.obsList.push(obs);
+                    return (init !== false) ? obs.publish(true) : null;
+                }.bind(this));
+            },
+            $layoutValue: function (fn) {
+                this.$hasProps() || this.$value(undefined);
+                return this.$layout(function () { return this.$value(); }.bind(this), fn);
             }
         }).$extend(p);
+
+        bind.bgOnDispose(function () {
+            bingo.each(_pri.obsList, function (obs) {
+                obs.bgIsDispose || obs.unObserve();
+            });
+        });
+        return bind;
+
     }, _newView = function (p) {
 
         var _pri = {
@@ -225,7 +251,6 @@
     }, _newCP = function (p) {
         //todo asdfsf
         var _pri = {
-            obsList: [],
             removeNodes: function (nodes) {
                 if (nodes) {
                     _unLinkNodes('_cpLinkC', nodes);
@@ -352,20 +377,20 @@
                     this._ctrl = null;
                     ctrl.call(this, this.$view);
                 }
-            },
-            $layout: function (wFn, fn, num, init) {
-                if (arguments.length == 1) {
-                    fn = wFn;
-                    wFn = function () {
-                        return this.$result();
-                    }.bind(this);
-                }
-                _initList.push(function () {
-                    var obs = this.$view.$layout(wFn, fn, num, this, true);
-                    _pri.obsList.push(obs);
-                    return (init !== false) ? obs.publish(true) : null;
-                }.bind(this));
-            }
+            }//,
+            //$layout: function (wFn, fn, num, init) {
+            //    if (arguments.length == 1) {
+            //        fn = wFn;
+            //        wFn = function () {
+            //            return this.$result();
+            //        }.bind(this);
+            //    }
+            //    _initList.push(function () {
+            //        var obs = this.$view.$layout(wFn, fn, num, this, true);
+            //        _pri.obsList.push(obs);
+            //        return (init !== false) ? obs.publish(true) : null;
+            //    }.bind(this));
+            //}
         }).$extend(p);
 
         cp.bgOnDispose(function () {
@@ -375,9 +400,6 @@
             }
             bingo.each(this.$elseList, function (cp) {
                 cp.bgIsDispose || cp.bgDispose();
-            });
-            bingo.each(_pri.obsList, function (obs) {
-                obs.bgIsDispose || obs.unObserve();
             });
             this.$attrs.bgDispose();
             if (!parent || !parent.bgIsDispose) {
@@ -435,12 +457,7 @@
             $node: node,
             $attrs: _newBase({}),
             _addAttr: function (name, contents) {
-                var attr = this.$attrs[name] = _newVirtualAttr(contents);
-                attr.$cp = cp;
-                attr.$vNode = this;
-                attr.$node = this.$node;
-                attr.$app = cp.$app;
-                attr.$view = cp.$view;
+                return this.$attrs[name] = _newVirtualAttr(name, contents);
             }
         });
         _virtualAttrs(vNode, node);
@@ -452,19 +469,20 @@
             });
         });
         return vNode;
-    }, _newVirtualAttr = function(contents) {
+    }, _newVirtualAttr = function(vNode, name, contents) {
         return _newBindContext({
+            $cp: vNode.$cp,
+            $vNode: vNode,
+            $node: vNode.$node,
+            $app: vNode.$app,
+            $view: vNode.$view,
+            $name:name,
             $contents: contents,
+            $val: function (val) {
+            },
+            $prop: function (val) {
+            }
         });
-    };
-
-
-    var _commands = {}, _defCommand = function (name, fn) {
-       
-        if (arguments.length == 1)
-            return _commands[name];
-        else
-            _commands[name] = fn;
     };
 
     bingo.controller('view_test1', function ($view) {
@@ -478,6 +496,16 @@
 
         window.view1 = $view;
     });
+
+
+
+    var _commands = {}, _defCommand = function (name, fn) {
+
+        if (arguments.length == 1)
+            return _commands[name];
+        else
+            _commands[name] = fn;
+    };
 
     _defCommand('view', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
@@ -1078,6 +1106,129 @@
         });
 
     };
+
+    var _attr = function (node, name, val) {
+        if (arguments.length < 3)
+            return node.getAttribute(name);
+        else
+            node.setAttribute(name, val)
+    },
+    _prop = function (node, name, val) {
+        if (arguments.length < 3)
+            return node[name];
+        else
+            node[name] = val;
+    },
+    _on = document.addEventListener,
+    _off = document.removeEventListener,
+    _val = function (node, val) {
+        if (arguments.length < 2)
+            return node.value;
+        else
+            node.value = val;
+    },
+    _valSel = function (node, val) {
+        var one = node.type == 'select-one';
+        if (one) {
+            if (arguments.length < 2)
+                return node.value;
+            else
+                node.value = val;
+        } else {
+            var options = node.options,
+                ret = [];
+            if (arguments.length < 2) {
+                bingo.each(options, function (item) {
+                    if (item.selected && !item.disabled)
+                        ret.push(item.value);
+                });
+                return ret;
+            } else {
+                bingo.isArray(val) || (val = [val]);
+                bingo.each(options, function (item) {
+                    item.selected = (val.indexOf(item.value) >= 0);
+                });
+            }
+        }
+    };
+
+    var _getComputedStyle = document.defaultView.getComputedStyle,
+        _cssNumber = { 'column-count': 1, 'columns': 1, 'font-weight': 1, 'line-height': 1, 'opacity': 1, 'z-index': 1, 'zoom': 1 },
+        _dasherize = function (str) {
+            return str.replace(/::/g, '/')
+                   .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
+                   .replace(/([a-z\d])([A-Z])/g, '$1_$2')
+                   .replace(/_/g, '-')
+                   .toLowerCase();
+        },
+        _maybeAddPx = function (name, value) {
+            return (bingo.isNumeric(value) && !_cssNumber[_dasherize(name)]) ? value + "px" : value;
+        },
+        _css = function (node, property, value) {
+            var argLen = arguments.length;
+            if (argLen < 3) {
+                return argLen == 1 ? undefined : node.style[_dasherize(property)] || _getComputedStyle(node, '').getPropertyValue(_dasherize(property));
+            }
+
+            var css = null;
+            property = _dasherize(property);
+            if (value == '')
+                node.style.removeProperty(property);
+            else
+                css = property + ":" + _maybeAddPx(property, value);
+
+            css && (node.style.cssText += ';' + css);
+        },
+        _getshow = function (node) {
+            var name = '_bgshow_';
+            return name in node ? node[name] : (node[name] = _css(node, 'display'));
+        },
+        _show = function (node) {
+            var sh = _getshow(node);
+            _css(node, 'display', sh == 'none' ? 'block' : sh);
+        },
+        _hide = function (node) {
+            _getshow(node);
+            _css(node, 'display', 'none');
+        },
+        _spaceRE = /\s+/g,
+        _getClass = function (node) {
+            var cn = node.className;
+            return cn ? cn.split(_spaceRE) : [];
+        },
+        _setClass = function (node, classNames) {
+            var cn = classNames.join(' ');
+            (cn == node.className) || (node.className = cn);
+        },
+        _hasClass = function (classNames, name) {
+            return name ? classNames.indexOf(name) >= 0 : false;
+        },
+        _addClass = function (classNames, name) {
+            _hasClass(classNames, name) || classNames.push(name);
+        },
+        _removeClass = function (classNames, name) {
+            if (!_hasClass(classNames, name)) return classNames;
+            return classNames.filter(function (item) {
+                return item != name;
+            });
+        };
+
+    var _vAttrDefaultName = 'bg_default_vattr', _vAttrs = {}, _defAttr = function (name, fn) {
+        if (arguments.length == 1)
+            return _vAttrs[name] || _vAttrs[_vAttrDefaultName];
+        else
+            _vAttrs[name] = fn;
+    };
+    _defAttr(_vAttrDefaultName, function (attr) {
+        /// <param name="attr" value="_newVirtualAttr({}, 'name', 'value')"></param>
+
+        attr.$layout(function (c) {
+            cp.$html(c.value);
+        });
+
+        return cp;
+    });
+
     //console.log(_renderAttr(tmpl));
     //console.log('domAttrReg', _domAttrList);
 
