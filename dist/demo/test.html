@@ -33,8 +33,8 @@
         <div class="splice">if==============================</div>
         <div class="content">
             {{if if1}}asd
-                <div style="color:red;font-size:[[test+'1111']];asdfa:[[user]]" aaaaa="[[aaa]]">
-                    <button onclick="[[user.click1]]">if attr</button>
+                <div style="color:[[color]];" aaaaa="[[aaa]]">
+                    <button onclick="[[click1]]">if attr</button>
                 </div>
                 {{if if2}}
                     if2 true
@@ -47,18 +47,32 @@
                 if1 false
             {{/if}}
         </div>
+        <div style="color:red;">
+            <button onclick="[[click2]]">test</button>
+        </div>
         {{controller}}
             $view.if1 = true;
             $view.if2 = false;
             $view.aaa = false;
+
+        $view.name = '张三';
+        $view.role = '测试';
+
+            $view.color = 'red';
+            $view.click1 = function(){alert('test ok');};
+
+            $view.click2 = function(){alert($view.name);};
         {{/controller}}
         <div class="splice">attr==============================</div>
         <div class="content">
-            <div style="color:red;font-size:[[>test+'asdfa']];asdfa:[[user]]" aaaaa="[[aaa]]">
-                <button onclick="[[user.click]]">test</button>
+            <div style="color:red;">
+                <button onclick="[[click2]]">test</button>
             </div>
-            <input type="text" value="[[user.name[0]]]" />
-            <input type="text" value='[[user.name]]' ab='[[aaa]]"asdf"' />
+            <input type="text" model="[[name]]" />
+            {{text name /}}
+            <br />
+            <input type="text" value='[[name]]' ab='[[aaa]]"asdf"' />
+            {{text name /}}
             <br />
         </div>
     </script>

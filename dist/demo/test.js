@@ -51,15 +51,21 @@
 
             hasRet && (content = ['try { return ', content, ';} catch (e) {bingo.observe.error(e);}'].join(''));
             //console.log('bind', node || view);
-            return contextCache[cacheName] = (new Function('_this_', '$view', '$withData', 'bingo', [
-                    'with ($view) {',
-                        //如果有withData, 影响性能
-                        withData ? 'with ($withData) {' : '',
-                            'return function (event) {',
-                                content,
-                            '}.bind(_this_);',
-                        withData ? '}' : '',
-                    '}'].join('')))(node || view, view, withData, bingo);//bingo(多版本共存)
+            var fnDef = [
+                        'with ($view) {',
+                            //如果有withData, 影响性能
+                            withData ? 'with ($withData) {' : '',
+                                'return function (event) {',
+                                    content,
+                                '}.bind(_this_);',
+                            withData ? '}' : '',
+                        '}'].join('');
+            try {
+                return contextCache[cacheName] = (new Function('_this_', '$view', '$withData', 'bingo', fnDef))(node || view, view, withData, bingo);//bingo(多版本共存)
+            } catch (e) {
+                console.log(content);
+                throw e;
+            }
         }
     }; //end _vm
 
@@ -449,15 +455,17 @@
             console.log('dispose attrs');
         });
         return _attrs;
-    }, _newVirtualNode = function(cp, node) {
+    }, _newVirtualNode = function (cp, node) {
+        //如果是新view, 读取$childView
+        var view = cp.$childView || cp.$view;
         var vNode = _newBase({
-            $view: cp.$view,
-            $app: cp.$app,
+            $view: view,
+            $app: view.app,
             $cp: cp,
             $node: node,
             $attrs: _newBase({}),
             _addAttr: function (name, contents) {
-                return this.$attrs[name] = _newVirtualAttr(name, contents);
+                return this.$attrs[name] = _newVirtualAttr(this, name, contents);
             }
         });
         _virtualAttrs(vNode, node);
@@ -470,7 +478,7 @@
         });
         return vNode;
     }, _newVirtualAttr = function(vNode, name, contents) {
-        return _newBindContext({
+        var vAttr = _newBindContext({
             $cp: vNode.$cp,
             $vNode: vNode,
             $node: vNode.$node,
@@ -478,11 +486,90 @@
             $view: vNode.$view,
             $name:name,
             $contents: contents,
-            $val: function (val) {
+            $attr: function (val) {
+                if (arguments.length == 0)
+                    return this.$attrEx(this.$name);
+                else
+                    this.$attrEx(this.$name, val);
             },
             $prop: function (val) {
+                if (arguments.length == 0)
+                    return this.$propEx(this.$name);
+                else
+                    this.$propEx(this.$name, val);
+            },
+            $attrEx: function (name, val) {
+                var node = this.$node,
+                    aLen = arguments.length;
+                switch (name) {
+                    case 'class':
+                        if (aLen == 1)
+                            return node.className;
+                        node.className = val;
+                        break;
+                    case 'value':
+                        var isSelect = node.tagName.toLowerCase() == 'select';
+                        if (aLen == 1)
+                            return (isSelect ? _valSel : _val)(node);
+                        else 
+                            (isSelect ? _valSel : _val)(node, val);
+                        break;
+                    default:
+                        if (aLen == 1)
+                            return _attr(node, name);
+                        else
+                            _attr(node, name, val);
+                        break;
+                }
+            },
+            $propEx: function (name, val) {
+                if (arguments.length == 1)
+                    return _prop(this.$node, name);
+                else
+                    _prop(this.$node, name, val);
+            },
+            $css: function (name, val) {
+                if (arguments.length == 1)
+                    return _css(this.$node, name);
+                else
+                    _css(this.$node, name, val);
+            },
+            $show: function () {
+                _show(this.$node);
+            },
+            $hide: function () {
+                _hide(this.$node);
+            },
+            $on: function (name, fn, useCaptrue) {
+                _eventList.push(bingo.sliceArray(arguments));
+                _on.apply(this.$node, arguments);
+            },
+            $one: function (name, fn, useCaptrue) {
+                var args = bingo.sliceArray(arguments),
+                    node = this.$node;
+                args[2] = function () {
+                    fn && fn.apply(this, arguments);
+                    _off.apply(node, arguments);
+                };
+                _eventList.push(args);
+                _on.apply(node, args);
+            },
+            $off: function (name, fn, useCaptrue) {
+                _off.apply(this.$node, arguments);
             }
         });
+
+        var _eventList = [];
+        vAttr.bgOnDispose(function () {
+            bingo.each(_eventList, function (item) {
+                _off.apply(this.$node, item);
+            }.bind(this));
+        });
+
+        var def = _defAttr(name);
+        def(vAttr);
+
+        return vAttr;
     };
 
     bingo.controller('view_test1', function ($view) {
@@ -1213,20 +1300,158 @@
             });
         };
 
-    var _vAttrDefaultName = 'bg_default_vattr', _vAttrs = {}, _defAttr = function (name, fn) {
+    var _vAttrDefaultName = 'bg_default_vattr', _vAttrs = {},
+        _isEvent = /^\s*on/i, _defAttr = function (name, fn) {
         if (arguments.length == 1)
             return _vAttrs[name] || _vAttrs[_vAttrDefaultName];
         else
             _vAttrs[name] = fn;
     };
-    _defAttr(_vAttrDefaultName, function (attr) {
-        /// <param name="attr" value="_newVirtualAttr({}, 'name', 'value')"></param>
+    _defAttr(_vAttrDefaultName, function (vAttr) {
+        /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
 
-        attr.$layout(function (c) {
-            cp.$html(c.value);
+        var name = vAttr.$name, view = vAttr.$view;
+
+        if (_isEvent.test(name)) {
+            var eventName = name.replace(_isEvent, ''),
+                bind = function (evName, callback) {
+                    var fn = function () {
+                        view.$updateAsync();
+                        return callback.apply(this, arguments);
+                    };
+                    vAttr.$on(evName, fn);
+                };
+
+            var fn = /^\s*\[(.|\n)*\]\s*$/g.test(vAttr.$contents) ? vAttr.$result() : vAttr.$value();
+            if (!bingo.isFunction(fn) && !bingo.isArray(fn))
+                fn = function (e) { return vAttr.$eval(e); };
+            bind(eventName, fn);
+            return;
+        }
+        console.log('_vAttrDefaultName', name);
+        vAttr.$layout(function (c) {
+            console.log('_vAttrDefaultName $layout', name);
+            vAttr.$attr(c.value);
         });
 
-        return cp;
+        return vAttr;
+    });
+    bingo.each('checked,unchecked,disabled,enabled,readonly'.split(','), function (attrName) {
+        _defAttr(attrName, function (vAttr) {
+            /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
+
+            var _set = function (val) {
+                switch (attrName) {
+                    case 'enabled':
+                        vAttr.$propEx('disabled', !val);
+                        break;
+                    case 'unchecked':
+                        vAttr.$propEx('checked', !val);
+                        break;
+                    default:
+                        vAttr.$prop(val);
+                        break;
+                }
+            };
+
+            vAttr.$layout(function (c) {
+                _set(c.value);
+            });
+
+            if (attrName == 'checked' || attrName == 'unchecked') {
+                var fn = function () {
+                    var value = vAttr.$propEx('checked');
+                    vAttr.$value(attrName == 'checked' ? value : !value);
+                };
+                //如果是checked, unchecked, 双向绑定
+                vAttr.$on('click', fn);
+            }
+
+            return vAttr;
+        });
+    });
+    bingo.each('show,hide,visible'.split(','), function (attrName) {
+        _defAttr(attrName, function (vAttr) {
+            /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
+            var _set = function (val) {
+
+                switch (attrName) {
+                    case 'hide':
+                        val = !val;
+                    case 'show':
+                        if (val) vAttr.$show(); else vAttr.$hide();
+                        break;
+                    case 'visible':
+                        val = val ? 'visible' : 'hidden';
+                        vAttr.$css('visibility', val);
+                        break;
+                }
+            };
+
+            $attr.$layout(function (c) {
+                _set(c.value);
+            });
+
+            return vAttr;
+        });
+    });
+
+    bingo.each('model,value'.split(','), function (attrName) {
+        _defAttr(attrName, function (vAttr) {
+            /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
+
+            var node = vAttr.$node, isVal = attrName == 'value';
+
+            var _type = _attr(node, 'type'),
+                _isRadio = _type == 'radio' && !isVal,
+                _isCheckbox = _type == 'checkbox' && !isVal,
+                _checkboxVal = _isCheckbox ? _val(node) : null,
+                _isSelect = node.tagName.toLowerCase() == 'select';
+
+            var _val = function (val) {
+                if (arguments.length == 0)
+                    return vAttr.$attrEx('value');
+                else
+                    vAttr.$attrEx('value', val);
+            }
+
+            var _getNodeValue = function () {
+                return _isCheckbox ? (vAttr.$propEx("checked") ? _checkboxVal : '') : (_val());
+            }, _setNodeValue = function (value) {
+                value = _isSelect && bingo.isArray(value) ? value : bingo.toStr(value);
+                if (_isCheckbox) {
+                    vAttr.$propEx("checked", (_val() == value));
+                } else if (_isRadio) {
+                    vAttr.$propEx("checked", (_val() == value));
+                } else if (_isSelect)
+                    _val(value);
+                else
+                    _val(value);
+            };
+
+            var _eVal, eName, fn = function () {
+                var value = _getNodeValue();
+                if (_eVal != value || _isRadio) {
+                    _eVal = value;
+                    vAttr.$value(value);
+                }
+            };
+            if (_isRadio) {
+                eName = 'click';
+            } else {
+                eName = 'change';
+            }
+            if (eName) {
+                vAttr.$on(eName, fn);
+            }
+
+            vAttr.$layoutValue(function (c) {
+                var val = c.value;
+                _setNodeValue(val);
+            });
+
+            return vAttr;
+        });
     });
 
     //console.log(_renderAttr(tmpl));
@@ -1234,7 +1459,7 @@
 
 
     var _rootView = _newView({
-        $name: '',
+        $name: 'rootview',
         $app: bingo.app('')
     });
     _compile({
