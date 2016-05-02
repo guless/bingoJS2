@@ -19,6 +19,32 @@
 <body id="1">
     test start aaa
     <div id="context1"></div>
+    <script type="text/html" id="tmpl2">
+        sdfs
+        {{view controller="view_test1" name='view1' app="demo" /}}
+        {{ctrl name="ctrl1"}}
+            ctrl111
+            <div></div>
+        {{aaa}}
+        {{aa aaa}}
+            {{ctrl}}no{{/ctrl}}
+            {{ctrl}} no1 {{/ctrl}}
+        {{/ctrl}}
+        {{ctrl}}
+        ctrl222
+        <br />
+        {{/ctrl}}
+        <br />
+        {{user id="111'
+            tt="333" /}}
+        <div></div>
+        {{user name="nnn" /}}
+        <span></span>
+        {{test aaa}}
+            aaaatestdd
+        {{/test}}
+        <aaa></aaa>
+    </script>
     <script type="text/html" id="tmpl1">
         asdfsadfdfaaaa
         {{view controller="view_test1" name='view1' app="demo" /}}
@@ -32,6 +58,9 @@
         </div>
         <div class="splice">if==============================</div>
         <div class="content">
+            <div style="color:red;">
+                <button onclick="[[click2]]">test</button>
+            </div>
             {{if if1}}asd
                 <div style="color:[[color]];" aaaaa="[[aaa]]">
                     <button onclick="[[click1]]">if attr</button>
@@ -47,9 +76,6 @@
                 if1 false
             {{/if}}
         </div>
-        <div style="color:red;">
-            <button onclick="[[click2]]">test</button>
-        </div>
         {{controller}}
             $view.if1 = true;
             $view.if2 = false;
@@ -61,12 +87,13 @@
             $view.color = 'red';
             $view.click1 = function(){alert('test ok');};
 
-            $view.click2 = function(){alert($view.name);};
+             $view.click2 = function(){$view.if1 = !$view.if1;};
+            $view.click3 = function(){$view.name = bingo.makeAutoId();};
         {{/controller}}
         <div class="splice">attr==============================</div>
         <div class="content">
             <div style="color:red;">
-                <button onclick="[[click2]]">test</button>
+                <button onclick="[[click3]]">test</button>
             </div>
             <input type="text" model="[[name]]" />
             {{text name /}}

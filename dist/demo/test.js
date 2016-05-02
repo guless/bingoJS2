@@ -730,9 +730,6 @@
 
 
 
-    var tmpl = document.getElementById('tmpl1').innerHTML;
-
-
     //指令解释:
     //{{cmd /}}
     //{{cmd attr="asdf" /}}
@@ -760,34 +757,121 @@
             return index > -1 ? _allViews[index] : null;
         };
 
+
+    var _tmplCmdReg = /\{\{\s*(\/?)\s*([^\s{}]+)\s*((?:(?:.|\n|\r)(?!\{\{|\}\}))*)(.?)\}\}/gi;
+
+    var _traverseTmpl = function (tmpl) {
+        var item, isSingle, isEnd, tag, attrs, find, contents,
+            list = [], strAll = [], lastIndex = 0,
+            strIndex = 0,
+            index, lv = 0, id;
+        _tmplCmdReg.lastIndex = 0;
+        while (item = _tmplCmdReg.exec(tmpl)) {
+            find = item[0];
+            index = item.index;
+
+            tag = item[2];
+            isSingle = item[4] == '/' || tag == 'else' || tag == 'case';
+            isEnd = isSingle || item[1] == '/';
+            attrs = item[3];
+            !isSingle && (attrs = attrs + item[4]);
+
+            if (lv == 0) {
+                if (isSingle || !isEnd) {
+
+                    contents = tmpl.substr(lastIndex, index - lastIndex);
+                    strAll.push(contents);
+
+                    id = bingo.makeAutoId();
+                    strAll.push(_getScriptTag(id));
+                    list.push({
+                        id: id,
+                        //lv: lv,
+                        index: index,
+                        //find: find,
+                        single: isSingle,
+                        end: isEnd,
+                        tag: tag,
+                        attrs: attrs,
+                        contents: ''
+                    });
+                }
+                strIndex = index + find.length;
+            }
+            if (isEnd) {
+                if (!isSingle) lv--;
+                if (lv == 0)
+                    list[list.length - 1].contents = tmpl.substr(strIndex, index - strIndex);
+            } else {
+                lv++;
+            }
+            lastIndex = index + find.length;
+            //console.log(item);
+        }
+        strAll.push(tmpl.substr(lastIndex, tmpl.length - lastIndex))
+
+        //console.log('list', list.length, list, strAll.join(''));
+        return { contents: strAll.join(''), regs: list };
+    };
+    //var tmpl2 = document.getElementById('tmpl2').innerHTML;
+    //_traverseTmpl(tmpl2);
+
     var _traverseCmd = function (tmpl, cp) {
-        _commandReg.lastIndex = 0;
+        //_commandReg.lastIndex = 0;
         var list = [], view, app;
         //console.log(cp.cmd, cp)
         bingo.isString(tmpl) || (tmpl = bingo.toStr(tmpl));
-        tmpl = tmpl.replace(_commandReg, function (find, cmd, attrs, cmd1, attrs1, content1) {
-            //console.log('_commandEx', arguments);
-            var id = bingo.makeAutoId(), elseList, whereList, item;
-            content1 && (content1 = bingo.trim(content1));
-            if (cmd1 == 'if') {
-                var elseContent = _traverseElse(content1);
-                content1 = elseContent.contents;
+        var tmplContext = _traverseTmpl(tmpl);
+
+        tmpl = tmplContext.contents;
+        bingo.each(tmplContext.regs, function (reg) {
+
+            var elseList, whereList, item,
+                cmd = reg.tag,
+                contents = reg.contents;
+            contents && (contents = bingo.trim(contents));
+            if (cmd == 'if') {
+                var elseContent = _traverseElse(contents);
+                contents = elseContent.contents;
                 elseList = elseContent.elseList;
                 whereList = elseContent.whereList;
             }
             item = {
-                $id: id,
-                $cmd: cmd1 || cmd,
-                $attrs: _traverseAttr(attrs1 || attrs),
-                $contents: content1 || '',
+                $id: reg.id,
+                $cmd: cmd,
+                $attrs: _traverseAttr(reg.attrs),
+                $contents: contents,
                 $elseList: elseList,
                 $whereList: whereList
             };
             (item.$cmd == 'view') && (view = item);
             list.push(item);
 
-            return _getScriptTag(id);
         });
+
+        //tmpl = tmpl.replace(_commandReg, function (find, cmd, attrs, cmd1, attrs1, content1) {
+        //    //console.log('_commandEx', arguments);
+        //    var id = bingo.makeAutoId(), elseList, whereList, item;
+        //    content1 && (content1 = bingo.trim(content1));
+        //    if (cmd1 == 'if') {
+        //        var elseContent = _traverseElse(content1);
+        //        content1 = elseContent.contents;
+        //        elseList = elseContent.elseList;
+        //        whereList = elseContent.whereList;
+        //    }
+        //    item = {
+        //        $id: id,
+        //        $cmd: cmd1 || cmd,
+        //        $attrs: _traverseAttr(attrs1 || attrs),
+        //        $contents: content1 || '',
+        //        $elseList: elseList,
+        //        $whereList: whereList
+        //    };
+        //    (item.$cmd == 'view') && (view = item);
+        //    list.push(item);
+
+        //    return _getScriptTag(id);
+        //});
 
         if (view) {
             app = bingo.app(view.$attrs.$getAttr('app'));
@@ -1457,7 +1541,7 @@
     //console.log(_renderAttr(tmpl));
     //console.log('domAttrReg', _domAttrList);
 
-
+    var tmpl = document.getElementById('tmpl1').innerHTML;
     var _rootView = _newView({
         $name: 'rootview',
         $app: bingo.app('')
@@ -1467,6 +1551,9 @@
         view: _rootView,
         context: '#context1'
     });
+
+
+
 
     //测试
     var attrMethod = true;
