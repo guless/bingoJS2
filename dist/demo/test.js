@@ -1,6 +1,7 @@
 //tran command
 (function () {
     //todo tranvse后layout
+    return
 
     var _Promise = bingo.Promise,
         _isPromise = _Promise.isPromise, _promisePush = function (promises, p) {
@@ -602,6 +603,13 @@
             ctrl = bingo.controller(ctrl);
             ctrl && cp.$view.$controller(ctrl.fn);
         }
+
+        return cp;
+    });
+    _defCommand('splice', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+
+        cp.$tmpl('<div class="splice">html sdfssdfsdfsd==============================</div>');
 
         return cp;
     });
@@ -1556,11 +1564,11 @@
 
 
     //测试
-    var attrMethod = true;
-    attrMethod = attrMethod && ('hasChildNodes' in document.body);
-    attrMethod = attrMethod && ('hasAttribute' in document.body);
-    attrMethod = attrMethod && ('getAttribute' in document.body);
-    console.log('attrMethod====>', attrMethod);
+    //var attrMethod = true;
+    //attrMethod = attrMethod && ('hasChildNodes' in document.body);
+    //attrMethod = attrMethod && ('hasAttribute' in document.body);
+    //attrMethod = attrMethod && ('getAttribute' in document.body);
+    //console.log('attrMethod====>', attrMethod);
 
     //测试各浏览器删除script节点兼容性
     //var ns = _query('script');

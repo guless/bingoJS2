@@ -53,6 +53,7 @@
             {{text "text:"+user.desc+"11" /}}
         </div>
         <div class="splice">html==============================</div>
+        {{splice /}}
         <div class="content">
             {{html "html:"+user.desc+"_html" /}}
         </div>
@@ -76,19 +77,17 @@
                 if1 false
             {{/if}}
         </div>
+        {{splice /}}
         {{controller}}
             $view.if1 = true;
             $view.if2 = false;
             $view.aaa = false;
 
-        $view.name = '张三';
-        $view.role = '测试';
 
             $view.color = 'red';
             $view.click1 = function(){alert('test ok');};
 
              $view.click2 = function(){$view.if1 = !$view.if1;};
-            $view.click3 = function(){$view.name = bingo.makeAutoId();};
         {{/controller}}
         <div class="splice">attr==============================</div>
         <div class="content">
@@ -102,6 +101,13 @@
             {{text name /}}
             <br />
         </div>
+        {{controller}}
+            
+            $view.name = '张三';
+            $view.role = '测试';
+            $view.click3 = function(){$view.name = bingo.makeAutoId();};
+        {{/controller}}
+
     </script>
     <script type="text/html" id="tmpl2"><div t="asdf" aaa="test('a\'sdfas[user.name]df')" bbb='atest[user.name]'></div></script>
     <script src="../scripts/bingo2/bingo.js"></script>
