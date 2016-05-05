@@ -2458,7 +2458,6 @@
             if (contextCache[cacheName]) return contextCache[cacheName];
 
             hasRet && (content = ['try { return ', content, ';} catch (e) {bingo.observe.error(e);}'].join(''));
-            //console.log('bind', node || view);
             var fnDef = [
                         'with ($view) {',
                             //如果有withData, 影响性能
@@ -2471,8 +2470,8 @@
             try {
                 return contextCache[cacheName] = (new Function('_this_', '$view', '$withData', 'bingo', fnDef))(node || view, view, withData, bingo);//bingo(多版本共存)
             } catch (e) {
-                console.log(content);
-                throw e;
+                bingo.trace(content);
+                //throw e;
             }
         }
     }; //end _vm
@@ -2780,7 +2779,6 @@
             },
             $getChild: function (id) {
                 var item;
-                //console.log(id, this.$children);
                 bingo.each(this.$children, function () {
                     if (this.$id == id) {
                         item = this;
@@ -2907,7 +2905,6 @@
             bingo.each(_names, function (item) {
                 this[item].bgDispose();
             }, this);
-            console.log('dispose attrs');
         });
         return _attrs;
     }, _newVirtualNode = function (cp, node) {
@@ -3028,7 +3025,6 @@
     };
 
     bingo.controller('view_test1', function ($view) {
-        console.log('view controller', $view);
         //user.desc
         $view.user = {
             desc: 'asdfasdfasfdasdf11<br />asdfasdf<div>sdf</div> {{html "<div>div</div><div>div1</div>asdf" /}}sdfs{{html name /}}sdf',
@@ -3099,7 +3095,7 @@
         cp.$layout(function () {
             return cp.$result();
         }, function (c) {
-            cp.$html(c.value);
+            return cp.$html(c.value);
         });
 
         return cp;
@@ -3132,15 +3128,14 @@
         cp.$layout(function () {
             return cp.$attrs.$result();
         }, function (c) {
-            //console.log('if====>', cp.$contents);
-            cp.$html(_getContent(-1, c.value));
+            return cp.$html(_getContent(-1, c.value));
         });
 
         bingo.each(_elseList, function (item, index) {
             item.$attrs.$contents && cp.$layout(function () {
                 return item.$attrs.$result();
             }, function (c) {
-                cp.$html(_getContent(index, c.value));
+                return cp.$html(_getContent(index, c.value));
             }, 0, false);
         });
 
@@ -3163,7 +3158,7 @@
         cp.$layout(function () {
             return cp.$attrs.$result();
         }, function (c) {
-            cp.$html(c.value);
+            return cp.$html(c.value);
         });
 
         return cp;
@@ -3175,7 +3170,7 @@
         cp.$layout(function () {
             return cp.$attrs.$result();
         }, function (c) {
-            cp.$text(c.value);
+           return cp.$text(c.value);
         });
 
         return cp;
@@ -3186,7 +3181,7 @@
         cp.$tmpl('{{view /}}<select>{{for item in datas}}<option value="1"></option>{{/for}}</select>');
 
         cp.$controller(function ($view) {
-            console.log('select1 controller');
+
             $view.idName = '';
             $view.textName = '';
             $view.id = '';
@@ -3272,11 +3267,9 @@
                 lv++;
             }
             lastIndex = index + find.length;
-            //console.log(item);
         }
         strAll.push(tmpl.substr(lastIndex, tmpl.length - lastIndex))
 
-        //console.log('list', list.length, list, strAll.join(''));
         return { contents: strAll.join(''), regs: list };
     };
     //var tmpl2 = document.getElementById('tmpl2').innerHTML;
@@ -3285,7 +3278,6 @@
     var _traverseCmd = function (tmpl, cp) {
         //_commandReg.lastIndex = 0;
         var list = [], view, app;
-        //console.log(cp.cmd, cp)
         bingo.isString(tmpl) || (tmpl = bingo.toStr(tmpl));
         var tmplContext = _traverseTmpl(tmpl);
 
@@ -3353,7 +3345,7 @@
 
         var children = [], tempCP, cmdDef, elseList, whereList;
         bingo.each(list, function (item) {
-            //console.log('cmd', item.$cmd, view);
+
             tempCP = _newCP(item);
             tempCP.$view = view;
             tempCP.$attrs._setCP(tempCP);
@@ -3619,9 +3611,9 @@
 
     var _traverseCP = function (refNode, cp, optName) {
         var tmpl = _renderAttr(cp.tmplTag);
-        //console.log('tmpltmpltmpltmpl', tmpl);
+
         var nodes = _parseHTML(tmpl, optName == 'appendTo' ? refNode : refNode.parentNode, true);
-        //console.log(cp.$cmd, nodes.length);
+
         if (nodes.length > 0) {
             var pNode = nodes[0].parentNode;
             _virtualNodes(cp, nodes);
@@ -3641,7 +3633,7 @@
                 if (id) {
                     tempCP = cp.$getChild(id);
                     if (tempCP) {
-                        //console.log('tempCP', tempCP);
+
                         _traverseCP(item, tempCP, 'insertBefore');
                         _removeNode(item);
                     }
@@ -3661,7 +3653,7 @@
             $view: view, $contents: p.tmpl
         });
         return cp.$render().then(function () {
-            console.log('compile', cp.$cmd, cp);
+
             _cpCtrlStep();
             _viewCtrlStep();
             var node, opName;
@@ -3672,9 +3664,8 @@
                 node = bingo.isString(p.context) ? _query(p.context) : p.context;
                 opName = 'appendTo';
             }
-            var fr = _traverseCP(node, cp, opName);
-            console.log('_traverseCP', node.innerHTML);
-            //console.log('render End', new Date());
+            _traverseCP(node, cp, opName);
+
             return _complieInit();
         });
     }, _complieInit = function () {
@@ -3736,11 +3727,11 @@
 
     var _renderAttr = function (tmpl) {
         tmpl = tmpl.replace(_domNodeReg, function (find, pos, contents) {
-            //console.log('domNodeReg', arguments);
+
             _domAttrReg.lastIndex = 0;
             var domAttrs = {}, has = false, isV = false;
             var findR = find.replace(_domAttrReg, function (findAttr, name, contents, dot, dot1) {
-                //console.log('fndR', arguments);
+
                 if (isV || name == 'bg-virtual') { has = false; isV = true; return; }
                 dot = dot || dot1;
                 contents = contents.replace(_domAttrPotReg, '$1')
@@ -3756,7 +3747,6 @@
             });
             if (has) {
                 findR = findR.replace(_domNodeRPReg, [_domAttrVirSt, _attrEncode(JSON.stringify(domAttrs)), _domAttrVirEn].join(''));
-                //console.log('findR', findR);
             }
             //virtual
             return isV ? find : findR;
@@ -3779,8 +3769,8 @@
             }
         });
 
-        if (cp && cp.$virtualNodes.length > 0)
-            console.log('_virtualNodes', cp.$virtualNodes);
+        //if (cp && cp.$virtualNodes.length > 0)
+        //    console.log('_virtualNodes', cp.$virtualNodes);
     },
     _virtualAttrs = function (vNode, node) {
         var attr = node.getAttribute(_domAttrVirName),
@@ -3927,9 +3917,8 @@
             bind(eventName, fn);
             return;
         }
-        console.log('_vAttrDefaultName', name);
+
         vAttr.$layout(function (c) {
-            console.log('_vAttrDefaultName $layout', name);
             vAttr.$attr(c.value);
         });
 
@@ -4053,8 +4042,6 @@
         });
     });
 
-    //console.log(_renderAttr(tmpl));
-    //console.log('domAttrReg', _domAttrList);
 
     bingo.view = function (name) {
         /// <summary>
