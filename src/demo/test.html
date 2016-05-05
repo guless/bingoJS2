@@ -53,7 +53,7 @@
             {{text "text:"+user.desc+"11" /}}
         </div>
         <div class="splice">html==============================</div>
-        {{splice /}}
+        {{splice name='splice1' /}}
         <div class="content">
             {{html "html:"+user.desc+"_html" /}}
         </div>
@@ -71,6 +71,7 @@
                 {{else aaa}}
                     if2 aaa
                 {{else}}
+                    {{view name="if2false" /}}
                     if2 false
                 {{/if}}
             {{else}}
