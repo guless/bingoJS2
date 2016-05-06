@@ -3,13 +3,14 @@
     "use strict";
 
     var _newApp = function (name) {
-        return {
+        return bingo.extend({
             name: name, _no_observe: true,
             controller: _controllerFn, _controller: {},
             service: _serviceFn, _service: {},
-            component: _componentFn, _component: {},
+            attr: _attrFn, _attr: {},
+            route: _routeFn, _route: {},
             command: _commandFn, _command: {}
-        };
+        }, bingo.app._bg_appEx);
     }, _getApp = function () {
         return bingo.app(this.app);
     }, _appMType = function (app, type, name, fn, isF) {
@@ -51,34 +52,35 @@
     }, _serviceFn = function (name, fn) {
         var args = [this, '_service'].concat(bingo.sliceArray(arguments));
         return _appMType.apply(this, args);
-    }, _componentFn = function (name, fn) {
-        var args = [this, '_component'].concat(bingo.sliceArray(arguments));
+    }, _routeFn = function (name, fn) {
+        var args = [this, '_route'].concat(bingo.sliceArray(arguments));
+        return _appMType.apply(this, args);
+    }, _attrFn = function (name, fn) {
+        var args = [this, '_attr'].concat(bingo.sliceArray(arguments));
         return _appMType.apply(this, args);
     }, _commandFn = function (name, fn) {
         var args = [this, '_command'].concat(bingo.sliceArray(arguments));
-        var def = args[3];
-        if (def) {
-            var opt = {
-                priority: 50,
-                tmpl: '',
-                tmplUrl: '',
-                replace: false,
-                include: false,
-                view: false,
-                compileChild: true
-            };
-            def = def();
-            if (bingo.isFunction(def) || bingo.isArray(def)) {
-                opt.link = _makeInjectAttrs(def);
-            } else
-                opt = bingo.extend(opt, def);
-            args[3] = opt;
-            args[4] = false;
-        }
+        //var def = args[3];
+        //if (def) {
+        //    var opt = {
+        //        priority: 50,
+        //        tmpl: '',
+        //        tmplUrl: '',
+        //        replace: false,
+        //        include: false,
+        //        view: false,
+        //        compileChild: true
+        //    };
+        //    def = def();
+        //    if (bingo.isFunction(def) || bingo.isArray(def)) {
+        //        opt.link = _makeInjectAttrs(def);
+        //    } else
+        //        opt = bingo.extend(opt, def);
+        //    args[3] = opt;
+        //    args[4] = false;
+        //}
         return _appMType.apply(this, args);
     }
-
-    var _app = {}, _defualtApp = _newApp('defualtApp'), _lastApp = null
 
     bingo.extend({
         app: function (name, fn) {
@@ -110,9 +112,9 @@
                 return app.controller.apply(app, arguments);
             }
         },
-        component: function (name, fn) {
+        attr: function (name, fn) {
             var app = (_lastApp || _defualtApp);
-            return app.component.apply(app, arguments);
+            return app.attr.apply(app, arguments);
         },
         command: function (name, fn) {
             var app = (_lastApp || _defualtApp);
@@ -121,6 +123,18 @@
         service: function (name, fn) {
             var app = (_lastApp || _defualtApp);
             return app.service.apply(app, arguments);
+        },
+        route: function (name, fn) {
+            var app = (_lastApp || _defualtApp);
+            return app.route.apply(app, arguments);
+        }
+    });
+
+    var _app = {}, _defualtApp = _newApp('defualtApp'), _lastApp = null;
+    bingo.extend(bingo.app, {
+        _bg_appEx: {},
+        extend: function (p) {
+            return bingo.extend(this._bg_appEx, p);
         }
     });
 

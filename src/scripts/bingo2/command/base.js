@@ -1,6 +1,158 @@
 ﻿
 (function (bingo) {
     "use strict";
+
+
+    bingo.command('view', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+
+        var ctrl = cp.$getAttr('controller');
+        if (ctrl) {
+            ctrl = bingo.controller(ctrl);
+            ctrl && cp.$view.$controller(ctrl.fn);
+        }
+
+        return cp;
+    });
+    bingo.command('splice', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+
+        cp.$tmpl('<div class="splice">{{view /}} {{text title /}}==============================</div>');
+
+        cp.$controller(function ($view) {
+            $view.title = cp.$name;
+        });
+
+        //cp.$export = { test: '' };
+
+        return cp;
+    });
+
+    bingo.command('controller', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+
+        cp.$tmpl('');
+
+        cp.$view.$controller(function () {
+            cp.$eval();
+        });
+
+        return cp;
+    });
+
+
+    bingo.command('for', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+
+        var src = cp.$getAttr('src');
+
+        var itemName = 'item', dataName = 'datas';
+        cp.$contents = dataName;
+        cp.$tmpl('');
+
+        cp.$layout(function () {
+            return cp.$result();
+        }, function (c) {
+            return cp.$html(c.value);
+        });
+
+        return cp;
+    });
+
+    bingo.command('if', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+
+        cp.$tmpl('');
+
+        var _contents = cp.$contents,
+            _elseList = cp.$elseList, _getContent = function (index, val) {
+                if (index == -1 && val)
+                    return _contents;
+                else {
+                    var ret = cp.$attrs.$result();
+                    if (ret) return _contents;
+                    var s;
+                    bingo.each(_elseList, function (item, i) {
+                        if (!item.$attrs.$contents || (index == i && val)
+                            || item.$attrs.$result()) {
+                            s = item.$contents
+                            return false;
+                        }
+                    });
+                    return s;
+                }
+            };
+
+        cp.$layout(function () {
+            return cp.$attrs.$result();
+        }, function (c) {
+            return cp.$html(_getContent(-1, c.value));
+        });
+
+        bingo.each(_elseList, function (item, index) {
+            item.$attrs.$contents && cp.$layout(function () {
+                return item.$attrs.$result();
+            }, function (c) {
+                return cp.$html(_getContent(index, c.value));
+            }, 0, false);
+        });
+
+        return cp;
+    });
+
+    bingo.command('include', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+
+        cp.$tmpl(function () {
+            return bingo.tmpl(cp.$getAttr('src'));
+        });
+
+        return cp;
+    });
+
+    bingo.command('html', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+
+        cp.$layout(function () {
+            return cp.$attrs.$result();
+        }, function (c) {
+            return cp.$html(c.value);
+        });
+
+        return cp;
+    });
+
+    bingo.command('text', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+
+        cp.$layout(function () {
+            return cp.$attrs.$result();
+        }, function (c) {
+            return cp.$text(c.value);
+        });
+
+        return cp;
+    });
+
+    bingo.command('select', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+        cp.$tmpl('{{view /}}<select>{{for item in datas}}<option value="1"></option>{{/for}}</select>');
+
+        cp.$controller(function ($view) {
+
+            $view.idName = '';
+            $view.textName = '';
+            $view.id = '';
+            $view.datas = '';
+        });
+
+        return cp;
+    });
+
+
+
+
+    return;
     var _Promise = bingo.Promise,
         _attr = function (node, name, val) {
             if (arguments.length < 3)

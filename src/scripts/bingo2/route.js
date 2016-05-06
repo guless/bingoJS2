@@ -641,6 +641,10 @@
         return url;
     };
 
+    bingo.app.extend({
+        route: function () { }
+    });
+
     var _routes = {
         datas: [],
         defaultRoute: {

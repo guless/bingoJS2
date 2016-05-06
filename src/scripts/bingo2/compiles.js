@@ -685,8 +685,8 @@
             }.bind(this));
         });
 
-        var def = _defAttr(name);
-        def(vAttr);
+        var def = bingo.attr(name);
+        def && def.fn(vAttr);
 
         return vAttr;
     };
@@ -701,164 +701,6 @@
 
         window.view1 = $view;
     });
-
-
-
-    var _commands = {}, _defCommand = function (name, fn) {
-
-        if (arguments.length == 1)
-            return _commands[name];
-        else
-            _commands[name] = fn;
-    };
-
-    _defCommand('view', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
-
-        var ctrl = cp.$getAttr('controller');
-        if (ctrl) {
-            ctrl = bingo.controller(ctrl);
-            ctrl && cp.$view.$controller(ctrl.fn);
-        }
-
-        return cp;
-    });
-    _defCommand('splice', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
-
-        cp.$tmpl('<div class="splice">{{view /}} {{text title /}}==============================</div>');
-
-        cp.$controller(function ($view) {
-            $view.title = cp.$name;
-        });
-
-        //cp.$export = { test: '' };
-
-        return cp;
-    });
-
-    _defCommand('controller', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
-
-        cp.$tmpl('');
-
-        cp.$view.$controller(function () {
-            cp.$eval();
-        });
-
-        return cp;
-    });
-
-
-    _defCommand('for', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
-
-        var src = cp.$getAttr('src');
-
-        var itemName = 'item', dataName = 'datas';
-        cp.$contents = dataName;
-        cp.$tmpl('');
-
-        cp.$layout(function () {
-            return cp.$result();
-        }, function (c) {
-            return cp.$html(c.value);
-        });
-
-        return cp;
-    });
-
-    _defCommand('if', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
-
-        cp.$tmpl('');
-
-        var _contents = cp.$contents,
-            _elseList = cp.$elseList, _getContent = function (index, val) {
-                if (index == -1 && val)
-                    return _contents;
-                else {
-                    var ret = cp.$attrs.$result();
-                    if (ret) return _contents;
-                    var s;
-                    bingo.each(_elseList, function (item, i) {
-                        if (!item.$attrs.$contents || (index == i && val)
-                            || item.$attrs.$result()) {
-                            s = item.$contents
-                            return false;
-                        }
-                    });
-                    return s;
-                }
-            };
-
-        cp.$layout(function () {
-            return cp.$attrs.$result();
-        }, function (c) {
-            return cp.$html(_getContent(-1, c.value));
-        });
-
-        bingo.each(_elseList, function (item, index) {
-            item.$attrs.$contents && cp.$layout(function () {
-                return item.$attrs.$result();
-            }, function (c) {
-                return cp.$html(_getContent(index, c.value));
-            }, 0, false);
-        });
-
-        return cp;
-    });
-
-    _defCommand('include', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
-
-        cp.$tmpl(function () {
-            return bingo.tmpl(cp.$getAttr('src'));
-        });
-
-        return cp;
-    });
-
-    _defCommand('html', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
-
-        cp.$layout(function () {
-            return cp.$attrs.$result();
-        }, function (c) {
-            return cp.$html(c.value);
-        });
-
-        return cp;
-    });
-
-    _defCommand('text', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
-
-        cp.$layout(function () {
-            return cp.$attrs.$result();
-        }, function (c) {
-           return cp.$text(c.value);
-        });
-
-        return cp;
-    });
-
-    _defCommand('select', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
-        cp.$tmpl('{{view /}}<select>{{for item in datas}}<option value="1"></option>{{/for}}</select>');
-
-        cp.$controller(function ($view) {
-
-            $view.idName = '';
-            $view.textName = '';
-            $view.id = '';
-            $view.datas = '';
-        });
-
-        return cp;
-    });
-
-
 
     //指令解释:
     //{{cmd /}}
@@ -1019,7 +861,8 @@
             tempCP.$app = app;
             tempCP.$parent = cp;
             tempCP.$name = bingo.trim(tempCP.$attrs.$getAttr('name'));
-            cmdDef = _defCommand(item.$cmd);
+            cmdDef = bingo.command(item.$cmd);
+            cmdDef && (cmdDef = cmdDef.fn);
             elseList = tempCP.$elseList;
             if (elseList) {
                 var cpT, whereList = tempCP.$whereList;
@@ -1556,160 +1399,6 @@
             });
         };
 
-    var _vAttrDefaultName = 'bg_default_vattr', _vAttrs = {},
-        _isEvent = /^\s*on/i, _defAttr = function (name, fn) {
-            if (arguments.length == 1)
-                return _vAttrs[name] || _vAttrs[_vAttrDefaultName];
-            else
-                _vAttrs[name] = fn;
-        };
-    _defAttr(_vAttrDefaultName, function (vAttr) {
-        /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
-
-        var name = vAttr.$name, view = vAttr.$view;
-
-        if (_isEvent.test(name)) {
-            var eventName = name.replace(_isEvent, ''),
-                bind = function (evName, callback) {
-                    var fn = function () {
-                        view.$updateAsync();
-                        return callback.apply(this, arguments);
-                    };
-                    vAttr.$on(evName, fn);
-                };
-
-            var fn = /^\s*\[(.|\n)*\]\s*$/g.test(vAttr.$contents) ? vAttr.$result() : vAttr.$value();
-            if (!bingo.isFunction(fn) && !bingo.isArray(fn))
-                fn = function (e) { return vAttr.$eval(e); };
-            bind(eventName, fn);
-            return;
-        }
-
-        vAttr.$layout(function (c) {
-            vAttr.$attr(c.value);
-        });
-
-        return vAttr;
-    });
-    bingo.each('checked,unchecked,disabled,enabled,readonly'.split(','), function (attrName) {
-        _defAttr(attrName, function (vAttr) {
-            /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
-
-            var _set = function (val) {
-                switch (attrName) {
-                    case 'enabled':
-                        vAttr.$propEx('disabled', !val);
-                        break;
-                    case 'unchecked':
-                        vAttr.$propEx('checked', !val);
-                        break;
-                    default:
-                        vAttr.$prop(val);
-                        break;
-                }
-            };
-
-            vAttr.$layout(function (c) {
-                _set(c.value);
-            });
-
-            if (attrName == 'checked' || attrName == 'unchecked') {
-                var fn = function () {
-                    var value = vAttr.$propEx('checked');
-                    vAttr.$value(attrName == 'checked' ? value : !value);
-                };
-                //如果是checked, unchecked, 双向绑定
-                vAttr.$on('click', fn);
-            }
-
-            return vAttr;
-        });
-    });
-    bingo.each('show,hide,visible'.split(','), function (attrName) {
-        _defAttr(attrName, function (vAttr) {
-            /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
-            var _set = function (val) {
-
-                switch (attrName) {
-                    case 'hide':
-                        val = !val;
-                    case 'show':
-                        if (val) vAttr.$show(); else vAttr.$hide();
-                        break;
-                    case 'visible':
-                        val = val ? 'visible' : 'hidden';
-                        vAttr.$css('visibility', val);
-                        break;
-                }
-            };
-
-            $attr.$layout(function (c) {
-                _set(c.value);
-            });
-
-            return vAttr;
-        });
-    });
-
-    bingo.each('model,value'.split(','), function (attrName) {
-        _defAttr(attrName, function (vAttr) {
-            /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
-
-            var node = vAttr.$node, isVal = attrName == 'value';
-
-            var _type = _attr(node, 'type'),
-                _isRadio = _type == 'radio' && !isVal,
-                _isCheckbox = _type == 'checkbox' && !isVal,
-                _checkboxVal = _isCheckbox ? _val(node) : null,
-                _isSelect = node.tagName.toLowerCase() == 'select';
-
-            var _val = function (val) {
-                if (arguments.length == 0)
-                    return vAttr.$attrEx('value');
-                else
-                    vAttr.$attrEx('value', val);
-            }
-
-            var _getNodeValue = function () {
-                return _isCheckbox ? (vAttr.$propEx("checked") ? _checkboxVal : '') : (_val());
-            }, _setNodeValue = function (value) {
-                value = _isSelect && bingo.isArray(value) ? value : bingo.toStr(value);
-                if (_isCheckbox) {
-                    vAttr.$propEx("checked", (_val() == value));
-                } else if (_isRadio) {
-                    vAttr.$propEx("checked", (_val() == value));
-                } else if (_isSelect)
-                    _val(value);
-                else
-                    _val(value);
-            };
-
-            var _eVal, eName, fn = function () {
-                var value = _getNodeValue();
-                if (_eVal != value || _isRadio) {
-                    _eVal = value;
-                    vAttr.$value(value);
-                }
-            };
-            if (_isRadio) {
-                eName = 'click';
-            } else {
-                eName = 'change';
-            }
-            if (eName) {
-                vAttr.$on(eName, fn);
-            }
-
-            vAttr.$layoutValue(function (c) {
-                var val = c.value;
-                _setNodeValue(val);
-            });
-
-            return vAttr;
-        });
-    });
-
-
     bingo.view = function (name) {
         /// <summary>
         /// 获取view<br />
@@ -1719,21 +1408,10 @@
     };
 
     bingo.rootView = function () { return _rootView; };
-
-    var tmpl = _doc.getElementById('tmpl1').innerHTML;
     var _rootView = _newView({
         $name: '',
         $app: bingo.app('')
     });
-
-    console.time('boot');
-    _compile({
-        tmpl: tmpl,
-        view: _rootView,
-        context: '#context1'
-    }).then(function () {
-        console.timeEnd('boot');
-    });;
 
     bingo.compile = function (view) {
         return new _cmpClass().view(view);
@@ -1743,31 +1421,32 @@
     bingo.bgEventDef('ready');
 
     (function () {
-        return;
-        //初始rootView
-        _compiles.setCmpNode(_docEle);
-        _rootView = new _viewClass(null, _docEle);
-        new _viewnodeClass(_rootView, _docEle);
 
+        console.time('boot');
+        //初始rootView
         //触发bingo.ready
         _rootView.$ready(function () {
             bingo.bgEnd('ready');
+            console.timeEnd('boot');
         });
 
         //DOMContentLoaded 时起动
         var _readyName = 'DOMContentLoaded', _ready = function () {
-            doc.removeEventListener(_readyName, _ready, false);
+            _doc.removeEventListener(_readyName, _ready, false);
             window.removeEventListener('load', _ready, false);
             //等待动态加载js完成后开始
             bingo.usingAll().then(function () {
-                return;
-                bingo.compile(_rootView).nodes(_docEle).compile().finally(function () {
-                    return _rootView._bgpri_.sendReady();
+                var tmpl = _doc.getElementById('tmpl1').innerHTML;
+
+                _compile({
+                    tmpl: tmpl,
+                    view: _rootView,
+                    context: '#context1'
                 });
             });
         };
         
-        doc.addEventListener(_readyName, _ready, false);
+        _doc.addEventListener(_readyName, _ready, false);
         window.addEventListener("load", _ready, false);
 
     })();
