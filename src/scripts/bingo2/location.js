@@ -120,9 +120,11 @@
 
     });
 
+    var _defualtApp = bingo.defualtApp;
+
     //$location.href('view/demo/userlist')
     //$location.href('view/demo/userlist', 'main')
-    bingo.service('$location', ['node', function (node) {
+    _defualtApp.service('$location', ['node', function (node) {
         return function (targer) { return bingo.location(targer || node); };
     }]);
 
@@ -136,7 +138,7 @@
         <div bg-route="" bg-name="main"></div>
     */
     var _tagRoute = 'bg-route', _tagCtrl = 'bg-controller';
-    bingo.command(_tagRoute, function () {
+    _defualtApp.command(_tagRoute, function () {
         return {
             priority: 1000,
             replace: false,

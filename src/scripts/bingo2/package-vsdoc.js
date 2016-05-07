@@ -4,11 +4,9 @@
 
     var _newApp = function (name) {
         return bingo.extend({
-            name: name, _no_observe: true,
+            name: name, bgNoObserve: true,
             controller: _controllerFn, _controller: {},
             service: _serviceFn, _service: {},
-            attr: _attrFn, _attr: {},
-            route: _routeFn, _route: {},
             command: _commandFn, _command: {}
         }, bingo.app._bg_appEx);
     }, _getApp = function () {
@@ -23,7 +21,7 @@
                 fn = function () { return o; };
             }
             bingo.isObject(fn) || (fn = _makeInjectAttrs(fn));
-            mType[name] = { name: name, fn: fn, app: app.name, getApp: _getApp, _no_observe: true };
+            mType[name] = { name: name, fn: fn, app: app.name, getApp: _getApp, bgNoObserve: true };
 
             //智能提示用
             var view = bingo.rootView(),
@@ -51,12 +49,6 @@
         return _appMType.apply(this, args);
     }, _serviceFn = function (name, fn) {
         var args = [this, '_service'].concat(bingo.sliceArray(arguments));
-        return _appMType.apply(this, args);
-    }, _routeFn = function (name, fn) {
-        var args = [this, '_route'].concat(bingo.sliceArray(arguments));
-        return _appMType.apply(this, args);
-    }, _attrFn = function (name, fn) {
-        var args = [this, '_attr'].concat(bingo.sliceArray(arguments));
         return _appMType.apply(this, args);
     }, _commandFn = function (name, fn) {
         var args = [this, '_command'].concat(bingo.sliceArray(arguments));
@@ -93,47 +85,14 @@
             } finally {
                 _lastApp = null;
             }
-        },
-        controller: function (name, fn) {
-            if (bingo.isFunction(name) || bingo.isArray(name)) {
-                fn = name;
-                //智能提示用
-                var view = bingo.rootView(),
-                    vNode = new bingo.viewnodeClass(view, document.body, bg_intellisense.pViewNode), p = {
-                        node: document.body,
-                        $viewnode: vNode,
-                        $attr: new bingo.attrClass(view, vNode, 'attr', 'text', '1', {}),
-                        $withData: {}
-                    };
-                bingo.inject(fn, view, p, view);
-                return fn;
-            } else {
-                var app = (_lastApp || _defualtApp);
-                return app.controller.apply(app, arguments);
-            }
-        },
-        attr: function (name, fn) {
-            var app = (_lastApp || _defualtApp);
-            return app.attr.apply(app, arguments);
-        },
-        command: function (name, fn) {
-            var app = (_lastApp || _defualtApp);
-            return app.command.apply(app, arguments);
-        },
-        service: function (name, fn) {
-            var app = (_lastApp || _defualtApp);
-            return app.service.apply(app, arguments);
-        },
-        route: function (name, fn) {
-            var app = (_lastApp || _defualtApp);
-            return app.route.apply(app, arguments);
         }
     });
 
-    var _app = {}, _defualtApp = _newApp('defualtApp'), _lastApp = null;
+    var _app = {}, _defualtApp = bingo.defualtApp = _newApp('$$defualtApp$$'), _lastApp = null;
     bingo.extend(bingo.app, {
         _bg_appEx: {},
         extend: function (p) {
+            bingo.extend(_defualtApp, p);
             return bingo.extend(this._bg_appEx, p);
         }
     });

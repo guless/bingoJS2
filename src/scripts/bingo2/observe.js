@@ -134,7 +134,7 @@
             /// bgToObserve('prop', true)
             /// </summary>
             /// <param name="deep">是否自动深toObserve</param>
-            if (this._no_observe === true) return this;
+            if (this.bgNoObserve) return this;
             if (bingo.isBoolean(prop)) { deep = prop; prop = null; }
             _defObserve(this, prop ? [prop] : Object.keys(this), deep);
             return this;
@@ -144,7 +144,7 @@
             /// bgObServe(function(change){})<br/>
             /// bgObServe('prop', function(change){})
             /// </summary>
-            if (this._no_observe === true) return this;
+            if (this.bgNoObserve) return this;
             if (bingo.isNull(prop) || bingo.isFunction(prop)) {
                 this.bgToObserve();
                 _addObs(this, null, prop || fn);
@@ -160,7 +160,7 @@
             /// bgUnObServe(fn)<br/>
             /// bgUnObServe('prop', fn)
             /// </summary>
-            if (this._no_observe === true) return this;
+            if (this.bgNoObserve) return this;
             if (bingo.isNull(prop) || bingo.isFunction(prop)) {
                 _delObs(this, null, prop || fn);
             } else {
@@ -189,7 +189,9 @@
             /// bgBuildProps('aaaa.bbb')  ==> [this, 'aaaa', false]
             /// </summary>
             return _splitProp(this, prop, true)[2];
-        }
+        },
+        //防止observe
+        bgNoObserve:false
     });
 
     //数组观察方法， length不能观察有些浏览器会报错

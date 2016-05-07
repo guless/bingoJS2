@@ -2,19 +2,20 @@
 (function (bingo) {
     "use strict";
 
+    var defualtApp = bingo.defualtApp;
 
-    bingo.command('view', function (cp) {
+    defualtApp.command('view', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
         var ctrl = cp.$getAttr('controller');
         if (ctrl) {
-            ctrl = bingo.controller(ctrl);
+            ctrl = cp.$app.controller(ctrl);
             ctrl && cp.$view.$controller(ctrl.fn);
         }
 
         return cp;
     });
-    bingo.command('splice', function (cp) {
+    defualtApp.command('splice', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
         cp.$tmpl('<div class="splice">{{view /}} {{text title /}}==============================</div>');
@@ -28,7 +29,7 @@
         return cp;
     });
 
-    bingo.command('controller', function (cp) {
+    defualtApp.command('controller', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
         cp.$tmpl('');
@@ -41,7 +42,7 @@
     });
 
 
-    bingo.command('for', function (cp) {
+    defualtApp.command('for', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
         var src = cp.$getAttr('src');
@@ -59,7 +60,7 @@
         return cp;
     });
 
-    bingo.command('if', function (cp) {
+    defualtApp.command('if', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
         cp.$tmpl('');
@@ -100,7 +101,7 @@
         return cp;
     });
 
-    bingo.command('include', function (cp) {
+    defualtApp.command('include', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
         cp.$tmpl(function () {
@@ -110,7 +111,7 @@
         return cp;
     });
 
-    bingo.command('html', function (cp) {
+    defualtApp.command('html', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
         cp.$layout(function () {
@@ -122,7 +123,7 @@
         return cp;
     });
 
-    bingo.command('text', function (cp) {
+    defualtApp.command('text', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
         cp.$layout(function () {
@@ -134,7 +135,7 @@
         return cp;
     });
 
-    bingo.command('select', function (cp) {
+    defualtApp.command('select', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
         cp.$tmpl('{{view /}}<select>{{for item in datas}}<option value="1"></option>{{/for}}</select>');
 

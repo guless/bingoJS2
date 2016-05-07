@@ -4,11 +4,9 @@
 
     var _newApp = function (name) {
         return bingo.extend({
-            name: name, _no_observe: true,
+            name: name, bgNoObserve: true,
             controller: _controllerFn, _controller: {},
             service: _serviceFn, _service: {},
-            attr: _attrFn, _attr: {},
-            route: _routeFn, _route: {},
             command: _commandFn, _command: {}
         }, bingo.app._bg_appEx);
     }, _getApp = function () {
@@ -23,7 +21,7 @@
                 fn = function () { return o; };
             }
             bingo.isObject(fn) || (fn = _makeInjectAttrs(fn));
-            mType[name] = { name: name, fn: fn, app: app.name, getApp: _getApp, _no_observe: true };
+            mType[name] = { name: name, fn: fn, app: app.name, getApp: _getApp, bgNoObserve: true };
         }
     }, _controllerFn = function (name, fn) {
         var args = [this, '_controller'].concat(bingo.sliceArray(arguments));
@@ -31,15 +29,6 @@
     }, _serviceFn = function (name, fn) {
         var args = [this, '_service'].concat(bingo.sliceArray(arguments));
         return _appMType.apply(this, args);
-    }, _routeFn = function (name, fn) {
-        var args = [this, '_route'].concat(bingo.sliceArray(arguments));
-        return _appMType.apply(this, args);
-    }, _attrFn = function (name, fn) {
-        var args = [this, '_attr'].concat(bingo.sliceArray(arguments));
-        var ret = _appMType.apply(this, args);
-        if (arguments.length == 1 && !ret)
-            ret = this.attr(_vAttrDefaultName);
-        return ret;
     }, _commandFn = function (name, fn) {
         var args = [this, '_command'].concat(bingo.sliceArray(arguments));
         //var def = args[3];
@@ -75,41 +64,14 @@
             } finally {
                 _lastApp = null;
             }
-        },
-        controller: function (name, fn) {
-            if (bingo.isFunction(name) || bingo.isArray(name)) {
-                return name;
-            } else {
-                var app = (_lastApp || _defualtApp);
-                return app.controller.apply(app, arguments);
-            }
-        },
-        attr: function (name, fn) {
-            if (bingo.isFunction(name) || bingo.isObject(name)) {
-                return name;
-            } else {
-                var app = (_lastApp || _defualtApp);
-                return app.attr.apply(app, arguments);
-            }
-        },
-        command: function (name, fn) {
-            var app = (_lastApp || _defualtApp);
-            return app.command.apply(app, arguments);
-        },
-        service: function (name, fn) {
-            var app = (_lastApp || _defualtApp);
-            return app.service.apply(app, arguments);
-        },
-        route: function (name, fn) {
-            var app = (_lastApp || _defualtApp);
-            return app.route.apply(app, arguments);
         }
     });
 
-    var _app = {}, _defualtApp = _newApp('defualtApp'), _lastApp = null;
+    var _app = {}, _defualtApp = bingo.defualtApp = _newApp('$$defualtApp$$'), _lastApp = null;
     bingo.extend(bingo.app, {
         _bg_appEx: {},
         extend: function (p) {
+            bingo.extend(_defualtApp, p);
             return bingo.extend(this._bg_appEx, p);
         }
     });
@@ -191,40 +153,5 @@
         }, injectObj);
         return _inject(p, injectObj, thisArg || view);
     };
-
-
-    //默认attr
-    var _vAttrDefaultName = 'bg_default_vattr',
-        _isEvent = /^\s*on/i;
-    bingo.attr(_vAttrDefaultName, function (vAttr) {
-        /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
-
-        var name = vAttr.$name, view = vAttr.$view;
-
-        if (_isEvent.test(name)) {
-            var eventName = name.replace(_isEvent, ''),
-                bind = function (evName, callback) {
-                    var fn = function () {
-                        view.$updateAsync();
-                        return callback.apply(this, arguments);
-                    };
-                    vAttr.$on(evName, fn);
-                };
-
-            var fn = /^\s*\[(.|\n)*\]\s*$/g.test(vAttr.$contents) ? vAttr.$result() : vAttr.$value();
-            if (!bingo.isFunction(fn) && !bingo.isArray(fn))
-                fn = function (e) { return vAttr.$eval(e); };
-            bind(eventName, fn);
-            return;
-        }
-
-        vAttr.$layout(function (c) {
-            vAttr.$attr(c.value);
-        });
-
-        return vAttr;
-    });
-
-
 
 })(bingo);

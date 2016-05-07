@@ -579,7 +579,7 @@
         var view = cp.$childView || cp.$view;
         var vNode = _newBase({
             $view: view,
-            $app: view.app,
+            $app: view.$app,
             $cp: cp,
             $node: node,
             $attrs: _newBase({}),
@@ -685,13 +685,13 @@
             }.bind(this));
         });
 
-        var def = bingo.attr(name);
-        def && def.fn(vAttr);
+        var def = vAttr.$app.attr(name);
+        def && def(vAttr);
 
         return vAttr;
     };
 
-    bingo.controller('view_test1', function ($view) {
+    bingo.defualtApp.controller('view_test1', function ($view) {
         //user.desc
         $view.user = {
             desc: 'asdfasdfasfdasdf11<br />asdfasdf<div>sdf</div> {{html "<div>div</div><div>div1</div>asdf" /}}sdfs{{html name /}}sdf',
@@ -861,7 +861,7 @@
             tempCP.$app = app;
             tempCP.$parent = cp;
             tempCP.$name = bingo.trim(tempCP.$attrs.$getAttr('name'));
-            cmdDef = bingo.command(item.$cmd);
+            cmdDef = app.command(item.$cmd);
             cmdDef && (cmdDef = cmdDef.fn);
             elseList = tempCP.$elseList;
             if (elseList) {
@@ -1435,7 +1435,7 @@
             _doc.removeEventListener(_readyName, _ready, false);
             window.removeEventListener('load', _ready, false);
             //等待动态加载js完成后开始
-            bingo.usingAll().then(function () {
+            bingo.defualtApp.usingAll().then(function () {
                 var tmpl = _doc.getElementById('tmpl1').innerHTML;
 
                 _compile({

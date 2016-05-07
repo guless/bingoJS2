@@ -2,8 +2,51 @@
 (function (bingo) {
     "use strict";
 
+    var defualtApp = bingo.defualtApp;
+    bingo.app.extend({
+        _attr:{},
+        attr: function (name, fn) {
+            if (arguments.length == 1)
+                return this._attr[name] || defualtApp._attr[name] || defualtApp._attr[_vAttrDefaultName];
+            else
+                this._attr[name] = fn;
+        }
+    });
+
+    //默认attr
+    var _vAttrDefaultName = 'bg_default_vattr',
+        _isEvent = /^\s*on/i;
+    defualtApp.attr(_vAttrDefaultName, function (vAttr) {
+        /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
+
+        var name = vAttr.$name, view = vAttr.$view;
+
+        if (_isEvent.test(name)) {
+            var eventName = name.replace(_isEvent, ''),
+                bind = function (evName, callback) {
+                    var fn = function () {
+                        view.$updateAsync();
+                        return callback.apply(this, arguments);
+                    };
+                    vAttr.$on(evName, fn);
+                };
+
+            var fn = /^\s*\[(.|\n)*\]\s*$/g.test(vAttr.$contents) ? vAttr.$result() : vAttr.$value();
+            if (!bingo.isFunction(fn) && !bingo.isArray(fn))
+                fn = function (e) { return vAttr.$eval(e); };
+            bind(eventName, fn);
+            return;
+        }
+
+        vAttr.$layout(function (c) {
+            vAttr.$attr(c.value);
+        });
+
+        return vAttr;
+    });
+
     bingo.each('checked,unchecked,disabled,enabled,readonly'.split(','), function (attrName) {
-        bingo.attr(attrName, function (vAttr) {
+        defualtApp.attr(attrName, function (vAttr) {
             /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
 
             var _set = function (val) {
@@ -37,7 +80,7 @@
         });
     });
     bingo.each('show,hide,visible'.split(','), function (attrName) {
-        bingo.attr(attrName, function (vAttr) {
+        defualtApp.attr(attrName, function (vAttr) {
             /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
             var _set = function (val) {
 
@@ -63,7 +106,7 @@
     });
 
     bingo.each('model,value'.split(','), function (attrName) {
-        bingo.attr(attrName, function (vAttr) {
+        defualtApp.attr(attrName, function (vAttr) {
             /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
 
             var node = vAttr.$node, isVal = attrName == 'value';
