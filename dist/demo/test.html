@@ -109,9 +109,10 @@
             $view.role = '测试';
             $view.click3 = function(){$view.name = bingo.makeAutoId();};
         {{/controller}}
-
+        {{with item in user}}
+            {{html item.desc /}}
+        {{/with}}
     </script>
-    <script type="text/html" id="tmpl2"><div t="asdf" aaa="test('a\'sdfas[user.name]df')" bbb='atest[user.name]'></div></script>
     <script src="../scripts/bingo2/bingo.js"></script>
     <script src="route.js"></script>
     <!--<script src="compiles.js"></script>-->

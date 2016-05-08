@@ -2405,6 +2405,9 @@
                 bingo.trace(content);
                 //throw e;
             }
+        },
+        reset: function (cacheObj) {
+            cacheObj[_vm._cacheName] = {};
         }
     }; //end _vm
 
@@ -2443,7 +2446,15 @@
             $node: null,
             $contents: '',
             $withData: function (name, p) {
-                _pri.withData[name] = p;
+                switch (arguments.length) {
+                    case 0:
+                        return _pri.withData;
+                    case 1:
+                        return bingo.isObject(name) ? (_pri.withData = name)
+                            : _pri.withData[name];
+                    case 2:
+                        return _pri.withData[name] = p;
+                }
             },
             $bindContext: function (contents, isRet) {
                 return _vm.bindContext(this, contents, isRet, this.$view, this.$node, _pri.withData);
@@ -2480,16 +2491,21 @@
             },
             $layout: function (wFn, fn, num, init) {
                 if (arguments.length == 1) {
-                    fn = wFn;
-                    wFn = function () {
-                        return this.$result();
-                    }.bind(this);
+                    _cpInitList.push(function () {
+                        return wFn({});
+                    }.bind(this));
+                    return;
                 }
                 _cpInitList.push(function () {
                     var obs = this.$view.$layout(wFn, fn, num, this, true);
                     _pri.obsList.push(obs);
                     return (init !== false) ? obs.publish(true) : null;
                 }.bind(this));
+            },
+            $layoutResult: function (fn) {
+                return this.$layout(function () {
+                    return this.$result();
+                }.bind(this), fn);
             },
             $layoutValue: function (fn) {
                 this.$hasProps() || this.$value(undefined);
@@ -2518,6 +2534,8 @@
 
         //新建view
         var view = _newBase({
+            $parent: null,
+            $children:[],
             $controller: function (fn) {
                 _pri.ctrls.push(fn);
             },
@@ -2583,7 +2601,11 @@
             }
         }).$extend(p);
 
+        var parentView = view.$parent;
+        parentView && parentView.$children.push(view);
+
         view.bgOnDispose(function () {
+
             bingo.each(_pri.obsList, function (item) {
                 item[0].bgIsDispose || item[0].unObserve();
             });
@@ -2592,6 +2614,10 @@
                 item[0].bgIsDispose || item[0].unObserve();
             });
             _removeView(this);
+
+            if (parentView && !parentView.bgDispose) {
+                parentView.$children = bingo.removeArrayItem(this, parentView.$children);
+            }
         });
         view.bgDispose(_pri);
 
@@ -2665,9 +2691,9 @@
                 bingo.each(cp.$virtualNodes, function (item) {
                     item.bgDispose();
                 });
-                if (cp.$childView)
-                    cp.$childView.bgDispose();
-                cp.$children = cp.$childView = null;
+                if (cp.$onwerView)
+                    cp.$onwerView.bgDispose();
+                cp.$children = cp.$onwerView = null;
                 cp.$virtualNodes = [];
             },
             getContent: function (cp) {
@@ -2685,7 +2711,7 @@
 
         //新建command的CP参数对象
         var cp = _newBindContext({
-            $childView: null,
+            $onwerView: null,
             $app: null,
             $cmd: '',
             $attrs: null,
@@ -2791,7 +2817,7 @@
         //编译时同步用
         _cpCtrls.push(function () {
             if (this.bgIsDispose) return;
-            var ctrl = this._ctrl, view = this.$childView || this.$view;
+            var ctrl = this._ctrl, view = this.$onwerView || this.$view;
             if (ctrl) {
                 this._ctrl = null;
                 ctrl.call(this, view);
@@ -2824,12 +2850,14 @@
                 _setCP: function (cp) {
                     this.$view = cp.$view;
                     this.$cp = cp;
+                    this.$withData(cp.$withData());
                     var aT;
                     bingo.each(_names, function (item) {
                         aT = this[item];
                         aT.$cp = cp;
                         aT.$app = cp.$app;
                         aT.$view = cp.$view;
+                        aT.$withData(cp.$withData());
                     }, this);
                 }
             });
@@ -2840,8 +2868,8 @@
         });
         return _attrs;
     }, _newVirtualNode = function (cp, node) {
-        //如果是新view, 读取$childView
-        var view = cp.$childView || cp.$view;
+        //如果是新view, 读取$onwerView
+        var view = cp.$onwerView || cp.$view;
         var vNode = _newBase({
             $view: view,
             $app: view.$app,
@@ -2862,27 +2890,16 @@
         });
         return vNode;
     }, _newVirtualAttr = function (vNode, name, contents) {
+        var cp = vNode.$cp;
         var vAttr = _newBindContext({
-            $cp: vNode.$cp,
+            $cp: cp,
             $vNode: vNode,
             $node: vNode.$node,
             $app: vNode.$app,
             $view: vNode.$view,
             $name: name,
             $contents: contents,
-            $attr: function (val) {
-                if (arguments.length == 0)
-                    return this.$attrEx(this.$name);
-                else
-                    this.$attrEx(this.$name, val);
-            },
-            $prop: function (val) {
-                if (arguments.length == 0)
-                    return this.$propEx(this.$name);
-                else
-                    this.$propEx(this.$name, val);
-            },
-            $attrEx: function (name, val) {
+            $attr: function (name, val) {
                 var node = this.$node,
                     aLen = arguments.length;
                 switch (name) {
@@ -2906,7 +2923,7 @@
                         break;
                 }
             },
-            $propEx: function (name, val) {
+            $prop: function (name, val) {
                 if (arguments.length == 1)
                     return _prop(this.$node, name);
                 else
@@ -2942,6 +2959,8 @@
                 _off.apply(this.$node, arguments);
             }
         });
+
+        vAttr.$withData(cp.$withData());
 
         var _eventList = [];
         vAttr.bgOnDispose(function () {
@@ -3081,37 +3100,14 @@
 
         });
 
-        //tmpl = tmpl.replace(_commandReg, function (find, cmd, attrs, cmd1, attrs1, content1) {
-        //    //console.log('_commandEx', arguments);
-        //    var id = bingo.makeAutoId(), elseList, whereList, item;
-        //    content1 && (content1 = bingo.trim(content1));
-        //    if (cmd1 == 'if') {
-        //        var elseContent = _traverseElse(content1);
-        //        content1 = elseContent.contents;
-        //        elseList = elseContent.elseList;
-        //        whereList = elseContent.whereList;
-        //    }
-        //    item = {
-        //        $id: id,
-        //        $cmd: cmd1 || cmd,
-        //        $attrs: _traverseAttr(attrs1 || attrs),
-        //        $contents: content1 || '',
-        //        $elseList: elseList,
-        //        $whereList: whereList
-        //    };
-        //    (item.$cmd == 'view') && (view = item);
-        //    list.push(item);
-
-        //    return _getScriptTag(id);
-        //});
-
         if (view) {
             app = bingo.app(view.$attrs.$getAttr('app'));
             view = _newView({
                 $name: bingo.trim(view.$attrs.$getAttr('name')),
-                $app: app
+                $app: app,
+                $parent: cp.$view
             });
-            cp.$childView = view;
+            cp.$onwerView = view;
         } else {
             app = cp.$app;
             view = cp.$view;
@@ -3122,9 +3118,12 @@
 
             tempCP = _newCP(item);
             tempCP.$view = view;
-            tempCP.$attrs._setCP(tempCP);
             tempCP.$app = app;
             tempCP.$parent = cp;
+            //要分离上下级的withData
+            tempCP.$withData(bingo.extend({}, cp.$withData()));
+            tempCP.$attrs._setCP(tempCP);
+
             tempCP.$name = bingo.trim(tempCP.$attrs.$getAttr('name'));
             cmdDef = app.command(item.$cmd);
             cmdDef && (cmdDef = cmdDef.fn);
@@ -3137,6 +3136,7 @@
                         $attrs: _traverseAttr(whereList[index]),
                         $view: view, $contents: item
                     });
+                    cpT.$withData(tempCP.$withData());
                     cpT.$attrs._setCP(cpT);
                     //cpT._render();
                     //_promisePush(promises, cpT.$render());
@@ -3421,7 +3421,7 @@
 
     //_compile({view:view, tmpl:tmpl, context:'#context1'});
     //_compile({cp:cp, context:node});
-    var _compile = function (p) {
+    var _compile = bingo.compile = function (p) {
         var view = p.view;
         var cp = p.cp || _newCP({
             $app: view ? view.$app : null,
@@ -3463,21 +3463,11 @@
         return promise;
     };
 
-    //console.time('aaaa');
-    //var _tranContext = _newTranContext(), cmdList = _traverseCmd(tmpl, _tranContext);
-    //_tranContext.promise().then(function () {
-    //    console.log('cmdList', cmdList);
-    //    //console.timeEnd('aaaa');
-    //});
-
-    var _attrENode = document.createElement('div'),
-        _attrEReg = /^.*encode=['"](.*)['"].*$/i,
-        _attrEncode = function (s) {
-            _attrENode.setAttribute('encode', s);
-            return _attrENode.outerHTML.replace(_attrEReg, '$1');
-        };
-
-    bingo.attrEncode = _attrEncode;
+    //<>&"
+    //&lt;&gt;&amp;&quot;
+    var _attrEncode = bingo.attrEncode = function (s) {
+        return !s ? '' : s.replace(/\</g, '&lt;').replace(/\>/g, '&gt;').replace(/\&/g, '&amp;').replace(/\"/g, '&quot;');
+    };
     bingo.attrDecode = bingo.htmlDecode;
 
 
@@ -3678,11 +3668,6 @@
         $app: bingo.app('')
     });
 
-    bingo.compile = function (view) {
-        return new _cmpClass().view(view);
-    };
-
-
     bingo.bgEventDef('ready');
 
     (function () {
@@ -3850,6 +3835,32 @@
     });
 
 
+    var _forItemReg = /[ ]*([^ ]+)[ ]+in[ ]+(?:(.+)[ ]+tmpl[ ]*=[ ]*(.+)|(.+))/;
+
+
+    defualtApp.command('with', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+
+        cp.$tmpl('');
+
+        var contents = cp.$attrs.$contents;
+
+        if (_forItemReg.test(contents)) {
+            var itemName = RegExp.$1, dataName = RegExp.$2 || RegExp.$4;
+            if (itemName && dataName) {
+                cp.$layout(function () {
+                    var bindContext = cp.$attrs.$bindContext(dataName, true),
+                        data = bindContext();
+                    data && cp.$withData(itemName, data);
+                    cp.$html(cp.$contents);
+                });
+            }
+        }
+        
+
+        return cp;
+    });
+
     defualtApp.command('for', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
@@ -3859,9 +3870,7 @@
         cp.$contents = dataName;
         cp.$tmpl('');
 
-        cp.$layout(function () {
-            return cp.$result();
-        }, function (c) {
+        cp.$layoutResult(function (c) {
             return cp.$html(c.value);
         });
 
@@ -4691,8 +4700,8 @@
             return;
         }
 
-        vAttr.$layout(function (c) {
-            vAttr.$attr(c.value);
+        vAttr.$layoutResult(function (c) {
+            vAttr.$attr(name, c.value);
         });
 
         return vAttr;
@@ -4705,24 +4714,24 @@
             var _set = function (val) {
                 switch (attrName) {
                     case 'enabled':
-                        vAttr.$propEx('disabled', !val);
+                        vAttr.$prop('disabled', !val);
                         break;
                     case 'unchecked':
-                        vAttr.$propEx('checked', !val);
+                        vAttr.$prop('checked', !val);
                         break;
                     default:
-                        vAttr.$prop(val);
+                        vAttr.$prop(attrName, val);
                         break;
                 }
             };
 
-            vAttr.$layout(function (c) {
+            vAttr.$layoutResult(function (c) {
                 _set(c.value);
             });
 
             if (attrName == 'checked' || attrName == 'unchecked') {
                 var fn = function () {
-                    var value = vAttr.$propEx('checked');
+                    var value = vAttr.$prop('checked');
                     vAttr.$value(attrName == 'checked' ? value : !value);
                 };
                 //如果是checked, unchecked, 双向绑定
@@ -4750,7 +4759,7 @@
                 }
             };
 
-            $attr.$layout(function (c) {
+            $attr.$layoutResult(function (c) {
                 _set(c.value);
             });
 
@@ -4764,7 +4773,7 @@
 
             var node = vAttr.$node, isVal = attrName == 'value';
 
-            var _type = vAttr.$attrEx('type'),
+            var _type = vAttr.$attr('type'),
                 _isRadio = _type == 'radio' && !isVal,
                 _isCheckbox = _type == 'checkbox' && !isVal,
                 _checkboxVal = _isCheckbox ? _val(node) : null,
@@ -4772,19 +4781,19 @@
 
             var _val = function (val) {
                 if (arguments.length == 0)
-                    return vAttr.$attrEx('value');
+                    return vAttr.$attr('value');
                 else
-                    vAttr.$attrEx('value', val);
+                    vAttr.$attr('value', val);
             }
 
             var _getNodeValue = function () {
-                return _isCheckbox ? (vAttr.$propEx("checked") ? _checkboxVal : '') : (_val());
+                return _isCheckbox ? (vAttr.$prop("checked") ? _checkboxVal : '') : (_val());
             }, _setNodeValue = function (value) {
                 value = _isSelect && bingo.isArray(value) ? value : bingo.toStr(value);
                 if (_isCheckbox) {
-                    vAttr.$propEx("checked", (_val() == value));
+                    vAttr.$prop("checked", (_val() == value));
                 } else if (_isRadio) {
-                    vAttr.$propEx("checked", (_val() == value));
+                    vAttr.$prop("checked", (_val() == value));
                 } else if (_isSelect)
                     _val(value);
                 else

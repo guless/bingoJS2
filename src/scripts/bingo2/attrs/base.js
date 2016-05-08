@@ -38,8 +38,8 @@
             return;
         }
 
-        vAttr.$layout(function (c) {
-            vAttr.$attr(c.value);
+        vAttr.$layoutResult(function (c) {
+            vAttr.$attr(name, c.value);
         });
 
         return vAttr;
@@ -52,24 +52,24 @@
             var _set = function (val) {
                 switch (attrName) {
                     case 'enabled':
-                        vAttr.$propEx('disabled', !val);
+                        vAttr.$prop('disabled', !val);
                         break;
                     case 'unchecked':
-                        vAttr.$propEx('checked', !val);
+                        vAttr.$prop('checked', !val);
                         break;
                     default:
-                        vAttr.$prop(val);
+                        vAttr.$prop(attrName, val);
                         break;
                 }
             };
 
-            vAttr.$layout(function (c) {
+            vAttr.$layoutResult(function (c) {
                 _set(c.value);
             });
 
             if (attrName == 'checked' || attrName == 'unchecked') {
                 var fn = function () {
-                    var value = vAttr.$propEx('checked');
+                    var value = vAttr.$prop('checked');
                     vAttr.$value(attrName == 'checked' ? value : !value);
                 };
                 //如果是checked, unchecked, 双向绑定
@@ -97,7 +97,7 @@
                 }
             };
 
-            $attr.$layout(function (c) {
+            $attr.$layoutResult(function (c) {
                 _set(c.value);
             });
 
@@ -111,7 +111,7 @@
 
             var node = vAttr.$node, isVal = attrName == 'value';
 
-            var _type = vAttr.$attrEx('type'),
+            var _type = vAttr.$attr('type'),
                 _isRadio = _type == 'radio' && !isVal,
                 _isCheckbox = _type == 'checkbox' && !isVal,
                 _checkboxVal = _isCheckbox ? _val(node) : null,
@@ -119,19 +119,19 @@
 
             var _val = function (val) {
                 if (arguments.length == 0)
-                    return vAttr.$attrEx('value');
+                    return vAttr.$attr('value');
                 else
-                    vAttr.$attrEx('value', val);
+                    vAttr.$attr('value', val);
             }
 
             var _getNodeValue = function () {
-                return _isCheckbox ? (vAttr.$propEx("checked") ? _checkboxVal : '') : (_val());
+                return _isCheckbox ? (vAttr.$prop("checked") ? _checkboxVal : '') : (_val());
             }, _setNodeValue = function (value) {
                 value = _isSelect && bingo.isArray(value) ? value : bingo.toStr(value);
                 if (_isCheckbox) {
-                    vAttr.$propEx("checked", (_val() == value));
+                    vAttr.$prop("checked", (_val() == value));
                 } else if (_isRadio) {
-                    vAttr.$propEx("checked", (_val() == value));
+                    vAttr.$prop("checked", (_val() == value));
                 } else if (_isSelect)
                     _val(value);
                 else

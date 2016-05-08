@@ -42,6 +42,32 @@
     });
 
 
+    var _forItemReg = /[ ]*([^ ]+)[ ]+in[ ]+(?:(.+)[ ]+tmpl[ ]*=[ ]*(.+)|(.+))/;
+
+
+    defualtApp.command('with', function (cp) {
+        /// <param name="cp" value="_newCP()"></param>
+
+        cp.$tmpl('');
+
+        var contents = cp.$attrs.$contents;
+
+        if (_forItemReg.test(contents)) {
+            var itemName = RegExp.$1, dataName = RegExp.$2 || RegExp.$4;
+            if (itemName && dataName) {
+                cp.$layout(function () {
+                    var bindContext = cp.$attrs.$bindContext(dataName, true),
+                        data = bindContext();
+                    data && cp.$withData(itemName, data);
+                    cp.$html(cp.$contents);
+                });
+            }
+        }
+        
+
+        return cp;
+    });
+
     defualtApp.command('for', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
@@ -51,9 +77,7 @@
         cp.$contents = dataName;
         cp.$tmpl('');
 
-        cp.$layout(function () {
-            return cp.$result();
-        }, function (c) {
+        cp.$layoutResult(function (c) {
             return cp.$html(c.value);
         });
 
