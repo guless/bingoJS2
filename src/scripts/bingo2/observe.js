@@ -255,14 +255,19 @@
 
     //observe fn时不能观观察root层
     bingo.extend({
-        observe: function (obj, prop, fn) {
-            if (bingo.isFunction(obj)) {
-                var colFn = obj;
+        observe: function (obj, prop, fn, autoInit) {
+            /// <summary>
+            /// observe(obj, 'title', function(c){}) <br />
+            /// observe(function(){return value;}, function(c){}) <br />
+            /// </summary>
+
+            if (bingo.isArgs(arguments, 'fun', 'fun')) {
+                var colFn = obj, isAutoInit = arguments[2] !== false;
                 fn = prop;
-                var obs, tid, cList = [], old, publish = function (isPub, org) {
+                var obs, tid, cList = [], old, publish = function (isPub, org, orgVal) {
                     var val;
                     try {
-                        val = colFn();
+                        val = arguments.length == 3 ? orgVal : colFn();
                         if (isPub || (bingo.isArray(old) ? !_ArrayEquals(old, val) : (bingo.isObject(old) ? !_ObjectEquals(old, val) : old != val))) {
                             //如果只是单个属性的情况, 如bingo.observe(obj, 'aaa.bbb', fn)
                             var cLTemp = cList.length == 1 ? cList[0] : null,
@@ -303,7 +308,11 @@
                             item.object.bgObServe(item.name, ftw);
                         });
                     }
-                    if (refs !== true)
+                    if (!isAutoInit) {
+                        ret.value = old = obs.val;
+                        publish(true, true, old);
+                        isAutoInit = true;
+                    } else if (refs !== true)
                         ret.value = old = obs.val;
                     else
                         ret.check();
@@ -335,19 +344,29 @@
                     refresh: function () {
                         _unObserve();
                         done(true);
+                    },
+                    init: function () {
+                        ret.init = bingo.noop;
+                        done();
                     }
                 };
-                done();
+                isAutoInit && ret.init();
                 return ret;
             } else if (obj) {
                 var bo = _splitProp(obj, prop, false),
-                    obj = bo[0],pname = bo[1],
+                    obj = bo[0], pname = bo[1],
                     sFn = function () {
                         return obj[pname];
                     };
-                return bingo.observe(sFn, fn);
-
+                return bingo.observe(sFn, fn, autoInit);
             }
+
+            //if (bingo.isFunction(obj)) {
+                
+            //} else if (obj) {
+                
+
+            //}
         },
         isObserve: function (obj, prop) {
             return _isObserve(obj, prop);

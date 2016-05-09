@@ -230,6 +230,66 @@
             return bingo.isString(eventName)
                 ? (bingo.isNullEmpty(eventName) ? null : bingo.trim(eventName).split(/\s+/g).map(function (item) { return bingo.trim(item); }))
                 : eventName;
+        },
+        isArgs: function (args, p) {
+            /// <summary>
+            /// isArgs(arguments, 'str', 'fun|bool') <br />
+            /// isArgs(arguments, '@@title', null, 1)
+            /// 注意如果arguments超出部分不判断
+            /// </summary>
+            /// <param name="args"></param>
+            /// <param name="p">obj, str, array, bool, num, null, empty, undef, fun, *, regex, window, element</param>
+            var types = bingo.sliceArray(arguments, 1), isOk = true,val;
+            bingo.each(types, function (item, index) {
+                val = args[index];
+                if (bingo.isString(item)) {
+                    if (item.indexOf('@@') == 0)
+                        isOk = (item.substr(2) === val);
+                    else {
+                        bingo.each(item.split('|'), function (sItem) {
+                            isOk = _isType(sItem, val);
+                            if (!isOk) return false;
+                        });
+                    }
+                } else
+                    isOk = _isType(item, val);
+                    
+                if (!isOk) return false;
+            });
+            return isOk;
+        }
+    };
+
+    var _isType = function (type, p) {
+        switch (type) {
+            case 'obj':
+                return bingo.isObject(p);
+            case 'str':
+                return bingo.isString(p);
+            case 'array':
+                return bingo.isArray(p);
+            case 'bool':
+                return bingo.isBoolean(p);
+            case 'num':
+                return bingo.isNumeric(p);
+            case 'null':
+                return bingo.isNull(p);
+            case 'empty':
+                return bingo.isNullEmpty(p);
+            case 'undef':
+                return bingo.isUndefined(p);
+            case 'fun':
+                return bingo.isFunction(p);
+            case 'regex':
+                return !bingo.isNull(p) && (p instanceof RegExp);
+            case 'window':
+                return bingo.isWindow(p);
+            case 'element':
+                return bingo.isElement(p);
+            case '*':
+                return true;
+            default:
+                return type === p;
         }
     };
 
@@ -907,14 +967,19 @@
 
     //observe fn时不能观观察root层
     bingo.extend({
-        observe: function (obj, prop, fn) {
-            if (bingo.isFunction(obj)) {
-                var colFn = obj;
+        observe: function (obj, prop, fn, autoInit) {
+            /// <summary>
+            /// observe(obj, 'title', function(c){}) <br />
+            /// observe(function(){return value;}, function(c){}) <br />
+            /// </summary>
+
+            if (bingo.isArgs(arguments, 'fun', 'fun')) {
+                var colFn = obj, isAutoInit = arguments[2] !== false;
                 fn = prop;
-                var obs, tid, cList = [], old, publish = function (isPub, org) {
+                var obs, tid, cList = [], old, publish = function (isPub, org, orgVal) {
                     var val;
                     try {
-                        val = colFn();
+                        val = arguments.length == 3 ? orgVal : colFn();
                         if (isPub || (bingo.isArray(old) ? !_ArrayEquals(old, val) : (bingo.isObject(old) ? !_ObjectEquals(old, val) : old != val))) {
                             //如果只是单个属性的情况, 如bingo.observe(obj, 'aaa.bbb', fn)
                             var cLTemp = cList.length == 1 ? cList[0] : null,
@@ -955,7 +1020,11 @@
                             item.object.bgObServe(item.name, ftw);
                         });
                     }
-                    if (refs !== true)
+                    if (!isAutoInit) {
+                        ret.value = old = obs.val;
+                        publish(true, true, old);
+                        isAutoInit = true;
+                    } else if (refs !== true)
                         ret.value = old = obs.val;
                     else
                         ret.check();
@@ -987,19 +1056,29 @@
                     refresh: function () {
                         _unObserve();
                         done(true);
+                    },
+                    init: function () {
+                        ret.init = bingo.noop;
+                        done();
                     }
                 };
-                done();
+                isAutoInit && ret.init();
                 return ret;
             } else if (obj) {
                 var bo = _splitProp(obj, prop, false),
-                    obj = bo[0],pname = bo[1],
+                    obj = bo[0], pname = bo[1],
                     sFn = function () {
                         return obj[pname];
                     };
-                return bingo.observe(sFn, fn);
-
+                return bingo.observe(sFn, fn, autoInit);
             }
+
+            //if (bingo.isFunction(obj)) {
+                
+            //} else if (obj) {
+                
+
+            //}
         },
         isObserve: function (obj, prop) {
             return _isObserve(obj, prop);
@@ -2490,26 +2569,34 @@
                 return fn(event);
             },
             $layout: function (wFn, fn, num, init) {
+                /// <summary>
+                /// 
+                /// </summary>
+                /// <param name="wFn"></param>
+                /// <param name="fn"></param>
+                /// <param name="num"></param>
+                /// <param name="init">默认为true</param>
                 if (arguments.length == 1) {
                     _cpInitList.push(function () {
                         return wFn({});
                     }.bind(this));
                     return;
                 }
-                _cpInitList.push(function () {
-                    var obs = this.$view.$layout(wFn, fn, num, this, true);
-                    _pri.obsList.push(obs);
-                    return (init !== false) ? obs.publish(true) : null;
+                var obs = this.$view.$layout(wFn, fn, num, this, true, (init === false));
+                _pri.obsList.push(obs);
+                (init !== false) && _cpInitList.push(function () {
+                    return obs.init();
                 }.bind(this));
+                return obs;
             },
-            $layoutResult: function (fn) {
+            $layoutResult: function (fn, num, init) {
                 return this.$layout(function () {
                     return this.$result();
-                }.bind(this), fn);
+                }.bind(this), fn, num, init);
             },
-            $layoutValue: function (fn) {
+            $layoutValue: function (fn, num, init) {
                 this.$hasProps() || this.$value(undefined);
-                return this.$layout(function () { return this.$value(); }.bind(this), fn);
+                return this.$layout(function () { return this.$value(); }.bind(this), fn, num, init);
             }
         }).$extend(p);
 
@@ -2548,7 +2635,7 @@
             $readyAll: function (fn) {
                 _pri.readyAlls.push(fn);
             },
-            $observe: function (p, fn, dispoer, check) {
+            $observe: function (p, fn, dispoer, check, autoInit) {
                 var fn1 = function () {
                     //这里会重新检查非法绑定
                     //所以尽量先定义变量到$view, 再绑定
@@ -2556,18 +2643,18 @@
                     return fn.apply(this, arguments);
                 }.bind(this);
                 fn1.orgFn = fn.orgFn;//保存原来observe fn
-                var obs = !bingo.isFunction(p) ? bingo.observe(this, p, fn1)
-                    : bingo.observe(p, fn1);
+                var obs = !bingo.isFunction(p) ? bingo.observe(this, p, fn1, autoInit)
+                    : bingo.observe(p, fn1, autoInit);
                 //check是否检查, 如果不检查直接添加到obsList
                 if (!check || !obs.isObs)
                     (obs.isObs ? _pri.obsList : _pri.obsListUn).push([obs, dispoer, check]);
                 return obs;
             },
-            $layout: function (p, fn, fnN, dispoer, check) {
-                return this.$observe(p, bingo.aFrameProxy(fn, fnN), dispoer, check);
+            $layout: function (p, fn, fnN, dispoer, check, autoInit) {
+                return this.$observe(p, bingo.aFrameProxy(fn, fnN), dispoer, check, autoInit);
             },
-            $layoutAfter: function (p, fn, dispoer, check) {
-                return this.$layout(p, fn, 1, dispoer, check);
+            $layoutAfter: function (p, fn, dispoer, check, autoInit) {
+                return this.$layout(p, fn, 1, dispoer, check, autoInit);
             },
             $update: function (force) {
                 if (!this.$isReady) return;

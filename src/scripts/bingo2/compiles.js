@@ -225,26 +225,34 @@
                 return fn(event);
             },
             $layout: function (wFn, fn, num, init) {
+                /// <summary>
+                /// 
+                /// </summary>
+                /// <param name="wFn"></param>
+                /// <param name="fn"></param>
+                /// <param name="num"></param>
+                /// <param name="init">默认为true</param>
                 if (arguments.length == 1) {
                     _cpInitList.push(function () {
                         return wFn({});
                     }.bind(this));
                     return;
                 }
-                _cpInitList.push(function () {
-                    var obs = this.$view.$layout(wFn, fn, num, this, true);
-                    _pri.obsList.push(obs);
-                    return (init !== false) ? obs.publish(true) : null;
+                var obs = this.$view.$layout(wFn, fn, num, this, true, (init === false));
+                _pri.obsList.push(obs);
+                (init !== false) && _cpInitList.push(function () {
+                    return obs.init();
                 }.bind(this));
+                return obs;
             },
-            $layoutResult: function (fn) {
+            $layoutResult: function (fn, num, init) {
                 return this.$layout(function () {
                     return this.$result();
-                }.bind(this), fn);
+                }.bind(this), fn, num, init);
             },
-            $layoutValue: function (fn) {
+            $layoutValue: function (fn, num, init) {
                 this.$hasProps() || this.$value(undefined);
-                return this.$layout(function () { return this.$value(); }.bind(this), fn);
+                return this.$layout(function () { return this.$value(); }.bind(this), fn, num, init);
             }
         }).$extend(p);
 
@@ -283,7 +291,7 @@
             $readyAll: function (fn) {
                 _pri.readyAlls.push(fn);
             },
-            $observe: function (p, fn, dispoer, check) {
+            $observe: function (p, fn, dispoer, check, autoInit) {
                 var fn1 = function () {
                     //这里会重新检查非法绑定
                     //所以尽量先定义变量到$view, 再绑定
@@ -291,18 +299,18 @@
                     return fn.apply(this, arguments);
                 }.bind(this);
                 fn1.orgFn = fn.orgFn;//保存原来observe fn
-                var obs = !bingo.isFunction(p) ? bingo.observe(this, p, fn1)
-                    : bingo.observe(p, fn1);
+                var obs = !bingo.isFunction(p) ? bingo.observe(this, p, fn1, autoInit)
+                    : bingo.observe(p, fn1, autoInit);
                 //check是否检查, 如果不检查直接添加到obsList
                 if (!check || !obs.isObs)
                     (obs.isObs ? _pri.obsList : _pri.obsListUn).push([obs, dispoer, check]);
                 return obs;
             },
-            $layout: function (p, fn, fnN, dispoer, check) {
-                return this.$observe(p, bingo.aFrameProxy(fn, fnN), dispoer, check);
+            $layout: function (p, fn, fnN, dispoer, check, autoInit) {
+                return this.$observe(p, bingo.aFrameProxy(fn, fnN), dispoer, check, autoInit);
             },
-            $layoutAfter: function (p, fn, dispoer, check) {
-                return this.$layout(p, fn, 1, dispoer, check);
+            $layoutAfter: function (p, fn, dispoer, check, autoInit) {
+                return this.$layout(p, fn, 1, dispoer, check, autoInit);
             },
             $update: function (force) {
                 if (!this.$isReady) return;

@@ -253,6 +253,66 @@
             return bingo.isString(eventName)
                 ? (bingo.isNullEmpty(eventName) ? null : bingo.trim(eventName).split(/\s+/g).map(function (item) { return bingo.trim(item); }))
                 : eventName;
+        },
+        isArgs: function (args) {
+            /// <summary>
+            /// isArgs(arguments, 'str', 'fun|bool') <br />
+            /// isArgs(arguments, '@@title', null, 1)
+            /// 注意如果arguments超出部分不判断
+            /// </summary>
+            /// <param name="args"></param>
+            /// <param name="p">obj, str, array, bool, num, null, empty, undef, fun, *, regex, window, element</param>
+            var types = bingo.sliceArray(arguments, 1), isOk = true, val;
+            bingo.each(types, function (item, index) {
+                val = args[index];
+                if (bingo.isString(item)) {
+                    if (item.indexOf('@@') == 0)
+                        isOk = (item.substr(2) === val);
+                    else {
+                        bingo.each(item.split('|'), function (sItem) {
+                            isOk = _isType(sItem, val);
+                            if (!isOk) return false;
+                        });
+                    }
+                } else
+                    isOk = _isType(item, val);
+
+                if (!isOk) return false;
+            });
+            return isOk;
+        }
+    };
+
+    var _isType = function (type, p, isStr) {
+        switch (type) {
+            case 'obj':
+                return bingo.isObject(p);
+            case 'str':
+                return bingo.isString(p);
+            case 'array':
+                return bingo.isArray(p);
+            case 'bool':
+                return bingo.isBoolean(p);
+            case 'num':
+                return bingo.isNumeric(p);
+            case 'null':
+                return bingo.isNull(p);
+            case 'empty':
+                return bingo.isNullEmpty(p);
+            case 'undef':
+                return bingo.isUndefined(p);
+            case 'fun':
+                return bingo.isFunction(p);
+            case 'regex':
+                return !bingo.isNull(p) && (p instanceof RegExp);
+            case 'window':
+                return bingo.isWindow(p);
+            case 'element':
+                return bingo.isElement(p);
+            case '*':
+                return true;
+            default:
+                return type === p;
         }
     };
 
