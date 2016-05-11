@@ -7,7 +7,7 @@
     defualtApp.command('view', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
-        var ctrl = cp.$getAttr('controller');
+        var ctrl = cp.$attrs.$getAttr('controller');
         if (ctrl) {
             ctrl = cp.$app.controller(ctrl);
             ctrl && cp.$view.$controller(ctrl.fn);
@@ -106,7 +106,6 @@
     defualtApp.command('for', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
 
-        //var src = cp.$getAttr('src');
         var contents = cp.$attrs.$contents;
         var withListName = '_bg_for_datas_' + bingo.makeAutoId();
 
@@ -180,7 +179,7 @@
         /// <param name="cp" value="_newCP()"></param>
 
         cp.$tmpl(function () {
-            return bingo.tmpl(cp.$getAttr('src'));
+            return bingo.tmpl(cp.$attrs.$getAttr('src'));
         });
 
         return cp;

@@ -24,7 +24,8 @@
   "author": "bingojs team",
   "license": "MIT",
   "devDependencies": {
-    "browser-sync": "^2.11.2",
+    "browser-sync": "^2.12.7",
+    "browser-sync-ui": "^0.5.19",
     "gulp": "^3.9.1",
     "gulp-changed": "^1.3.0",
     "gulp-clean": "^0.3.2",

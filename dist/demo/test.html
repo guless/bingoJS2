@@ -101,40 +101,25 @@
             <input type="text" value='[[name]]' ab='[[aaa]]"asdf"' />
             {{text name /}}
             <br />
-        </div>
-        {{controller}}
-            
+            {{controller}}
+
             $view.name = '张三';
             $view.role = '测试';
             $view.click3 = function(){$view.name = bingo.makeAutoId();};
 
             $view.list = [{id:'1', text:'1111'},{id:'2', text:'2222'}];
-        {{/controller}}
-        {{with item in user}}
-            {{html item.desc /}}
-        {{/with}}
-        <br />
-        {{for item in list}}
-            {{text item_index /}}:{{text item.text /}}
+            {{/controller}}
+            {{with item in user}}
+                {{html item.desc /}}
+            {{/with}}
             <br />
-        {{/for}}
-        {{html 'aaaaaaaaaaaaaaaaaaaaaaaa' /}}
-
-
-        <select bg-render="item in roles">
-            {{header}}<select>请选择</select>{{/header}}
-            <select value="{{item.id}}">{{item.name}}</select>
-            {{footer}}<select>请选择</select>{{/footer}}
-        </select>
-
-        <select>
-            <select>请选择</select>
-            {{for item in roles}}
-                <select value="[[item.id]]">{{html item.name /}}</select>
+            {{for item in list}}
+                {{text item_index /}}:{{text item.text /}}
+                <br />
             {{/for}}
-            <select>最后</select>
-        </select>
-
+            {{html 'aaaaaaaaaaaaaaaaaaaaaaaa' /}}
+        </div>
+        
     </script>
     <script src="../scripts/bingo2/bingo.js"></script>
     <script src="route.js"></script>

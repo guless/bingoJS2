@@ -2,6 +2,8 @@
 (function (bingo, undefined) {
     "use strict";
 
+    //todo complie参数， html after/before参数
+
     //aFrame====================================
 
     var _rAFrame = window.requestAnimationFrame,
@@ -177,6 +179,7 @@
             }
         };
         var bind = _newBase({
+            bgNoObserve: true,
             $view: null,
             $node: null,
             $contents: '',
@@ -351,6 +354,12 @@
                 if (this.$ownerCP) {
                     this.$ownerCP.$html('');
                 }
+            },
+            $getNodes: function () {
+                return this.$ownerCP.$nodes;
+            },
+            $queryAll: function (selector) {
+                return this.$ownerCP.$queryAll(selector);
             }
         }).$extend(p);
 
@@ -368,7 +377,7 @@
             });
             _removeView(this);
 
-            if (parentView && !parentView.bgDispose) {
+            if (parentView && !parentView.bgIsDispose) {
                 parentView.$children = bingo.removeArrayItem(this, parentView.$children);
             }
         });
@@ -479,11 +488,17 @@
                 //    this.bgDispose();
                 //}.bind(this));
             },
-            $getAttr: function (name) {
-                return this.$attrs.$getAttr(name);
-            },
-            $setAttr: function (name, contents) {
-                this.$attrs.$setAttr(name, contents);
+            $queryAll: function (selector) {
+                var list = [], isSel = !!selector;
+                bingo.each(this.$nodes, function (node) {
+                    if (node.nodeType == 1) {
+                        if (isSel)
+                            list = list.concat(bingo.sliceArray(_queryAll(selector, node)));
+                        else
+                            list.push(node);
+                    }
+                });
+                return list;
             },
             $parent: null,
             $children: null,
@@ -1212,7 +1227,7 @@
             }
             _traverseCP(node, cp, opName);
 
-            return _complieInit();
+            return _complieInit().then(function () { return cp; });
         });
     }, _complieInit = function () {
         var deferred = bingo.Deferred(), has = false;
