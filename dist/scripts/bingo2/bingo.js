@@ -2779,7 +2779,7 @@
         //编译时同步用
         _addView(view);
         return view;
-    }, _newCP = function (p) {
+    }, _newCP = function (p, extendWith) {
         //todo asdfsf
         var _pri = {
             removeNodes: function (nodes) {
@@ -2814,6 +2814,16 @@
                 var nodes = cp.$nodes;
                 var index = bingo.inArray(function (item) { return !!item.parentNode; }, nodes);
                 return index > -1 ? nodes[index] : null;
+            },
+            _render: function (cp) {
+                var ret = this.getContent(cp);
+                if (_isPromise(ret))
+                    ret.then(function (s) {
+                        _traverseCmd(s, cp);
+                    });
+                else
+                    _traverseCmd(ret, cp);
+                _promisePush(_renderPromise, ret)
             }
         };
 
@@ -2877,6 +2887,9 @@
                     return list.join('');
                 }
             },
+            insertBefore: function (p, cp) {
+
+            },
             $text: function (s) {
                 if (arguments.length > 0) {
                     _pri.clear(this);
@@ -2902,25 +2915,41 @@
                 _pri.tmpl = p;
                 return this;
             },
-            _render: function () {
-                var ret = _pri.getContent(this);
-                if (_isPromise(ret))
-                    ret.then(function (s) {
-                        _traverseCmd(s, this);
-                    }.bind(this));
-                else
-                    _traverseCmd(ret, this);
-                _promisePush(_renderPromise, ret)
-                return this;
-            },
             $render: function () {
-                this._render();
+                _pri._render(this);
                 return _renderThread();
             },
             $controller: function (fn) {
                 this._ctrl = fn;
             }
         }).$extend(p);
+
+        //要分离上下级的withData
+        extendWith && cp.$parent && cp.$withData(bingo.extend({}, cp.$parent.$withData()));
+        if (cp.$attrs) {
+            cp.$attrs._setCP(cp);
+            cp.$name = bingo.trim(cp.$attrs.$getAttr('name'));
+        }
+
+        //处理else
+        var cmdDef, whereList, app=cp.$app,
+            elseList = cp.$elseList;
+        if (elseList) {
+            var cpT, whereList = cp.$whereList;
+            bingo.each(elseList, function (item, index) {
+                cpT = _newCP({
+                    $cmd: 'else',
+                    $app: app,
+                    $attrs: _traverseAttr(whereList[index]),
+                    $view: cp.$view, $contents: item,
+                    $parent: cp
+                });
+
+                elseList[index] = cpT;
+            });
+            cp.$whereList = null;
+        }
+
 
         cp.bgOnDispose(function () {
             _pri.removeNodes(this.$nodes);
@@ -2948,6 +2977,13 @@
                 this.$view[this.$name] = this.$export ? this.$export : view;
             }
         }.bind(cp));
+
+        //处理command定义
+        cmdDef = app.command(cp.$cmd);
+        cmdDef && (cmdDef = cmdDef.fn);
+        cmdDef && cmdDef(cp);
+        _pri._render(cp);
+
 
         return cp;
     }, _newCPAttr = function (contents) {
@@ -3236,39 +3272,14 @@
             view = cp.$view;
         }
 
-        var children = [], tempCP, cmdDef, elseList, whereList;
+        var children = [], tempCP;
         bingo.each(list, function (item) {
+            tempCP = _newCP(bingo.extend(item, {
+                $view: view,
+                $app: app,
+                $parent: cp
+            }), true);
 
-            tempCP = _newCP(item);
-            tempCP.$view = view;
-            tempCP.$app = app;
-            tempCP.$parent = cp;
-            //要分离上下级的withData
-            tempCP.$withData(bingo.extend({}, cp.$withData()));
-            tempCP.$attrs._setCP(tempCP);
-
-            tempCP.$name = bingo.trim(tempCP.$attrs.$getAttr('name'));
-            cmdDef = app.command(item.$cmd);
-            cmdDef && (cmdDef = cmdDef.fn);
-            elseList = tempCP.$elseList;
-            if (elseList) {
-                var cpT, whereList = tempCP.$whereList;
-                bingo.each(elseList, function (item, index) {
-                    cpT = _newCP({
-                        $app: app,
-                        $attrs: _traverseAttr(whereList[index]),
-                        $view: view, $contents: item
-                    });
-                    cpT.$withData(tempCP.$withData());
-                    cpT.$attrs._setCP(cpT);
-                    //cpT._render();
-                    //_promisePush(promises, cpT.$render());
-                    elseList[index] = cpT;
-                });
-                tempCP.$whereList = null;
-            }
-            cmdDef && cmdDef(tempCP);
-            tempCP._render();
             //_promisePush(promises, tempCP.$render());
             children.push(tempCP);
         });
