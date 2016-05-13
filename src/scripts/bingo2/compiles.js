@@ -2,7 +2,8 @@
 (function (bingo, undefined) {
     "use strict";
 
-    //todo complie参数， html after/before参数
+    //CP: Content Provider(内容提供者)
+    //todo complie参数， $insertBefore
 
     //aFrame====================================
 
@@ -466,19 +467,28 @@
                 else
                     return tmpl;
             },
-            getPNode: function (cp) {
+            checkNodes: function (cp) {
+                var list = [];
+                bingo.each(cp.$nodes, function (item) {
+                    if (!!item.parentNode)
+                        list.push(item);
+                });
+                cp.$nodes = list;
+            },
+            getPNode: function (cp, last) {
+                this.checkNodes(cp);
                 var nodes = cp.$nodes;
-                var index = bingo.inArray(function (item) { return !!item.parentNode; }, nodes);
-                return index > -1 ? nodes[index] : null;
+                var len = cp.$nodes.length;
+                return len > 0 ? cp.$nodes[last ? len -1 : 0] : null;
             },
             _render: function (cp) {
                 var ret = this.getContent(cp);
                 if (_isPromise(ret))
                     ret.then(function (s) {
-                        _traverseCmd(s, cp);
+                        _traverseCmd(bingo.trim(s), cp);
                     });
                 else
-                    _traverseCmd(ret, cp);
+                    _traverseCmd(bingo.trim(ret), cp);
                 _promisePush(_renderPromise, ret)
             }
         };
@@ -498,7 +508,10 @@
                 //    this.bgDispose();
                 //}.bind(this));
             },
-            $queryAll: function (selector) {
+            $query: function (selector, context) {
+                return this.$queryAll(selector, true)[0];
+            },
+            $queryAll: function (selector, isFirst) {
                 var list = [], isSel = !!selector;
                 bingo.each(this.$nodes, function (node) {
                     if (node.nodeType == 1) {
@@ -506,6 +519,8 @@
                             list = list.concat(bingo.sliceArray(_queryAll(selector, node)));
                         else
                             list.push(node);
+                        if (isFirst && list.length > 0)
+                            return false;
                     }
                 });
                 return list;
@@ -534,7 +549,7 @@
                     _pri.clear(this);
                     this.$tmpl(s);
 
-                    return _compile({ cp: this, context: _pri.getPNode(this) });
+                    return _compile({ cp: this, context: _pri.getPNode(this), opName: 'insertBefore' });
                 } else {
                     var list = [];
                     bingo.each(this.$nodes, function (item) {
@@ -543,8 +558,87 @@
                     return list.join('');
                 }
             },
-            insertBefore: function (p, cp) {
+            $insertBefore: function (p, ref) {
+                /// <summary>
+                /// $insertBefore(html) html放到本cp的最前面<br />
+                /// $insertBefore(html, cp|view) html放到cp|view的前面<br />
+                /// </summary>
 
+                //view|cp|this
+                var cp = (ref && (ref.$ownerCP || ref)) || this;
+
+                var refNode = _pri.getPNode(cp);
+
+                if (bingo.isString(p)) {
+                    return _compile({
+                        tmpl: p,
+                        view: cp.$ownerView || cp.$view,
+                        context: refNode,
+                        opName: 'insertBefore'
+                    }).then(function (cpT) {
+                        cpT.$parent.$children.unshift(cpT);
+                        return cpT;
+                    });
+                } else {
+                    var target = p.$ownerCP || p, childs = this.$children;
+                    var index = bingo.inArray(target, childs);
+                    if (index >= 0) {
+                        if (cp == this) {
+                            childs.splice(index, 1);
+                            childs.unshift(target);
+                            _insertDom(target.$nodes, refNode, 'insertBefore');
+                        } else {
+                            var pIndex = bingo.inArray(cp, childs);
+                            if (pIndex >= 0) {
+                                childs.splice(index, 1);
+                                childs.splice(pIndex, 0, target);
+                                _insertDom(target.$nodes, refNode, 'insertBefore');
+                            }
+                        }
+                    }
+                    return _Promise.resolve(target);
+                }
+            },
+            $insertAfter: function (p, ref) {
+                /// <summary>
+                /// $insertBefore(html) html放到本cp的最后面<br />
+                /// $insertBefore(html, cp|view) html放到cp|view的后面<br />
+                /// </summary>
+                //view|cp|this
+                var cp = (ref && (ref.$ownerCP || ref)) || this;
+
+                var node = _pri.getPNode(cp, true),
+                    refNode = node.nextSibling;
+                
+                if (bingo.isString(p)) {
+                    return _compile({
+                        tmpl: p,
+                        view: cp.$ownerView || cp.$view,
+                        context: refNode ? refNode : node.parentNode,
+                        opName: refNode ? 'insertBefore' : 'appendTo'
+                    }).then(function (cpT) {
+                        cpT.$parent.$children.push(cpT);
+                        return cpT;
+                    });
+                } else {
+                    var target = p.$ownerCP || p, childs = this.$children;
+                    var index = bingo.inArray(target, childs);
+                    if (index >= 0) {
+                        if (cp == this) {
+                            childs.splice(index, 1);
+                            childs.push(target);
+                            _insertDom(target.$nodes, refNode ? refNode : node.parentNode, refNode ? 'insertBefore' : 'appendTo');
+                        } else {
+                            var pIndex = bingo.inArray(cp, childs);
+                            if (pIndex >= 0) {
+                                childs.splice(index, 1);
+                                childs.splice(pIndex+1, 0, target);
+                                _insertDom(target.$nodes, refNode ? refNode : node.parentNode, refNode ? 'insertBefore' : 'appendTo');
+                            }
+                        }
+                    }
+                    return _Promise.resolve(target);
+                }
             },
             $text: function (s) {
                 if (arguments.length > 0) {
@@ -939,6 +1033,7 @@
             //_promisePush(promises, tempCP.$render());
             children.push(tempCP);
         });
+
         cp.$children = children;
         cp.tmplTag = tmpl;
         //return _retPromiseAll(promises);
@@ -1146,31 +1241,31 @@
         _getEmptyRenderId = function (node) {
             return (_isScriptTag.test(node.tagName)) ?
                 node.getAttribute('bg-id') : null;
-        },//,
-        //_getEmptyNodeId = function (node) {
-        //    if (_isComment) {
-        //        if (node.nodeType == 8) {
-        //            var val = node.nodeValue;
-        //            if (val.indexOf(_commentPrefix) == 0) {
-        //                return val.replace(_commentPrefix, '');
-        //            }
-        //        }
-        //    } else {
-        //        return (_isScriptTag.test(node.tagName)) ?
-        //            node.getAttribute('bg-id') : null;
-        //    }
-        //},
+        },
+        _getEmptyNodeId = function (node) {
+            if (_isComment) {
+                if (node.nodeType == 8) {
+                    var val = node.nodeValue;
+                    if (val.indexOf(_commentPrefix) == 0) {
+                        return val.replace(_commentPrefix, '');
+                    }
+                }
+            } else {
+                return (_isScriptTag.test(node.tagName)) ?
+                    node.getAttribute('bg-id') : null;
+            }
+        },
 
         //检查是否空内容（没有nodeType==1和8）, 如果为空， 添加一个临时代表
         _checkEmptyNodeCp = function (nodes, cp) {
             var empty = nodes.length == 0;
-            //if (!empty) {
-            //    //是否有element节点, 注释节点不算
-            //    empty = (bingo.inArray(function (item) {
-            //        return item.nodeType == 1;
-            //        //return _isLinkNodeType(item.nodeType);
-            //    }, nodes) < 0);
-            //}
+            if (!empty) {
+                //是否有element节点, 注释节点不算
+                empty = (bingo.inArray(function (item) {
+                    return !_getEmptyNodeId(item);
+                    //return _isLinkNodeType(item.nodeType);
+                }, nodes) < 0);
+            }
             empty && nodes.push(_getCpEmptyNode(cp));
         };
 
@@ -1216,26 +1311,20 @@
         });
     };
 
-    //_compile({view:view, tmpl:tmpl, context:'#context1'});
-    //_compile({cp:cp, context:node});
+    //_compile({view:view, tmpl:tmpl, context:node, opName:'appendTo'});
+    //_compile({cp:cp, context:node, opName:'insertBefore'});
     var _compile = bingo.compile = function (p) {
         var view = p.view;
         var cp = p.cp || _newCP({
-            $app: view ? view.$app : bingo.defualtApp,
+            $app: view.$app || bingo.defualtApp,
+            $parent:view.$ownerCP,
             $view: view, $contents: p.tmpl
         }).$tmpl(p.tmpl);
         return cp.$render().then(function () {
 
             _cpCtrlStep();
             _viewCtrlStep();
-            var node, opName;
-            if (p.cp) {
-                node = p.context;
-                opName = 'insertBefore';
-            } else {
-                node = bingo.isString(p.context) ? _query(p.context) : p.context;
-                opName = 'appendTo';
-            }
+            var node = p.context, opName = p.opName;
             _traverseCP(node, cp, opName);
 
             return _complieInit().then(function () { return cp; });
@@ -1488,7 +1577,8 @@
                 _compile({
                     tmpl: tmpl,
                     view: _rootView,
-                    context: '#context1'
+                    context: _query('#context1'),
+                    opName: 'appendTo'
                 });
             });
         };
