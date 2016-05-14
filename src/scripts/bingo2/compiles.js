@@ -242,7 +242,7 @@
                 }
                 var obs = this.$view.$layout(wFn, fn, num, this, true, (init === false));
                 _pri.obsList.push(obs);
-                (init !== false) && _cpInitList.push(function () {
+                (init !== false) && _pushStep('CPInit',function () {
                     return obs.init();
                 }.bind(this));
                 return obs;
@@ -257,7 +257,7 @@
                 return this.$layout(function () { return this.$value(); }.bind(this), fn, num, init);
             },
             $init: function (fn) {
-                _cpInitList.push(function () {
+                _pushStep('CPInit', function () {
                     return fn({});
                 }.bind(this));
             }
@@ -357,10 +357,19 @@
                 }
             },
             $getNodes: function () {
-                return this.$ownerCP.$nodes;
+                return this.$ownerCP.$getNodes();
+            },
+            $query: function (selector) {
+                return this.$ownerCP.$query(selector);
             },
             $queryAll: function (selector) {
                 return this.$ownerCP.$queryAll(selector);
+            },
+            $insertBefore: function (p, ref) {
+                return this.$ownerCP.$insertBefore(p, ref);
+            },
+            $insertAfter: function (p, ref) {
+                return this.$ownerCP.$insertAfter(p, ref);
             }
         }).$extend(p);
 
@@ -395,7 +404,7 @@
             }
             this.bgToObserve();
         }.bind(view));
-        _viewInitList.push(function () {
+        _pushStep('ViewInit', function () {
             if (this.bgIsDispose) return;
             var inits = _pri.inits, promises = [];
             if (inits) {
@@ -408,7 +417,7 @@
             return promises;
         }.bind(view));
 
-        _viewReadyList.push(function () {
+        _pushStep('ViewReady', function () {
             if (this.bgIsDispose) return;
             var readys = _pri.readys, promises = [];
             if (readys) {
@@ -420,7 +429,7 @@
             this.bgToObserve();
             return promises;
         }.bind(view));
-        _viewReadyAllList.push(function () {
+        _pushStep('ViewReadyAll', function () {
             if (this.bgIsDispose) return;
             var readys = _pri.readyAlls, promises = [];
             if (readys) {
@@ -469,7 +478,7 @@
             cp.$ownerView.bgDispose();
         cp.$children = cp.$ownerView = null;
         cp.$virtualNodes = [];
-    }, _getCPFirstNode = function (cp) {
+    }, _getCPFirstNode = function (cp, childNodes) {
 
         var node = _getCPRefNode(cp),
             child = cp.$children[0],
@@ -480,16 +489,17 @@
             if (cNode.parentNode != parent)
                 return node;
             else {
+                childNodes || (childNodes = bingo.sliceArray(parent.childNodes));
                 var childNodes = bingo.sliceArray(parent.childNodes);
                 if (bingo.inArray(node, childNodes) < bingo.inArray(cNode, childNodes))
                     return node;
                 else
-                    return _getCPFirstNode(child);
+                    return _getCPFirstNode(child, childNodes);
             }
         } else
             return node;
 
-    }, _getCPLastNode = function (cp) {
+    }, _getCPLastNode = function (cp, childNodes) {
 
         var node = _getCPRefNode(cp, true),
             child = cp.$children[cp.$children.length-1],
@@ -500,14 +510,24 @@
             if (cNode.parentNode != parent)
                 return node;
             else {
-                var childNodes = bingo.sliceArray(parent.childNodes);
+                childNodes || (childNodes = bingo.sliceArray(parent.childNodes));
                 if (bingo.inArray(node, childNodes) > bingo.inArray(cNode, childNodes))
                     return node;
                 else
-                    return _getCPLastNode(child);
+                    return _getCPLastNode(child, childNodes);
             }
         } else
             return node;
+    }, _getCPAllNodes = function (cp) {
+        var first = _getCPFirstNode(cp),
+            last = _getCPLastNode(cp);
+        if (first == last) return [first];
+        var list = [first], item;
+        while (last != (item = first.nextSibling)) {
+            list.push(item);
+        }
+        list.push(last);
+        return list;
     }, _newCP = function (p, extendWith) {
         var _pri = {
             tmpl:'',
@@ -548,7 +568,10 @@
                 //    this.bgDispose();
                 //}.bind(this));
             },
-            $query: function (selector, context) {
+            $getNodes: function () {
+                return _getCPAllNodes(this);
+            },
+            $query: function (selector) {
                 return this.$queryAll(selector, true)[0];
             },
             $queryAll: function (selector, isFirst) {
@@ -600,15 +623,14 @@
             },
             $insertBefore: function (p, ref) {
                 /// <summary>
-                /// $insertBefore(html) html放到本cp的最前面<br />
-                /// $insertBefore(html, cp|view) html放到cp|view的前面<br />
+                /// $insertBefore(html|cp|view) html|cp|view放到本cp的最前面<br />
+                /// $insertBefore(html|cp|view, cp|view) html|cp|view放到cp|view的前面<br />
                 /// </summary>
 
                 //view|cp|this
                 var cp = (ref && (ref.$ownerCP || ref)) || this;
 
-                var childs = this.$children, refNode = _getCPFirstNode(cp);
-                console.log(refNode);
+                var refNode = _getCPFirstNode(cp);
 
                 if (bingo.isString(p)) {
                     return _compile({
@@ -622,19 +644,21 @@
                         return cpT;
                     });
                 } else {
-                    var target = p.$ownerCP || p;
+                    var childs = this.$children,target = p.$ownerCP || p;
                     var index = bingo.inArray(target, childs);
                     if (index >= 0) {
                         if (cp == this) {
-                            childs.splice(index, 1);
-                            childs.unshift(target);
-                            _insertDom(target.$nodes, refNode, 'insertBefore');
+                            if (index > 0) {//不能插入相同位置
+                                childs.splice(index, 1);
+                                childs.unshift(target);
+                                _insertDom(_getCPAllNodes(target), refNode, 'insertBefore');
+                            }
                         } else {
                             var pIndex = bingo.inArray(cp, childs);
-                            if (pIndex >= 0) {
+                            if (pIndex >= 0 && (pIndex - 1 != index)) {
                                 childs.splice(index, 1);
                                 childs.splice(pIndex, 0, target);
-                                _insertDom(target.$nodes, refNode, 'insertBefore');
+                                _insertDom(_getCPAllNodes(target), refNode, 'insertBefore');
                             }
                         }
                     }
@@ -643,13 +667,13 @@
             },
             $insertAfter: function (p, ref) {
                 /// <summary>
-                /// $insertBefore(html) html放到本cp的最后面<br />
-                /// $insertBefore(html, cp|view) html放到cp|view的后面<br />
+                /// $insertBefore(html|cp|view) html|cp|view放到本cp的最后面<br />
+                /// $insertBefore(html|cp|view, cp|view) html|cp|view放到cp|view的后面<br />
                 /// </summary>
                 //view|cp|this
                 var cp = (ref && (ref.$ownerCP || ref)) || this;
 
-                var node = _getCPLastNode(cp, true),
+                var node = _getCPLastNode(cp),
                     refNode = node.nextSibling;
                 
                 if (bingo.isString(p)) {
@@ -667,16 +691,19 @@
                     var target = p.$ownerCP || p, childs = this.$children;
                     var index = bingo.inArray(target, childs);
                     if (index >= 0) {
+                        var lastIndex = childs.length - 1;
                         if (cp == this) {
-                            childs.splice(index, 1);
-                            childs.push(target);
-                            _insertDom(target.$nodes, refNode ? refNode : node.parentNode, refNode ? 'insertBefore' : 'appendTo');
+                            if (index != lastIndex) {
+                                childs.splice(index, 1);
+                                childs.push(target);
+                                _insertDom(_getCPAllNodes(target), refNode ? refNode : node.parentNode, refNode ? 'insertBefore' : 'appendTo');
+                            }
                         } else {
                             var pIndex = bingo.inArray(cp, childs);
-                            if (pIndex >= 0) {
+                            if (pIndex >= 0 && (index-1 != pIndex)) {
                                 childs.splice(index, 1);
                                 childs.splice(pIndex+1, 0, target);
-                                _insertDom(target.$nodes, refNode ? refNode : node.parentNode, refNode ? 'insertBefore' : 'appendTo');
+                                _insertDom(_getCPAllNodes(target), refNode ? refNode : node.parentNode, refNode ? 'insertBefore' : 'appendTo');
                             }
                         }
                     }
@@ -1145,41 +1172,17 @@
                 _viewCtrlStep();
             });
         }
-    }, _cpInitList = [], _cpInitStep = function () {
-        var initList = _cpInitList;
+    }, _stepObj = {}, _pushStep = function (name, fn) {
+        if (_stepObj[name])
+            _stepObj[name].push(fn);
+        else
+            _stepObj[name] = [fn];
+    }, _doneStep = function (name, reverse) {
+        var initList = _stepObj[name];
         var promises = [];
         if (initList.length > 0) {
-            _cpInitList = [];
-            bingo.each(initList, function (fn) {
-                _promisePush(promises, fn());
-            });
-        }
-        return promises;
-    }, _viewInitList = [], _viewInitStep = function () {
-        var initList = _viewInitList;
-        var promises = [];
-        if (initList.length > 0) {
-            _viewInitList = [];
-            bingo.each(initList, function (fn) {
-                _promisePushList(promises, fn());
-            });
-        }
-        return promises;
-    }, _viewReadyList = [], _viewReadyStep = function () {
-        var initList = _viewReadyList;
-        var promises = [];
-        if (initList.length > 0) {
-            _viewReadyList = [];
-            bingo.each(initList, function (fn) {
-                _promisePushList(promises, fn());
-            });
-        }
-        return promises;
-    }, _viewReadyAllList = [], _viewReadyAllStep = function () {
-        var initList = _viewReadyAllList;
-        var promises = [];
-        if (initList.length > 0) {
-            _viewReadyAllList = [];
+            _stepObj[name] = [];
+            reverse && initList.reverse();
             bingo.each(initList, function (fn) {
                 _promisePushList(promises, fn());
             });
@@ -1372,16 +1375,19 @@
 
             return _complieInit().then(function () { return cp; });
         });
-    }, _complieInit = function () {
+    }, _initStep = function (step, then) {
+        _promiseAlways(_doneStep(_initStepName[step]), function (r) {
+            if (!!r) 
+                _initStep(step == 0 ? 0 : step - 1, then);
+            else
+                then(r);
+        });
+    }, _initStepName = ['CPInit', 'ViewInit', 'ViewReady', 'ViewReadyAll'], _complieInit = function () {
         var deferred = bingo.Deferred(), has = false;
-        _promiseAlways(_cpInitStep(), function (r) {
-            has || (has = !!r);
-            _promiseAlways(_viewInitStep(), function (r) {
-                has || (has = !!r);
-                _promiseAlways(_viewReadyStep(), function (r) {
-                    has || (has = !!r);
-                    _promiseAlways(_viewReadyAllStep(), function (r) {
-                        has || (has = !!r);
+        _initStep(0, function (r) {
+            _initStep(1, function (r) {
+                _initStep(2, function (r) {
+                    _initStep(3, function (r) {
                         deferred.resolve();
                     });
                 });
