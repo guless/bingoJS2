@@ -436,29 +436,80 @@
         //编译时同步用
         _addView(view);
         return view;
+    }, _cpNodeName = '_bgcp_', _getNodeCP = function (item) {
+        return item[_cpNodeName];
+    }, _removeCPNodes = function (nodes) {
+        if (nodes) {
+            //_unLinkNodes('_cpLinkC', nodes);
+            bingo.each(nodes, function (item) {
+                item[_cpNodeName] = null;
+                _removeNode(item);
+            });
+        }
+    }, _checkCPNodes = function (cp) {
+        var list = [];
+        bingo.each(cp.$nodes, function (item) {
+            if (!!item.parentNode)
+                list.push(item);
+        });
+        cp.$nodes = list;
+    }, _getCPRefNode = function (cp, last) {
+        _checkCPNodes(cp);
+        var nodes = cp.$nodes;
+        var len = cp.$nodes.length;
+        return len > 0 ? cp.$nodes[last ? len - 1 : 0] : null;
+    }, _clearCP = function (cp) {
+        bingo.each(cp.$children, function (item) {
+            item.bgDispose();
+        });
+        bingo.each(cp.$virtualNodes, function (item) {
+            item.bgDispose();
+        });
+        if (cp.$ownerView)
+            cp.$ownerView.bgDispose();
+        cp.$children = cp.$ownerView = null;
+        cp.$virtualNodes = [];
+    }, _getCPFirstNode = function (cp) {
+
+        var node = _getCPRefNode(cp),
+            child = cp.$children[0],
+            cNode = child && _getCPRefNode(child);
+
+        if (cNode) {
+            var parent = node.parentNode;
+            if (cNode.parentNode != parent)
+                return node;
+            else {
+                var childNodes = bingo.sliceArray(parent.childNodes);
+                if (bingo.inArray(node, childNodes) < bingo.inArray(cNode, childNodes))
+                    return node;
+                else
+                    return _getCPFirstNode(child);
+            }
+        } else
+            return node;
+
+    }, _getCPLastNode = function (cp) {
+
+        var node = _getCPRefNode(cp, true),
+            child = cp.$children[cp.$children.length-1],
+            cNode = child && _getCPRefNode(child, true);
+
+        if (cNode) {
+            var parent = node.parentNode;
+            if (cNode.parentNode != parent)
+                return node;
+            else {
+                var childNodes = bingo.sliceArray(parent.childNodes);
+                if (bingo.inArray(node, childNodes) > bingo.inArray(cNode, childNodes))
+                    return node;
+                else
+                    return _getCPLastNode(child);
+            }
+        } else
+            return node;
     }, _newCP = function (p, extendWith) {
-        //todo asdfsf
         var _pri = {
-            removeNodes: function (nodes) {
-                if (nodes) {
-                    //_unLinkNodes('_cpLinkC', nodes);
-                    bingo.each(nodes, function (item) {
-                        _removeNode(item);
-                    });
-                }
-            },
-            clear: function (cp) {
-                bingo.each(cp.$children, function (item) {
-                    item.bgDispose();
-                });
-                bingo.each(cp.$virtualNodes, function (item) {
-                    item.bgDispose();
-                });
-                if (cp.$ownerView)
-                    cp.$ownerView.bgDispose();
-                cp.$children = cp.$ownerView = null;
-                cp.$virtualNodes = [];
-            },
             tmpl:'',
             getContent: function (cp) {
                 var tmpl = this.tmpl;
@@ -466,20 +517,6 @@
                     return tmpl();
                 else
                     return tmpl;
-            },
-            checkNodes: function (cp) {
-                var list = [];
-                bingo.each(cp.$nodes, function (item) {
-                    if (!!item.parentNode)
-                        list.push(item);
-                });
-                cp.$nodes = list;
-            },
-            getPNode: function (cp, last) {
-                this.checkNodes(cp);
-                var nodes = cp.$nodes;
-                var len = cp.$nodes.length;
-                return len > 0 ? cp.$nodes[last ? len -1 : 0] : null;
             },
             _render: function (cp) {
                 var ret = this.getContent(cp);
@@ -502,8 +539,11 @@
             $nodes: null,
             $virtualNodes: [],
             $setNodes: function (nodes) {
-                _pri.removeNodes(this.$nodes);
+                _removeCPNodes(this.$nodes);
                 this.$nodes = nodes;
+                bingo.each(nodes, function (item) {
+                    item[_cpNodeName] = this;
+                }, this);
                 //_linkNodes('_cpLinkC', nodes, function () {
                 //    this.bgDispose();
                 //}.bind(this));
@@ -546,10 +586,10 @@
             },
             $html: function (s) {
                 if (arguments.length > 0) {
-                    _pri.clear(this);
+                    _clearCP(this);
                     this.$tmpl(s);
 
-                    return _compile({ cp: this, context: _pri.getPNode(this), opName: 'insertBefore' });
+                    return _compile({ cp: this, context: _getCPRefNode(this), opName: 'insertBefore' });
                 } else {
                     var list = [];
                     bingo.each(this.$nodes, function (item) {
@@ -567,12 +607,14 @@
                 //view|cp|this
                 var cp = (ref && (ref.$ownerCP || ref)) || this;
 
-                var refNode = _pri.getPNode(cp);
+                var childs = this.$children, refNode = _getCPFirstNode(cp);
+                console.log(refNode);
 
                 if (bingo.isString(p)) {
                     return _compile({
                         tmpl: p,
                         view: cp.$ownerView || cp.$view,
+                        parent: ref ? (ref.$ownerCP || ref).$parent : cp,
                         context: refNode,
                         opName: 'insertBefore'
                     }).then(function (cpT) {
@@ -580,7 +622,7 @@
                         return cpT;
                     });
                 } else {
-                    var target = p.$ownerCP || p, childs = this.$children;
+                    var target = p.$ownerCP || p;
                     var index = bingo.inArray(target, childs);
                     if (index >= 0) {
                         if (cp == this) {
@@ -607,13 +649,14 @@
                 //view|cp|this
                 var cp = (ref && (ref.$ownerCP || ref)) || this;
 
-                var node = _pri.getPNode(cp, true),
+                var node = _getCPLastNode(cp, true),
                     refNode = node.nextSibling;
                 
                 if (bingo.isString(p)) {
                     return _compile({
                         tmpl: p,
                         view: cp.$ownerView || cp.$view,
+                        parent: ref ? (ref.$ownerCP || ref).$parent : cp,
                         context: refNode ? refNode : node.parentNode,
                         opName: refNode ? 'insertBefore' : 'appendTo'
                     }).then(function (cpT) {
@@ -642,10 +685,10 @@
             },
             $text: function (s) {
                 if (arguments.length > 0) {
-                    _pri.clear(this);
+                    _clearCP(this);
                     this.$contents = this.tmplTag = bingo.htmlEncode(s);
 
-                    return _traverseCP(_pri.getPNode(this), this, 'insertBefore');
+                    return _traverseCP(_getCPRefNode(this), this, 'insertBefore');
                 } else {
                     var list = [];
                     bingo.each(this.$nodes, function (item) {
@@ -673,6 +716,8 @@
                 this._ctrl = fn;
             }
         }).$extend(p);
+
+        cp.$id || (cp.$id = bingo.makeAutoId());
 
         //要分离上下级的withData
         extendWith && cp.$parent && cp.$withData(bingo.extend({}, cp.$parent.$withData()));
@@ -702,7 +747,7 @@
 
 
         cp.bgOnDispose(function () {
-            _pri.removeNodes(this.$nodes);
+            _removeCPNodes(this.$nodes);
             var parent = this.$parent;
             if (parent && !parent.bgIsDispose) {
                 parent.$removeChild(this);
@@ -711,7 +756,7 @@
                 cp.bgIsDispose || cp.bgDispose();
             });
             this.$attrs && this.$attrs.bgDispose();
-            _pri.clear(this);
+            _clearCP(this);
         });
         cp.bgDispose(_pri);
 
@@ -1228,11 +1273,14 @@
 
     //是否支持select注释
     var _isComment = (_parseHTML('<option>test</option><!--test-->', 'select').length > 1),
-        _commentPrefix = 'bgcpid_',
+        _commentPrefix = 'bg-virtual',
         //取得cp空白节点
         _getCpEmptyNode = function (cp) {
+            //var html = (_isComment) ?
+            //    ['<!--', _commentPrefix, cp.$id, '-->'].join('') :
+            //    _getScriptTag(cp.$id);
             var html = (_isComment) ?
-                ['<!--', _commentPrefix, cp.$id, '-->'].join('') :
+                ['<!--bg-virtual-->'].join('') :
                 _getScriptTag(cp.$id);
             return _parseHTML(html)[0];
         },
@@ -1242,17 +1290,12 @@
             return (_isScriptTag.test(node.tagName)) ?
                 node.getAttribute('bg-id') : null;
         },
-        _getEmptyNodeId = function (node) {
+        _isEmptyNode = function (node) {
             if (_isComment) {
-                if (node.nodeType == 8) {
-                    var val = node.nodeValue;
-                    if (val.indexOf(_commentPrefix) == 0) {
-                        return val.replace(_commentPrefix, '');
-                    }
-                }
+                return (node.nodeType == 8 && node.nodeValue.indexOf(_commentPrefix) == 0);
             } else {
                 return (_isScriptTag.test(node.tagName)) ?
-                    node.getAttribute('bg-id') : null;
+                    !node.getAttribute('bg-id') : false;
             }
         },
 
@@ -1262,7 +1305,7 @@
             if (!empty) {
                 //是否有element节点, 注释节点不算
                 empty = (bingo.inArray(function (item) {
-                    return !_getEmptyNodeId(item);
+                    return !_isEmptyNode(item);
                     //return _isLinkNodeType(item.nodeType);
                 }, nodes) < 0);
             }
@@ -1311,13 +1354,13 @@
         });
     };
 
-    //_compile({view:view, tmpl:tmpl, context:node, opName:'appendTo'});
+    //_compile({view:view, tmpl:tmpl, context:node, opName:'appendTo', parent:cp});
     //_compile({cp:cp, context:node, opName:'insertBefore'});
     var _compile = bingo.compile = function (p) {
         var view = p.view;
         var cp = p.cp || _newCP({
             $app: view.$app || bingo.defualtApp,
-            $parent:view.$ownerCP,
+            $parent: p.parent || view.$ownerCP,
             $view: view, $contents: p.tmpl
         }).$tmpl(p.tmpl);
         return cp.$render().then(function () {

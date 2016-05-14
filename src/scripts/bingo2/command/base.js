@@ -219,8 +219,15 @@
             $view.textName = '';
             $view.id = '';
             $view.datas = '';
+
         });
 
+        return cp;
+    });
+
+    defualtApp.command('cp', function (cp) {
+        cp.$tmpl(cp.$contents);
+        cp.$export = cp;
         return cp;
     });
     
