@@ -133,22 +133,50 @@
                 _done();
         };
 
+    var _routeTypeReg = /^(.+)\:\:(.*)/,
+        _makeRoueTypeUrl = function (url) {
+            var type, s;
+            if (_routeTypeReg.test(url)) {
+                type = RegExp.$1;
+                s = RegExp.$2;
+            } else {
+                s = url;
+            }
+            return { all: url, url: s, type: type || '' };
+        }, _mergeRouteUrlType = function (url, type) {
+            return [type, url].join('::');
+        }, _loadRouteType = function (app, type, url, bRoute, p) {
+            if (bRoute !== false) {
+                var urlType = _makeRoueTypeUrl(url),
+                    types = urlType.type,
+                    sUrl = urlType.url;
+
+                bingo.isNullEmpty(types) && (url = _mergeRouteUrlType(url, type));
+
+                var route = app.route(url), config = bingo.config();
+                if (route) {
+                    sUrl = route.toUrl;
+                    if (route.promise)
+                        return route.promise(sUrl, p);
+                    else
+                        return config[type](sUrl, p);
+                } else {
+                    return config[type](sUrl, p);
+                }
+            } else
+                return config[type](url);
+        };
+
     bingo.app.extend({
-        using: function (url) {
+        using: function (url, bRoute) {
+            /// <returns value=''></returns>
             /// <summary>
             /// bingo.using('/js/file1.js').then <br />
             /// </summary>
-            /// <param name="p">url</param>
+            /// <param name="url"></param>
+            /// <param name="bRoute">是否经过route, 默认是</param>
 
-            var route = this.route(url), config = bingo.config();
-            if (route) {
-                if (route.promise)
-                    return route.promise(url);
-                else
-                    return config.using(url);
-            } else {
-                return config.using(url);
-            }
+            return _loadRouteType(this, 'using', url, bRoute);
         },
         usingAll: function (url, lv) {
             url && this.using(url);
@@ -324,18 +352,10 @@
     var _tagTestReg = /^\s*<(\w+|!)[^>]*>/;
 
     bingo.app.extend({
-        ajax: function (url, p) {
-            var route = this.route(url), config = bingo.config();
-            if (route) {
-                if (route.promise)
-                    return route.promise(route.toUrl, p);
-                else
-                    return config.ajax(route.toUrl, p);
-            } else {
-                return config.ajax(p, aP);
-            }
+        ajax: function (url, p, bRoute) {
+            return _loadRouteType(this, 'ajax', url, bRoute, p);
         },
-        tmpl: function (p, aP) {
+        tmpl: function (p, bRoute, aP) {
             /// <summary>
             /// bingo.tmpl('tmpl/aaaa/user').then(...;<br />
             /// bingo.tmpl('#userTmplId').then(...;<br />
@@ -347,15 +367,7 @@
                     if (!p || _tagTestReg.test(p)) {
                         return _Promise.resolve(p);
                     } else {
-                        var route = bingo.route(p), config = bingo.config();
-                        if (route) {
-                            if (route.promise)
-                                return route.promise(route.toUrl, ap);
-                            else
-                                return config.tmpl(route.toUrl, aP);
-                        } else {
-                            return config.tmpl(p, aP);
-                        }
+                        return _loadRouteType(this, 'tmpl', url, bRoute, p);
                     }
                 } else
                     node = document.getElementById(p.substr(1));
@@ -570,16 +582,15 @@
     };
 
     var _checkRoute = function (app) {
-        return app._route || (app._route = _newRouter());
+        return app._route || (app._route = _newRouter(app));
     };
 
     bingo.app.extend({
         route: function (p, context) {
-            var ru = _checkRoute(this);
             if (arguments.length == 1)
                 return this.routeContext(p);
             else
-                p && context && ru.add(p, context);
+                p && context && _checkRoute(this).add(p, context);
         },
         routeContext: function (url) {
             return _checkRoute(this).getRouteByUrl(url);
@@ -609,8 +620,9 @@
     });
 
 
-    var _newRouter = function () {
+    var _newRouter = function (app) {
         var route = {
+            bgNoObserve: true,
             datas: [],
             add: function (name, context) {
                 var route = this.getRuote(name);
@@ -636,23 +648,27 @@
             getRouteByUrl: function (url) {
                 if (!url) return '';
 
+                var urlType = _makeRoueTypeUrl(url),
+                    types = urlType.type;
+                url = urlType.url;
 
                 var querys = url.split('?'), urlOld = url;
                 if (querys.length > 1) url = querys[0];
-                var routeContext = null, name = '';
+                var routeContext = null, name = '',tt;
                 var params = null;
                 bingo.each(this.datas, function () {
                     routeContext = this.context;
-                    params = _urlToParams(url, routeContext);
-                    //如果params不为null, 认为是要查找的url
-                    if (params) { name = this.name; return false; }
+                    tt = routeContext.type;
+                    if (!tt || tt == types) {
+                        params = _urlToParams(url, routeContext);
+                        //如果params不为null, 认为是要查找的url
+                        if (params) { name = this.name; return false; }
+                    }
                 });
 
-                if (!params && this != bingo.defualtApp) {
+                if (!params && app != bingo.defualtApp) {
                     return _checkRoute(bingo.defualtApp).getRouteByUrl(urlOld);
                 }
-
-
 
                 //再找组装参数
                 if (!params) {

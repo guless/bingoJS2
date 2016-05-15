@@ -53,7 +53,6 @@
             {{text "text:"+user.desc+"11" /}}
         </div>
         <div class="splice">html==============================</div>
-        {{splice name='splice1' /}}
         <div class="content">
             {{html "html:"+user.desc+"_html" /}}
         </div>
@@ -78,7 +77,6 @@
                 if1 false
             {{/if}}
         </div>
-        {{splice /}}
         {{controller}}
             $view.if1 = true;
             $view.if2 = false;

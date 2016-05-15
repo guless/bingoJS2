@@ -15,21 +15,6 @@
 
         return cp;
     });
-    defualtApp.command('splice', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
-
-        cp.$tmpl('<div class="splice">{{view /}} {{text title /}}==============================</div>');
-
-        cp.$controller(function ($view) {
-            $view.title = cp.$name;
-        });
-
-        //cp.$export = { test: '' };
-        //cp.$init(function () {
-        //    setTimeout(function () { cp.$remove(); }, 1000);
-        //});
-        return cp;
-    });
 
     defualtApp.command('controller', function (cp) {
         /// <param name="cp" value="_newCP()"></param>
@@ -204,22 +189,6 @@
             return cp.$attrs.$result();
         }, function (c) {
             return cp.$text(c.value);
-        });
-
-        return cp;
-    });
-
-    defualtApp.command('select', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
-        cp.$tmpl('{{view /}}<select>{{for item in datas}}<option value="1"></option>{{/for}}</select>');
-
-        cp.$controller(function ($view) {
-
-            $view.idName = '';
-            $view.textName = '';
-            $view.id = '';
-            $view.datas = '';
-
         });
 
         return cp;

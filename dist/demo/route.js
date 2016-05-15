@@ -8,6 +8,7 @@
     demoApp.route('route-demo', {
         //优先级, 越小越前, 默认100
         priority: 200,
+        type:'controller',
         //路由url, 如: view/system/user/list
         url: '{controller*}',
         //路由到目标url, 生成:modules/system/user/list.html
@@ -42,7 +43,8 @@
 
     //设置service资源路由
     demoApp.route('service', {
-        url: 'services/{service*}',
+        type: 'service',
+        url: '{service*}',
         toUrl: 'services/{service*}.js',
         defaultValue: { app: 'demo', service: '' }
     });

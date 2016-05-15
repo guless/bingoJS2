@@ -1210,25 +1210,6 @@
         return _appMType.apply(this, args);
     }, _commandFn = function (name, fn) {
         var args = [this, '_command'].concat(bingo.sliceArray(arguments));
-        //var def = args[3];
-        //if (def) {
-        //    var opt = {
-        //        priority: 50,
-        //        tmpl: '',
-        //        tmplUrl: '',
-        //        replace: false,
-        //        include: false,
-        //        view: false,
-        //        compileChild: true
-        //    };
-        //    def = def();
-        //    if (bingo.isFunction(def) || bingo.isArray(def)) {
-        //        opt.link = _makeInjectAttrs(def);
-        //    } else
-        //        opt = bingo.extend(opt, def);
-        //    args[3] = opt;
-        //    args[4] = false;
-        //}
         return _appMType.apply(this, args);
     }
 
@@ -1285,29 +1266,31 @@
         return fn;
     };
 
-    var _injectIn = function (fn, name, injectObj, thisArg) {
+    var _Promise = bingo.Promise, _injectIn = function (fn, name, injectObj, thisArg) {
         if (!fn) throw new Error('not find inject: ' + name);
         var $injects = fn.$injects;
-        var injectParams = [];
+        var injectParams = [], promises = [];
         if ($injects && $injects.length > 0) {
             var pTemp = null;
             bingo.each($injects, function (item) {
                 if (item in injectObj) {
-                    pTemp = injectObj[item];
+                    injectParams.push(injectObj[item]);
                 } else {
                     //注意, 有循环引用问题
-                    pTemp = injectObj[item] = _inject(item, injectObj, thisArg);
+                    promises.push(_inject(item, injectObj, thisArg).then(function (ret) {
+                        injectParams.push(injectObj[item] = ret);
+                    }));
                 }
-                injectParams.push(pTemp);
             });
         }
 
-        var ret = fn.apply(thisArg|| window, injectParams);
-        if (bingo.isString(name)) {
-            injectObj[name] = ret;
-        }
-
-        return ret;
+        return _Promise.always(promises).then(function () {
+            var ret = fn.apply(thisArg || window, injectParams);
+            if (bingo.isString(name)) {
+                injectObj[name] = ret;
+            }
+            return ret;
+        });
     }, _inject = function (p, injectObj, thisArg) {
         var fn = null, name = '';
         if (bingo.isFunction(p) || bingo.isArray(p)) {
@@ -1315,20 +1298,26 @@
         }
         else {
             name = p;
-            var srv = injectObj.$view.$getApp().service(name);
+            var srv = injectObj.$view.$app.service(name);
             fn = srv ? srv.fn : null;
         }
-        return _injectIn(fn, name, injectObj, thisArg);
+        return _preUsing(fn?fn.$injects:[name], injectObj).then(function () { return _injectIn(fn, name, injectObj, thisArg); });
+    }, _preUsing = function ($injects, injectObj) {
+            var app = injectObj.$view.$app,
+            promises = [];
+        bingo.each($injects, function (item) {
+            if ((item in injectObj) || app.service(item))
+                return;
+            promises.push(app.usingAll('service::' + item));
+        });
+        return _Promise.always(promises);
     };
 
     bingo.inject = function (p, view, injectObj, thisArg) {
         view || (view = bingo.rootView());
         injectObj = bingo.extend({
             $view: view,
-            node: view.$getNode()[0],
-            $viewnode: view.$getViewnode(),
-            $attr: null,
-            $withData: null
+            $cp: view.$ownerCP
         }, injectObj);
         return _inject(p, injectObj, thisArg || view);
     };
@@ -1548,22 +1537,50 @@
                 _done();
         };
 
+    var _routeTypeReg = /^(.+)\:\:(.*)/,
+        _makeRoueTypeUrl = function (url) {
+            var type, s;
+            if (_routeTypeReg.test(url)) {
+                type = RegExp.$1;
+                s = RegExp.$2;
+            } else {
+                s = url;
+            }
+            return { all: url, url: s, type: type || '' };
+        }, _mergeRouteUrlType = function (url, type) {
+            return [type, url].join('::');
+        }, _loadRouteType = function (app, type, url, bRoute, p) {
+            if (bRoute !== false) {
+                var urlType = _makeRoueTypeUrl(url),
+                    types = urlType.type,
+                    sUrl = urlType.url;
+
+                bingo.isNullEmpty(types) && (url = _mergeRouteUrlType(url, type));
+
+                var route = app.route(url), config = bingo.config();
+                if (route) {
+                    sUrl = route.toUrl;
+                    if (route.promise)
+                        return route.promise(sUrl, p);
+                    else
+                        return config[type](sUrl, p);
+                } else {
+                    return config[type](sUrl, p);
+                }
+            } else
+                return config[type](url);
+        };
+
     bingo.app.extend({
-        using: function (url) {
+        using: function (url, bRoute) {
+            /// <returns value=''></returns>
             /// <summary>
             /// bingo.using('/js/file1.js').then <br />
             /// </summary>
-            /// <param name="p">url</param>
+            /// <param name="url"></param>
+            /// <param name="bRoute">是否经过route, 默认是</param>
 
-            var route = this.route(url), config = bingo.config();
-            if (route) {
-                if (route.promise)
-                    return route.promise(url);
-                else
-                    return config.using(url);
-            } else {
-                return config.using(url);
-            }
+            return _loadRouteType(this, 'using', url, bRoute);
         },
         usingAll: function (url, lv) {
             url && this.using(url);
@@ -1739,18 +1756,10 @@
     var _tagTestReg = /^\s*<(\w+|!)[^>]*>/;
 
     bingo.app.extend({
-        ajax: function (url, p) {
-            var route = this.route(url), config = bingo.config();
-            if (route) {
-                if (route.promise)
-                    return route.promise(route.toUrl, p);
-                else
-                    return config.ajax(route.toUrl, p);
-            } else {
-                return config.ajax(p, aP);
-            }
+        ajax: function (url, p, bRoute) {
+            return _loadRouteType(this, 'ajax', url, bRoute, p);
         },
-        tmpl: function (p, aP) {
+        tmpl: function (p, bRoute, aP) {
             /// <summary>
             /// bingo.tmpl('tmpl/aaaa/user').then(...;<br />
             /// bingo.tmpl('#userTmplId').then(...;<br />
@@ -1762,15 +1771,7 @@
                     if (!p || _tagTestReg.test(p)) {
                         return _Promise.resolve(p);
                     } else {
-                        var route = bingo.route(p), config = bingo.config();
-                        if (route) {
-                            if (route.promise)
-                                return route.promise(route.toUrl, ap);
-                            else
-                                return config.tmpl(route.toUrl, aP);
-                        } else {
-                            return config.tmpl(p, aP);
-                        }
+                        return _loadRouteType(this, 'tmpl', url, bRoute, p);
                     }
                 } else
                     node = document.getElementById(p.substr(1));
@@ -1985,16 +1986,15 @@
     };
 
     var _checkRoute = function (app) {
-        return app._route || (app._route = _newRouter());
+        return app._route || (app._route = _newRouter(app));
     };
 
     bingo.app.extend({
         route: function (p, context) {
-            var ru = _checkRoute(this);
             if (arguments.length == 1)
                 return this.routeContext(p);
             else
-                p && context && ru.add(p, context);
+                p && context && _checkRoute(this).add(p, context);
         },
         routeContext: function (url) {
             return _checkRoute(this).getRouteByUrl(url);
@@ -2024,8 +2024,9 @@
     });
 
 
-    var _newRouter = function () {
+    var _newRouter = function (app) {
         var route = {
+            bgNoObserve: true,
             datas: [],
             add: function (name, context) {
                 var route = this.getRuote(name);
@@ -2051,23 +2052,27 @@
             getRouteByUrl: function (url) {
                 if (!url) return '';
 
+                var urlType = _makeRoueTypeUrl(url),
+                    types = urlType.type;
+                url = urlType.url;
 
                 var querys = url.split('?'), urlOld = url;
                 if (querys.length > 1) url = querys[0];
-                var routeContext = null, name = '';
+                var routeContext = null, name = '',tt;
                 var params = null;
                 bingo.each(this.datas, function () {
                     routeContext = this.context;
-                    params = _urlToParams(url, routeContext);
-                    //如果params不为null, 认为是要查找的url
-                    if (params) { name = this.name; return false; }
+                    tt = routeContext.type;
+                    if (!tt || tt == types) {
+                        params = _urlToParams(url, routeContext);
+                        //如果params不为null, 认为是要查找的url
+                        if (params) { name = this.name; return false; }
+                    }
                 });
 
-                if (!params && this != bingo.defualtApp) {
+                if (!params && app != bingo.defualtApp) {
                     return _checkRoute(bingo.defualtApp).getRouteByUrl(urlOld);
                 }
-
-
 
                 //再找组装参数
                 if (!params) {
@@ -3989,7 +3994,6 @@
     var defualtApp = bingo.defualtApp;
 
     defualtApp.service('$rootView', function () { return bingo.rootView(); });
-    defualtApp.service('$parentView', ['$view', function ($view) { return $view.$parentView(); }]);
 
     defualtApp.service('$inject', ['$view', '$attr', function ($view, $attr) {
         return function (p, withData) {
@@ -4002,35 +4006,9 @@
         };
     }]);
 
-    defualtApp.service('$compile', ['$view', function ($view) { return function (p) { return bingo.compile($view).tmpl(p); } }]);
-
     defualtApp.service('$ajax', ['$view', function ($view) {
         return function (p) { return bingo.ajax(p, $view); };
     }]);
-
-    //$comp('select1');
-    bingo.each(['$comp', '$component'], function (name) {
-        defualtApp.service(name, ['$view', function ($view) {
-            var fn = function (name) { return $view.$getComp(name); };
-            fn.create = function (p) {
-                return $view.$createComp(p);
-            };
-
-            return fn;
-        }]);
-    });
-
-    //绑定内容解释器, var bind = $bindContext('user.id == "1"', document.body); var val = bind.getContext();
-    bingo.each(['$bindContext', '$evalContext'], function (sName) {
-        var hasRet = sName == '$bindContext';
-        defualtApp.service(sName, ['$view', '$viewnode', '$withData', function ($view, $viewnode, $withData) {
-            return function (content, node, withData, event) {
-                node || (node = $viewnode.node);
-                withData = bingo.extend({}, $withData, withData);
-                return bingo.bindContext($viewnode, content, $view, node, withData, event, hasRet);
-            };
-        }]);
-    });//end $bindContext;
 
     defualtApp.service('$observe', ['$view', function ($view) {
         return function (p, fn, disposer) {
@@ -4040,7 +4018,7 @@
 
     defualtApp.service('$layout', ['$view', function ($view) {
         return function (p, fn, disposer) {
-            return $view.$layout(p, fn, 1, disposer);
+            return $view.$layout(p, fn, 0, disposer);
         };
     }]);
 
@@ -4086,21 +4064,6 @@
             ctrl && cp.$view.$controller(ctrl.fn);
         }
 
-        return cp;
-    });
-    defualtApp.command('splice', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
-
-        cp.$tmpl('<div class="splice">{{view /}} {{text title /}}==============================</div>');
-
-        cp.$controller(function ($view) {
-            $view.title = cp.$name;
-        });
-
-        //cp.$export = { test: '' };
-        //cp.$init(function () {
-        //    setTimeout(function () { cp.$remove(); }, 1000);
-        //});
         return cp;
     });
 
@@ -4277,22 +4240,6 @@
             return cp.$attrs.$result();
         }, function (c) {
             return cp.$text(c.value);
-        });
-
-        return cp;
-    });
-
-    defualtApp.command('select', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
-        cp.$tmpl('{{view /}}<select>{{for item in datas}}<option value="1"></option>{{/for}}</select>');
-
-        cp.$controller(function ($view) {
-
-            $view.idName = '';
-            $view.textName = '';
-            $view.id = '';
-            $view.datas = '';
-
         });
 
         return cp;
