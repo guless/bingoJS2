@@ -17,7 +17,6 @@
     var _vAttrDefaultName = 'bg_default_vattr',
         _isEvent = /^\s*on/i;
     defualtApp.attr(_vAttrDefaultName, function (vAttr) {
-        /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
 
         var name = vAttr.$name, view = vAttr.$view;
 
@@ -42,12 +41,10 @@
             vAttr.$attr(name, c.value);
         });
 
-        return vAttr;
     });
 
     bingo.each('checked,unchecked,disabled,enabled,readonly'.split(','), function (attrName) {
         defualtApp.attr(attrName, function (vAttr) {
-            /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
 
             var _set = function (val) {
                 switch (attrName) {
@@ -76,12 +73,11 @@
                 vAttr.$on('click', fn);
             }
 
-            return vAttr;
         });
     });
     bingo.each('show,hide,visible'.split(','), function (attrName) {
         defualtApp.attr(attrName, function (vAttr) {
-            /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
+
             var _set = function (val) {
 
                 switch (attrName) {
@@ -101,13 +97,11 @@
                 _set(c.value);
             });
 
-            return vAttr;
         });
     });
 
     bingo.each('model,value'.split(','), function (attrName) {
         defualtApp.attr(attrName, function (vAttr) {
-            /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
 
             var node = vAttr.$node, isVal = attrName == 'value';
 
@@ -159,7 +153,6 @@
                 _setNodeValue(val);
             });
 
-            return vAttr;
         });
     });
 

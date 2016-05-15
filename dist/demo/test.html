@@ -123,6 +123,18 @@
     </script>
     <script src="../scripts/bingo2/bingo.js"></script>
     <script src="route.js"></script>
+    <script type="text/javascript">
+        demoApp.controller('view_test1', function ($view) {
+            //user.desc
+            $view.user = {
+                desc: 'asdfasdfasfdasdf11<br />asdfasdf<div>sdf</div> {{html "<div>div</div><div>div1</div>asdf" /}}sdfs{{html name /}}sdf',
+                enabled: true,
+                role: 'test'
+            };
+
+            window.view1 = $view;
+        });
+    </script>
     <!--<script src="compiles.js"></script>-->
     <!--<script src="test.js"></script>-->
 </body>

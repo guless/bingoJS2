@@ -3,7 +3,9 @@
     "use strict";
 
     //CP: Content Provider(内容提供者)
-    //todo complie参数， $insertBefore
+    //todo ctrl 的注入promise问题处理
+    //todo command:route ser
+    //todo 特殊command支持attr风格， 如 {{if where="表达式" name="if1"}}
 
     //aFrame====================================
 
@@ -370,6 +372,9 @@
             },
             $insertAfter: function (p, ref) {
                 return this.$ownerCP.$insertAfter(p, ref);
+            },
+            $inject: function (p, injectObj, thisArg) {
+                return this.$ownerCP.$inject(p, injectObj, thisArg);
             }
         }).$extend(p);
 
@@ -741,6 +746,9 @@
             },
             $controller: function (fn) {
                 this._ctrl = fn;
+            },
+            $inject: function (p, injectObj, thisArg) {
+                return bingo.inject(p, this.$view, bingo.extend({ $cp: this }, injectObj));
             }
         }).$extend(p);
 
@@ -803,9 +811,8 @@
         //处理command定义
         cmdDef = app.command(cp.$cmd);
         cmdDef && (cmdDef = cmdDef.fn);
-        cmdDef && cmdDef(cp);
+        _promisePush(_renderPromise, cmdDef && cmdDef(cp));
         _pri._render(cp);
-
 
         return cp;
     }, _newCPAttr = function (contents) {
@@ -950,21 +957,13 @@
         });
 
         var def = vAttr.$app.attr(name);
-        def && def(vAttr);
-
+        //def && def(vAttr);
+        var promies = def && def(vAttr);
+        _pushStep('CPInit', function () {
+            return promies;
+        }.bind(this));
         return vAttr;
     };
-
-    bingo.defualtApp.controller('view_test1', function ($view) {
-        //user.desc
-        $view.user = {
-            desc: 'asdfasdfasfdasdf11<br />asdfasdf<div>sdf</div> {{html "<div>div</div><div>div1</div>asdf" /}}sdfs{{html name /}}sdf',
-            enabled: true,
-            role: 'test'
-        };
-
-        window.view1 = $view;
-    });
 
     //指令解释:
     //{{cmd /}}

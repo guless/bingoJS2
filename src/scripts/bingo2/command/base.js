@@ -5,25 +5,48 @@
     var defualtApp = bingo.defualtApp;
 
     defualtApp.command('view', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
 
-        var ctrl = cp.$attrs.$getAttr('controller');
-        if (ctrl) {
-            ctrl = cp.$app.controller(ctrl);
-            ctrl && cp.$view.$controller(ctrl.fn);
+        var ctrlAttr = cp.$attrs.$getAttr('controller');
+
+        if (!bingo.isNullEmpty(ctrlAttr)) {
+            var ctrl, view = cp.$view, pView = view.$parent,
+                app = view.$app;
+            if (pView.bgTestProps(ctrlAttr))
+                ctrl = pView.bgDataValue(ctrlAttr);
+            else if (window.bgTestProps(ctrlAttr))
+                ctrl = window.bgDataValue(ctrlAttr);
+
+            if (ctrl) {
+                cp.$view.$controller(ctrl);
+            } else {
+                var url = 'controller::' + ctrlAttr;
+                var routeContext = app.routeContext(url);
+                var context = routeContext.context();
+
+                if (context.controller) {
+                    view.$controller(context.controller)
+                } else {
+                    //如果找不到controller, 加载js
+                    return app.using(url).then(function () {
+                        if (cp.bgIsDispose) return;
+                        var context = routeContext.context();
+                        if (context.controller) {
+                            view.$controller(context.controller)
+                        }
+                    });
+                }
+            }
+
         }
 
-        return cp;
     });
 
     defualtApp.command('controller', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
 
         cp.$view.$controller(function () {
             cp.$eval();
         });
 
-        return cp;
     });
 
 
@@ -31,7 +54,6 @@
 
 
     defualtApp.command('with', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
 
         var contents = cp.$attrs.$contents;
 
@@ -57,7 +79,6 @@
             });
         }
 
-        return cp;
     });
 
     var _makeForTmpl = function (tmpl, datas, itemName, pWithData, withListName) {
@@ -89,7 +110,6 @@
     };
 
     defualtApp.command('for', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
 
         var contents = cp.$attrs.$contents;
         var withListName = '_bg_for_datas_' + bingo.makeAutoId();
@@ -118,11 +138,9 @@
             delete withData[withListName];
         });
 
-        return cp;
     });
 
     defualtApp.command('if', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
 
         var _contents = cp.$contents,
             _elseList = cp.$elseList, _getContent = function (index, val) {
@@ -157,21 +175,17 @@
             }, 0, false);
         });
 
-        return cp;
     });
 
     defualtApp.command('include', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
 
         cp.$tmpl(function () {
             return bingo.tmpl(cp.$attrs.$getAttr('src'));
         });
 
-        return cp;
     });
 
     defualtApp.command('html', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
 
         cp.$layout(function () {
             return cp.$attrs.$result();
@@ -179,11 +193,9 @@
             return cp.$html(c.value);
         });
 
-        return cp;
     });
 
     defualtApp.command('text', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
 
         cp.$layout(function () {
             return cp.$attrs.$result();
@@ -191,13 +203,11 @@
             return cp.$text(c.value);
         });
 
-        return cp;
     });
 
     defualtApp.command('cp', function (cp) {
         cp.$tmpl(cp.$contents);
         cp.$export = cp;
-        return cp;
     });
     
 })(bingo);

@@ -24,6 +24,9 @@
             mType[name] = { name: name, fn: fn, app: app.name, getApp: _getApp, bgNoObserve: true };
         }
     }, _controllerFn = function (name, fn) {
+        if (bingo.isFunction(name) || bingo.isArray(name)) {
+            return name;
+        };
         var args = [this, '_controller'].concat(bingo.sliceArray(arguments));
         return _appMType.apply(this, args);
     }, _serviceFn = function (name, fn) {
@@ -119,10 +122,12 @@
         }
         else {
             name = p;
-            var srv = injectObj.$view.$app.service(name);
-            fn = srv ? srv.fn : null;
+            fn = _getSrvByName(name, injectObj);
         }
-        return _preUsing(fn?fn.$injects:[name], injectObj).then(function () { return _injectIn(fn, name, injectObj, thisArg); });
+        return _preUsing(fn ? fn.$injects : [name], injectObj).then(function () {
+            if (!fn) fn = _getSrvByName(name, injectObj);
+            return _injectIn(fn, name, injectObj, thisArg);
+        });
     }, _preUsing = function ($injects, injectObj) {
             var app = injectObj.$view.$app,
             promises = [];
@@ -132,6 +137,9 @@
             promises.push(app.usingAll('service::' + item));
         });
         return _Promise.always(promises);
+    }, _getSrvByName = function (name, injectObj) {
+        var srv = injectObj.$view.$app.service(name);
+       return srv ? srv.fn : null;
     };
 
     bingo.inject = function (p, view, injectObj, thisArg) {

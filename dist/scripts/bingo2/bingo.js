@@ -1203,6 +1203,9 @@
             mType[name] = { name: name, fn: fn, app: app.name, getApp: _getApp, bgNoObserve: true };
         }
     }, _controllerFn = function (name, fn) {
+        if (bingo.isFunction(name) || bingo.isArray(name)) {
+            return name;
+        };
         var args = [this, '_controller'].concat(bingo.sliceArray(arguments));
         return _appMType.apply(this, args);
     }, _serviceFn = function (name, fn) {
@@ -1298,10 +1301,12 @@
         }
         else {
             name = p;
-            var srv = injectObj.$view.$app.service(name);
-            fn = srv ? srv.fn : null;
+            fn = _getSrvByName(name, injectObj);
         }
-        return _preUsing(fn?fn.$injects:[name], injectObj).then(function () { return _injectIn(fn, name, injectObj, thisArg); });
+        return _preUsing(fn ? fn.$injects : [name], injectObj).then(function () {
+            if (!fn) fn = _getSrvByName(name, injectObj);
+            return _injectIn(fn, name, injectObj, thisArg);
+        });
     }, _preUsing = function ($injects, injectObj) {
             var app = injectObj.$view.$app,
             promises = [];
@@ -1311,6 +1316,9 @@
             promises.push(app.usingAll('service::' + item));
         });
         return _Promise.always(promises);
+    }, _getSrvByName = function (name, injectObj) {
+        var srv = injectObj.$view.$app.service(name);
+       return srv ? srv.fn : null;
     };
 
     bingo.inject = function (p, view, injectObj, thisArg) {
@@ -1924,7 +1932,7 @@
 
         return obj;
     }, _getRouteContext = function () {
-        var context = { app: null, controller: null, component: null };
+        var context = { app: null, controller: null };
         var params = this.params;
         if (params) {
             var appName = params.app;
@@ -1933,15 +1941,13 @@
             params.controller && (context.controller = app.controller(params.controller));
             context.controller && (context.controller = context.controller.fn);
 
-            params.component && (context.component = app.component(params.component));
-            context.component && (context.component = context.component.fn);
         }
         return context;
     }, _makeRouteContext = function (routeContext, name, url, toUrl, params) {
         //生成 routeContext
         return { name: name, params: params, url: url, toUrl: toUrl, promise:routeContext.promise, context: _getRouteContext };
     },
-    _passParam = ',component,controller,service,app,queryParams,',
+    _passParam = ',controller,service,app,queryParams,',
     _paramToUrl = function (url, params, paramType) {
         //_urlToParams反操作, paramType:为0转到普通url参数(?a=1&b=2), 为1转到route参数($a:1$b:2)， 默认为0
         _tranAttrRex.lastIndex = 0;
@@ -2352,7 +2358,9 @@
     "use strict";
 
     //CP: Content Provider(内容提供者)
-    //todo complie参数， $insertBefore
+    //todo ctrl 的注入promise问题处理
+    //todo command:route ser
+    //todo 特殊command支持attr风格， 如 {{if where="表达式" name="if1"}}
 
     //aFrame====================================
 
@@ -2719,6 +2727,9 @@
             },
             $insertAfter: function (p, ref) {
                 return this.$ownerCP.$insertAfter(p, ref);
+            },
+            $inject: function (p, injectObj, thisArg) {
+                return this.$ownerCP.$inject(p, injectObj, thisArg);
             }
         }).$extend(p);
 
@@ -3090,6 +3101,9 @@
             },
             $controller: function (fn) {
                 this._ctrl = fn;
+            },
+            $inject: function (p, injectObj, thisArg) {
+                return bingo.inject(p, this.$view, bingo.extend({ $cp: this }, injectObj));
             }
         }).$extend(p);
 
@@ -3152,9 +3166,8 @@
         //处理command定义
         cmdDef = app.command(cp.$cmd);
         cmdDef && (cmdDef = cmdDef.fn);
-        cmdDef && cmdDef(cp);
+        _promisePush(_renderPromise, cmdDef && cmdDef(cp));
         _pri._render(cp);
-
 
         return cp;
     }, _newCPAttr = function (contents) {
@@ -3299,21 +3312,13 @@
         });
 
         var def = vAttr.$app.attr(name);
-        def && def(vAttr);
-
+        //def && def(vAttr);
+        var promies = def && def(vAttr);
+        _pushStep('CPInit', function () {
+            return promies;
+        }.bind(this));
         return vAttr;
     };
-
-    bingo.defualtApp.controller('view_test1', function ($view) {
-        //user.desc
-        $view.user = {
-            desc: 'asdfasdfasfdasdf11<br />asdfasdf<div>sdf</div> {{html "<div>div</div><div>div1</div>asdf" /}}sdfs{{html name /}}sdf',
-            enabled: true,
-            role: 'test'
-        };
-
-        window.view1 = $view;
-    });
 
     //指令解释:
     //{{cmd /}}
@@ -4056,25 +4061,48 @@
     var defualtApp = bingo.defualtApp;
 
     defualtApp.command('view', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
 
-        var ctrl = cp.$attrs.$getAttr('controller');
-        if (ctrl) {
-            ctrl = cp.$app.controller(ctrl);
-            ctrl && cp.$view.$controller(ctrl.fn);
+        var ctrlAttr = cp.$attrs.$getAttr('controller');
+
+        if (!bingo.isNullEmpty(ctrlAttr)) {
+            var ctrl, view = cp.$view, pView = view.$parent,
+                app = view.$app;
+            if (pView.bgTestProps(ctrlAttr))
+                ctrl = pView.bgDataValue(ctrlAttr);
+            else if (window.bgTestProps(ctrlAttr))
+                ctrl = window.bgDataValue(ctrlAttr);
+
+            if (ctrl) {
+                cp.$view.$controller(ctrl);
+            } else {
+                var url = 'controller::' + ctrlAttr;
+                var routeContext = app.routeContext(url);
+                var context = routeContext.context();
+
+                if (context.controller) {
+                    view.$controller(context.controller)
+                } else {
+                    //如果找不到controller, 加载js
+                    return app.using(url).then(function () {
+                        if (cp.bgIsDispose) return;
+                        var context = routeContext.context();
+                        if (context.controller) {
+                            view.$controller(context.controller)
+                        }
+                    });
+                }
+            }
+
         }
 
-        return cp;
     });
 
     defualtApp.command('controller', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
 
         cp.$view.$controller(function () {
             cp.$eval();
         });
 
-        return cp;
     });
 
 
@@ -4082,7 +4110,6 @@
 
 
     defualtApp.command('with', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
 
         var contents = cp.$attrs.$contents;
 
@@ -4108,7 +4135,6 @@
             });
         }
 
-        return cp;
     });
 
     var _makeForTmpl = function (tmpl, datas, itemName, pWithData, withListName) {
@@ -4140,7 +4166,6 @@
     };
 
     defualtApp.command('for', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
 
         var contents = cp.$attrs.$contents;
         var withListName = '_bg_for_datas_' + bingo.makeAutoId();
@@ -4169,11 +4194,9 @@
             delete withData[withListName];
         });
 
-        return cp;
     });
 
     defualtApp.command('if', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
 
         var _contents = cp.$contents,
             _elseList = cp.$elseList, _getContent = function (index, val) {
@@ -4208,21 +4231,17 @@
             }, 0, false);
         });
 
-        return cp;
     });
 
     defualtApp.command('include', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
 
         cp.$tmpl(function () {
             return bingo.tmpl(cp.$attrs.$getAttr('src'));
         });
 
-        return cp;
     });
 
     defualtApp.command('html', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
 
         cp.$layout(function () {
             return cp.$attrs.$result();
@@ -4230,11 +4249,9 @@
             return cp.$html(c.value);
         });
 
-        return cp;
     });
 
     defualtApp.command('text', function (cp) {
-        /// <param name="cp" value="_newCP()"></param>
 
         cp.$layout(function () {
             return cp.$attrs.$result();
@@ -4242,13 +4259,11 @@
             return cp.$text(c.value);
         });
 
-        return cp;
     });
 
     defualtApp.command('cp', function (cp) {
         cp.$tmpl(cp.$contents);
         cp.$export = cp;
-        return cp;
     });
     
 })(bingo);
@@ -4272,7 +4287,6 @@
     var _vAttrDefaultName = 'bg_default_vattr',
         _isEvent = /^\s*on/i;
     defualtApp.attr(_vAttrDefaultName, function (vAttr) {
-        /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
 
         var name = vAttr.$name, view = vAttr.$view;
 
@@ -4297,12 +4311,10 @@
             vAttr.$attr(name, c.value);
         });
 
-        return vAttr;
     });
 
     bingo.each('checked,unchecked,disabled,enabled,readonly'.split(','), function (attrName) {
         defualtApp.attr(attrName, function (vAttr) {
-            /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
 
             var _set = function (val) {
                 switch (attrName) {
@@ -4331,12 +4343,11 @@
                 vAttr.$on('click', fn);
             }
 
-            return vAttr;
         });
     });
     bingo.each('show,hide,visible'.split(','), function (attrName) {
         defualtApp.attr(attrName, function (vAttr) {
-            /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
+
             var _set = function (val) {
 
                 switch (attrName) {
@@ -4356,13 +4367,11 @@
                 _set(c.value);
             });
 
-            return vAttr;
         });
     });
 
     bingo.each('model,value'.split(','), function (attrName) {
         defualtApp.attr(attrName, function (vAttr) {
-            /// <param name="vAttr" value="_newVirtualAttr({}, 'name', 'value')"></param>
 
             var node = vAttr.$node, isVal = attrName == 'value';
 
@@ -4414,7 +4423,6 @@
                 _setNodeValue(val);
             });
 
-            return vAttr;
         });
     });
 

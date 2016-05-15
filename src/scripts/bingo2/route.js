@@ -520,7 +520,7 @@
 
         return obj;
     }, _getRouteContext = function () {
-        var context = { app: null, controller: null, component: null };
+        var context = { app: null, controller: null };
         var params = this.params;
         if (params) {
             var appName = params.app;
@@ -529,15 +529,13 @@
             params.controller && (context.controller = app.controller(params.controller));
             context.controller && (context.controller = context.controller.fn);
 
-            params.component && (context.component = app.component(params.component));
-            context.component && (context.component = context.component.fn);
         }
         return context;
     }, _makeRouteContext = function (routeContext, name, url, toUrl, params) {
         //生成 routeContext
         return { name: name, params: params, url: url, toUrl: toUrl, promise:routeContext.promise, context: _getRouteContext };
     },
-    _passParam = ',component,controller,service,app,queryParams,',
+    _passParam = ',controller,service,app,queryParams,',
     _paramToUrl = function (url, params, paramType) {
         //_urlToParams反操作, paramType:为0转到普通url参数(?a=1&b=2), 为1转到route参数($a:1$b:2)， 默认为0
         _tranAttrRex.lastIndex = 0;
