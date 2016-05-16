@@ -367,7 +367,7 @@
                     if (!p || _tagTestReg.test(p)) {
                         return _Promise.resolve(p);
                     } else {
-                        return _loadRouteType(this, 'tmpl', url, bRoute, p);
+                        return _loadRouteType(this, 'tmpl', p, bRoute, aP);
                     }
                 } else
                     node = document.getElementById(p.substr(1));

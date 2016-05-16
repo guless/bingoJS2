@@ -180,7 +180,7 @@
     defualtApp.command('include', function (cp) {
 
         cp.$tmpl(function () {
-            return bingo.tmpl(cp.$attrs.$getAttr('src'));
+            return cp.$app.tmpl(cp.$attrs.$getAttr('src'));
         });
 
     });

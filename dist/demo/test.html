@@ -19,32 +19,6 @@
 <body id="1">
     test start aaa
     <div id="context1"></div>
-    <script type="text/html" id="tmpl2">
-        sdfs
-        {{view controller="view_test1" name='view1' app="demo" /}}
-        {{ctrl name="ctrl1"}}
-            ctrl111
-            <div></div>
-        {{aaa}}
-        {{aa aaa}}
-            {{ctrl}}no{{/ctrl}}
-            {{ctrl}} no1 {{/ctrl}}
-        {{/ctrl}}
-        {{ctrl}}
-        ctrl222
-        <br />
-        {{/ctrl}}
-        <br />
-        {{user id="111'
-            tt="333" /}}
-        <div></div>
-        {{user name="nnn" /}}
-        <span></span>
-        {{test aaa}}
-            aaaatestdd
-        {{/test}}
-        <aaa></aaa>
-    </script>
     <script type="text/html" id="tmpl1">
         asdfsadfdfaaaa
         {{view controller="view_test1" name='view1' app="demo" /}}
@@ -56,70 +30,10 @@
         <div class="content">
             {{html "html:"+user.desc+"_html" /}}
         </div>
-        <div class="splice">if==============================</div>
+        <div class="splice">include==============================</div>
         <div class="content">
-            <div style="color:red;">
-                <button onclick="[[click2]]">test</button>
-            </div>
-            {{if if1}}asd
-                <div style="color:[[color]];" aaaaa="[[aaa]]">
-                    <button onclick="[[click1]]">if attr</button>
-                </div>
-                {{if if2}}
-                    if2 true
-                {{else aaa}}
-                    if2 aaa
-                {{else}}
-                    {{view name="if2false" /}}
-                    if2 false
-                {{/if}}
-            {{else}}
-                if1 false
-            {{/if}}
+            {{include src="include" /}}
         </div>
-        {{controller}}
-            $view.if1 = true;
-            $view.if2 = false;
-            $view.aaa = false;
-
-
-            $view.color = 'red';
-            $view.click1 = function(){alert('test ok');};
-
-             $view.click2 = function(){$view.if1 = !$view.if1;};
-        {{/controller}}
-        <div class="splice">attr==============================</div>
-        <div class="content">
-            <div style="color:red;">
-                <button onclick="[[click3]]">test</button>
-            </div>
-            <input type="text" model="[[name]]" />
-            {{text name /}}
-            <br />
-            <input type="text" value='[[name]]' ab='[[aaa]]"asdf"' />
-            {{text name /}}
-            <br />
-            {{controller}}
-
-            $view.name = '张三';
-            $view.role = '测试';
-            $view.click3 = function(){$view.name = bingo.makeAutoId();};
-
-            $view.list = [{id:'1', text:'1111'},{id:'2', text:'2222'}];
-            {{/controller}}
-            {{with item in user}}
-                {{html item.desc /}}
-            {{/with}}
-            <br />
-            {{for item in list}}
-                {{text item_index /}}:{{text item.text /}}
-                <br />
-            {{/for}}
-            {{html 'aaaaaaaaaaaaaaaaaaaaaaaa' /}}
-            <div>cp============</div>
-            {{cp name="cp1" /}}
-        </div>
-        
     </script>
     <script src="../scripts/bingo2/bingo.js"></script>
     <script src="route.js"></script>
@@ -131,8 +45,11 @@
                 enabled: true,
                 role: 'test'
             };
+            $view.name = '$name$';
+            $view.text1 = 'include text1';
 
             window.view1 = $view;
+            console.log('view_test1');
         });
     </script>
     <!--<script src="compiles.js"></script>-->

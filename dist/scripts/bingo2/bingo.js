@@ -1779,7 +1779,7 @@
                     if (!p || _tagTestReg.test(p)) {
                         return _Promise.resolve(p);
                     } else {
-                        return _loadRouteType(this, 'tmpl', url, bRoute, p);
+                        return _loadRouteType(this, 'tmpl', p, bRoute, aP);
                     }
                 } else
                     node = document.getElementById(p.substr(1));
@@ -2628,6 +2628,20 @@
         bind.bgDispose(_pri);
         return bind;
 
+    }, _pushStepView = function (view, step, _pri, type) {
+        _pushStep(step, function () {
+            if (this.bgIsDispose) return;
+            var list = _pri[type], promises = [];
+            if (list.length > 0) {
+                _pri[type] = [];
+                bingo.each(list, function (item) {
+                    _promisePush(promises, item && item.call(this, this));
+                }, this);
+            }
+            this.bgToObserve();
+            return promises;
+        }.bind(view));
+
     }, _newView = function (p) {
 
         var _pri = {
@@ -2729,7 +2743,10 @@
                 return this.$ownerCP.$insertAfter(p, ref);
             },
             $inject: function (p, injectObj, thisArg) {
-                return this.$ownerCP.$inject(p, injectObj, thisArg);
+                return bingo.inject(p, this, bingo.extend({ $cp: this.$ownerCP }, injectObj), thisArg);
+            },
+            $reload: function () {
+                return this.$ownerCP.$reload();
             }
         }).$extend(p);
 
@@ -2753,54 +2770,23 @@
         });
         view.bgDispose(_pri);
 
-        _viewCtrls.push(function () {
+        _pushStep('ViewCtrl', function () {
             if (this.bgIsDispose) return;
-            var ctrls = _pri.ctrls;
-            if (ctrls) {
+            var ctrls = _pri.ctrls, promises = [];
+            if (ctrls.length > 0) {
                 _pri.ctrls = [];
                 bingo.each(ctrls, function (item) {
-                    item && item.call(this, this);
+                    _promisePush(promises, this.$inject(item).then(function () {
+                        this.bgToObserve();
+                    }.bind(this)));
                 }, this);
             }
-            this.bgToObserve();
-        }.bind(view));
-        _pushStep('ViewInit', function () {
-            if (this.bgIsDispose) return;
-            var inits = _pri.inits, promises = [];
-            if (inits) {
-                _pri.inits = [];
-                bingo.each(inits, function (item) {
-                    _promisePush(promises,  item && item.call(this, this));
-                }, this);
-            }
-            this.bgToObserve();
             return promises;
         }.bind(view));
 
-        _pushStep('ViewReady', function () {
-            if (this.bgIsDispose) return;
-            var readys = _pri.readys, promises = [];
-            if (readys) {
-                _pri.readys = [];
-                bingo.each(readys, function (item) {
-                    _promisePush(promises, item && item.call(this, this));
-                }, this);
-            }
-            this.bgToObserve();
-            return promises;
-        }.bind(view));
-        _pushStep('ViewReadyAll', function () {
-            if (this.bgIsDispose) return;
-            var readys = _pri.readyAlls, promises = [];
-            if (readys) {
-                _pri.readyAlls = [];
-                bingo.each(readys, function (item) {
-                    _promisePush(promises, item && item.call(this, this));
-                }, this);
-            }
-            this.bgToObserve();
-            return promises;
-        }.bind(view));
+        _pushStepView(view, 'ViewInit', _pri, 'inits');
+        _pushStepView(view, 'ViewReady', _pri, 'readys');
+        _pushStepView(view, 'ViewReadyAll', _pri, 'readyAlls');
 
         //编译时同步用
         _addView(view);
@@ -2890,6 +2876,7 @@
         return list;
     }, _newCP = function (p, extendWith) {
         var _pri = {
+            ctrl:null,
             tmpl:'',
             getContent: function (cp) {
                 var tmpl = this.tmpl;
@@ -2898,7 +2885,7 @@
                 else
                     return tmpl;
             },
-            _render: function (cp) {
+            render: function (cp) {
                 var ret = this.getContent(cp);
                 if (_isPromise(ret))
                     ret.then(function (s) {
@@ -2906,7 +2893,17 @@
                     });
                 else
                     _traverseCmd(bingo.trim(ret), cp);
-                _promisePush(_renderPromise, ret)
+                _promisePush(_renderPromise, ret);
+            },
+            reload: function (cp) {
+                var ret = this.getContent(cp);
+                if (_isPromise(ret))
+                    ret.then(function (s) {
+                        return cp.$html(bingo.trim(s));
+                    });
+                else
+                    ret = cp.$html(bingo.trim(ret));
+                return ret;
             }
         };
 
@@ -3096,14 +3093,17 @@
                 return this;
             },
             $render: function () {
-                _pri._render(this);
+                _pri.render(this);
                 return _renderThread();
             },
             $controller: function (fn) {
-                this._ctrl = fn;
+                _pri.ctrl = fn;
             },
             $inject: function (p, injectObj, thisArg) {
-                return bingo.inject(p, this.$view, bingo.extend({ $cp: this }, injectObj));
+                return bingo.inject(p, this.$view, bingo.extend({ $cp: this }, injectObj), thisArg);
+            },
+            $reload: function () {
+                return _pri.reload(this);
             }
         }).$extend(p);
 
@@ -3135,7 +3135,6 @@
             cp.$whereList = null;
         }
 
-
         cp.bgOnDispose(function () {
             _removeCPNodes(this.$nodes);
             var parent = this.$parent;
@@ -3150,24 +3149,24 @@
         });
         cp.bgDispose(_pri);
 
-        //编译时同步用
-        _cpCtrls.push(function () {
+        _pushStep('CPCtrl', function () {
             if (this.bgIsDispose) return;
-            var ctrl = this._ctrl, view = this.$ownerView || this.$view;
+            var ctrl = _pri.ctrl, promises = [];
             if (ctrl) {
-                this._ctrl = null;
-                ctrl.call(this, view);
+                _pri.ctrl = null;
+                promises.push(this.$inject(item, { $view: this.$ownerView || this.$view }));
             }
             if (this.$cmd != 'view' && this.$name) {
                 this.$view[this.$name] = this.$export ? this.$export : view;
             }
+            return promises;
         }.bind(cp));
 
         //处理command定义
         cmdDef = app.command(cp.$cmd);
         cmdDef && (cmdDef = cmdDef.fn);
         _promisePush(_renderPromise, cmdDef && cmdDef(cp));
-        _pri._render(cp);
+        _pri.render(cp);
 
         return cp;
     }, _newCPAttr = function (contents) {
@@ -3399,8 +3398,6 @@
 
         return { contents: strAll.join(''), regs: list };
     };
-    //var tmpl2 = document.getElementById('tmpl2').innerHTML;
-    //_traverseTmpl(tmpl2);
 
     var _traverseCmd = function (tmpl, cp) {
         //_commandReg.lastIndex = 0;
@@ -3541,7 +3538,7 @@
                 _promisePushList(promises, fn());
             });
         }
-        return promises;
+        return _Promise.always(promises);
     };
 
     /* 检测 scope */
@@ -3720,37 +3717,41 @@
             $parent: p.parent || view.$ownerCP,
             $view: view, $contents: p.tmpl
         }).$tmpl(p.tmpl);
+        
         return cp.$render().then(function () {
 
-            _cpCtrlStep();
-            _viewCtrlStep();
-            var node = p.context, opName = p.opName;
-            _traverseCP(node, cp, opName);
+            return _doneStep('CPCtrl').then(_initStep('ViewCtrl')).then(function () {
+                //_cpCtrlStep();
+                //_viewCtrlStep();
+                var node = p.context, opName = p.opName;
+                _traverseCP(node, cp, opName);
+            }).then(_initStep('CPInit')).then(_initStep('ViewInit'))
+            .then(_initStep('ViewReady')).then(_initStep('ViewReadyAll', true));
 
-            return _complieInit().then(function () { return cp; });
-        });
-    }, _initStep = function (step, then) {
-        _promiseAlways(_doneStep(_initStepName[step]), function (r) {
-            if (!!r) 
-                _initStep(step == 0 ? 0 : step - 1, then);
-            else
-                then(r);
-        });
-    }, _initStepName = ['CPInit', 'ViewInit', 'ViewReady', 'ViewReadyAll'], _complieInit = function () {
-        var deferred = bingo.Deferred(), has = false;
-        _initStep(0, function (r) {
-            _initStep(1, function (r) {
-                _initStep(2, function (r) {
-                    _initStep(3, function (r) {
-                        deferred.resolve();
-                    });
-                });
-            });
-        });
-        var promise = deferred.promise();
-        has && promise.then(function () { return _complieInit(); });
-        return promise;
-    };
+            //return _complieInit().then(function () { return cp; });
+        }).then(function () { return cp;});
+    }, _initStep = function (name, reverse) {
+        return function () { return _doneStep(name, reverse) };
+    };//,
+    //_initStepName = ['CPCtrl', 'ViewCtrl', 'CPInit', 'ViewInit', 'ViewReady', 'ViewReadyAll'], _complieInit = function () {
+    //    var deferred = bingo.Deferred(), has = false;
+    //    _initStep(0, function (r) {
+    //        _initStep(1, function (r) {
+    //            _initStep(2, function (r) {
+    //                _initStep(3, function (r) {
+    //                    _initStep(4, function (r) {
+    //                        _initStep(5, function (r) {
+    //                            deferred.resolve();
+    //                        });
+    //                    });
+    //                });
+    //            });
+    //        });
+    //    });
+    //    var promise = deferred.promise();
+    //    has && promise.then(function () { return _complieInit(); });
+    //    return promise;
+    //};
 
     //<>&"
     //&lt;&gt;&amp;&quot;
@@ -4236,7 +4237,7 @@
     defualtApp.command('include', function (cp) {
 
         cp.$tmpl(function () {
-            return bingo.tmpl(cp.$attrs.$getAttr('src'));
+            return cp.$app.tmpl(cp.$attrs.$getAttr('src'));
         });
 
     });
