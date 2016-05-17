@@ -14,6 +14,9 @@
         div.content {
             margin-left:20px;
         }
+        div.content * {
+            margin: 3px 0;
+        }
     </style>
 </head>
 <body id="1">
@@ -22,31 +25,138 @@
     <script type="text/html" id="tmpl1">
         asdfsadfdfaaaa
         {{view controller="view_test1" name='view1' app="demo" /}}
+        <div class="splice">model==============================</div>
+        <div class="content">
+            <div>input：<input  type="text" model="[[model.input]]" /></div>
+            <div>select：
+                <select model="[[model.select]]">
+                    <option value="">请诜择</option>
+                    <option value="1">1111</option>
+                    <option value="2">2222</option>
+                </select>
+            </div>
+            <div>selectM：
+                <select model="[[model.selectM]]" multiple>
+                    <option value="">请诜择</option>
+                    <option value="1">1111</option>
+                    <option value="2">2222</option>
+                </select>
+            </div>
+            <div>checkbox：<input type="checkbox" checked="[[model.checkbox]]" /></div>
+            <div>radio：
+                <input type="radio" name="radio1" value="1" model="[[model.radio]]" />1111
+                <input type="radio" name="radio1" value="2" model="[[model.radio]]" />2222
+            </div>
+            <div>textarea：<textarea model="[[model.textarea]]"
+                               style="width:550px;"></textarea></div>
+
+            <div>结果: {{text console.log('model text'),JSON.stringify(model) /}}</div>
+        </div>
         <div class="splice">text==============================</div>
         <div class="content">
-            {{text "text:"+user.desc+"11" /}}
+            {{text model.textarea /}}
         </div>
         <div class="splice">html==============================</div>
         <div class="content">
-            {{html "html:"+user.desc+"_html" /}}
+            {{html model.textarea /}}
         </div>
         <div class="splice">include==============================</div>
         <div class="content">
             {{include src="include" /}}
         </div>
-    </script>
+        <div class="splice">with==============================</div>
+        <div class="content">
+            {{with item in model}}
+                {{text item.textarea /}}
+            {{/with}}
+        </div>
+        <div class="splice">if==============================</div>
+        <div class="content">
+            <div>
+                select：
+                <select model="[[model.select]]">
+                    <option value="">请诜择</option>
+                    <option value="1">1111</option>
+                    <option value="2">2222</option>
+                </select>
+            </div>
+            <div>checkbox：<input type="checkbox" checked="[[model.checkbox]]" /></div>
+            结果：
+            {{if model.select == '1'}}
+                select == 1
+                {{if model.checkbox}}
+                    AND model.checkbox == true
+                {{else}}
+                    AND model.checkbox == false
+                {{/if}}
+            {{else model.select == '2'}}
+                select == 2
+                {{if model.checkbox}}
+                    AND model.checkbox == true
+                {{else}}
+                    AND model.checkbox == false
+                {{/if}}
+            {{else}}
+                select == else
+                {{if model.checkbox}}
+                    AND model.checkbox == true
+                {{else}}
+                    AND model.checkbox == false
+                {{/if}}
+            {{/if}}
+        </div>
+        <div class="splice">for==============================</div>
+        <div class="content">
+            {{for item in list1}}
+            <div>
+                {{text item.id /}}:{{html item.text /}}
+                <button onclick="[[rmList($index)]]">删除</button>
+                <button onclick="[[setList($index)]]">重设行</button>
+                <button onclick="[[setListText($index)]]">重设text</button>
+            </div>
+            {{/for}}
+            <div>
+                <button onclick="[[addList]]">添加行</button>
+            </div>
+        </div>
+   </script>
     <script src="../scripts/bingo2/bingo.js"></script>
     <script src="route.js"></script>
     <script type="text/javascript">
         demoApp.controller('view_test1', function ($view) {
-            //user.desc
-            $view.user = {
-                desc: 'asdfasdfasfdasdf11<br />asdfasdf<div>sdf</div> {{html "<div>div</div><div>div1</div>asdf" /}}sdfs{{html name /}}sdf',
-                enabled: true,
-                role: 'test'
+
+            $view.model = {
+                input: 'hello',
+                select: '1',
+                selectM: '2',
+                checkbox: true,
+                radio: '1',
+                textarea: '<span>hello text</span>'
             };
-            $view.name = '$name$';
-            $view.text1 = 'include text1';
+            $view.modelReport = function () {
+                $view.modelRes = JSON.stringify($view.model);
+            };
+            $view.modelRes = JSON.stringify($view.model);
+            $view.$observe(function () { return $view.model; }, function (c) {
+                console.log('aaaaa', c);
+                //$view.modelReport();
+            });
+
+            $view.list1 = [{ id: '1', text: '1111' }, { id: '2', text: '2222' }];
+            $view.addList = function () {
+                var id = bingo.makeAutoId();
+                $view.list1.push({ id: id, text: 'text_' + id });
+            };
+            $view.rmList = function (index) {
+                $view.list1.splice(index, 1);
+            };
+            $view.setList = function (index) {
+                var id = bingo.makeAutoId();
+                $view.list1[index] = { id: id, text: 'text_' + id };
+            };
+            $view.setListText = function (index) {
+                $view.list1[index].text = 'text_' + bingo.makeAutoId();
+            }
 
             window.view1 = $view;
             console.log('view_test1');

@@ -4491,62 +4491,59 @@
         });
     });
 
-    bingo.each('model,value'.split(','), function (attrName) {
-        defualtApp.attr(attrName, function (vAttr) {
+    defualtApp.attr('model', function (vAttr) {
 
-            var node = vAttr.$node, isVal = attrName == 'value';
+        var _val = function (val) {
+            if (arguments.length == 0)
+                return vAttr.$attr('value');
+            else
+                vAttr.$attr('value', val);
+        };
 
-            var _type = vAttr.$attr('type'),
-                _isRadio = _type == 'radio' && !isVal,
-                _isCheckbox = _type == 'checkbox' && !isVal,
-                _checkboxVal = _isCheckbox ? _val(node) : null,
-                _isSelect = node.tagName.toLowerCase() == 'select';
+        var node = vAttr.$node;
 
-            var _val = function (val) {
-                if (arguments.length == 0)
-                    return vAttr.$attr('value');
-                else
-                    vAttr.$attr('value', val);
+        var _type = vAttr.$attr('type'),
+            _isRadio = _type == 'radio',
+            _isCheckbox = _type == 'checkbox',
+            _checkboxVal = _isCheckbox ? _val(node) : null,
+            _isSelect = node.tagName.toLowerCase() == 'select';
+
+        var _getNodeValue = function () {
+            return _isCheckbox ? (vAttr.$prop("checked") ? _checkboxVal : '') : (_val());
+        }, _setNodeValue = function (value) {
+            value = _isSelect && bingo.isArray(value) ? value : bingo.toStr(value);
+            if (_isCheckbox) {
+                vAttr.$prop("checked", (_val() == value));
+            } else if (_isRadio) {
+                vAttr.$prop("checked", (_val() == value));
+            } else if (_isSelect)
+                _val(value);
+            else
+                _val(value);
+        };
+
+        var _eVal, eName, fn = function () {
+            var value = _getNodeValue();
+            if (_eVal != value || _isRadio) {
+                _eVal = value;
+                vAttr.$value(value);
             }
+        };
+        if (_isRadio) {
+            eName = 'click';
+        } else {
+            eName = 'change';
+        }
+        if (eName) {
+            vAttr.$on(eName, fn);
+        }
 
-            var _getNodeValue = function () {
-                return _isCheckbox ? (vAttr.$prop("checked") ? _checkboxVal : '') : (_val());
-            }, _setNodeValue = function (value) {
-                value = _isSelect && bingo.isArray(value) ? value : bingo.toStr(value);
-                if (_isCheckbox) {
-                    vAttr.$prop("checked", (_val() == value));
-                } else if (_isRadio) {
-                    vAttr.$prop("checked", (_val() == value));
-                } else if (_isSelect)
-                    _val(value);
-                else
-                    _val(value);
-            };
-
-            var _eVal, eName, fn = function () {
-                var value = _getNodeValue();
-                if (_eVal != value || _isRadio) {
-                    _eVal = value;
-                    vAttr.$value(value);
-                }
-            };
-            if (_isRadio) {
-                eName = 'click';
-            } else {
-                eName = 'change';
-            }
-            if (eName) {
-                vAttr.$on(eName, fn);
-            }
-
-            vAttr.$layoutValue(function (c) {
-                var val = c.value;
-                _setNodeValue(val);
-            });
-
+        vAttr.$layoutValue(function (c) {
+            var val = c.value;
+            _setNodeValue(val);
         });
-    });
 
+    });
 
 
 })(bingo);
