@@ -1,5 +1,6 @@
-﻿    {{title}}， {{desc}}
-<bg:component bg-src="select" bg-name="select1"></bg:component>
-<div bg-component="comp/select2" bg-name="select2"></div>
-<button bg-click="reload">刷新</button>
-<button bg-click="route2">route2</button>
+﻿{{view controller="route1" app="demo" name="route1" /}}
+
+{{text title /}}， {{text desc /}}
+
+<button onclick="[[reload]]">刷新</button>
+<button onclick="[[route2]]">route2</button>

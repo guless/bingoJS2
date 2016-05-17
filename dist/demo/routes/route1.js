@@ -1,8 +1,7 @@
 
-bingo.app('demo').controller('routes/route1', function ($view, $comp, $location) {
+demoApp.controller('route1', function ($view, $location) {
     $view.title = 'route1';
-    $view.desc = 'route1 OK';
-    console.log('route1 cp select1', $comp('select1'), $comp('select1').datas);
+    $view.desc = 'route1 OK'+new Date();
 
     $view.$ready(function () {
         console.log('route1 ready');
@@ -13,9 +12,13 @@ bingo.app('demo').controller('routes/route1', function ($view, $comp, $location)
     });
 
     $view.reload = function () {
-        $location().reload();
+        $location('main').reload();
     };
     $view.route2 = function () {
-        $location().href('routes/route2');
+        $location('main').href('route2');
     };
+    $view.bgOnDispose(function () {
+        console.log('dispose route1');
+    });
+
 });

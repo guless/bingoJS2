@@ -146,7 +146,8 @@
         view || (view = bingo.rootView());
         injectObj = bingo.extend({
             $view: view,
-            $cp: view.$ownerCP
+            $cp: view.$ownerCP,
+            $app: view.$app
         }, injectObj);
         return _inject(p, injectObj, thisArg || view);
     };

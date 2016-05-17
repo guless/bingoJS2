@@ -5,15 +5,14 @@
 
     defualtApp.service('$rootView', function () { return bingo.rootView(); });
 
-    defualtApp.service('$inject', ['$view', '$attr', function ($view, $attr) {
-        return function (p, withData) {
-            return bingo.inject(p, $view, {
-                node: $attr && $attr.node,
-                $viewnode: $attr && $attr.viewnode,
-                $attr: $attr,
-                $withData: $attr ? bingo.extend({}, $attr.withData, withData) : withData
-            }, $attr);
+    defualtApp.service('$inject', ['$view', function ($view) {
+        return function (p, injectObj, thisArg) {
+            return $view.$inject(p, injectObj, thisArg);
         };
+    }]);
+
+    defualtApp.service('$location', ['$app', function ($app) {
+        return function (name) { return $app.location(name); };
     }]);
 
     defualtApp.service('$ajax', ['$view', function ($view) {

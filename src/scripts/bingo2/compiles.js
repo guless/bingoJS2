@@ -365,7 +365,10 @@
             },
             $updateAsync: function () {
                 if (this._upastime_) clearTimeout(this._upastime_);
-                this._upastime_ = setTimeout(function () { this.$update(); }.bind(this), 1);
+                this._upastime_ = setTimeout(function () {
+                    if (this.bgIsDispose) return;
+                    this.$update();
+                }.bind(this), 1);
             },
             $remove: function () {
                 if (this.$ownerCP) {
@@ -1168,7 +1171,7 @@
         var promises = _renderPromise;
         _renderPromise = [];
         return _Promise.always(promises).then(function () {
-            if (_renderPromise.length > 0) return _renderStep();
+            if (_renderPromise.length > 0) return _renderThread();
         });
     }, _cpCtrls = [], _cpCtrlStep = function () {
         var ctrls = _cpCtrls;
@@ -1611,7 +1614,7 @@
             });
         };
 
-    bingo.view = function (name) {
+    bingo.view = function (p) {
         /// <summary>
         /// 获取view<br />
         /// bingo.view('main') <br />
@@ -1620,10 +1623,12 @@
 
         if (arguments.length == 0)
             return _allViews;
-        else if (bingo.isString(name))
-            _getView(name);
-        else
-            _getNodeCP(name);
+        else if (bingo.isString(p))
+            return _getView(p);
+        else {
+            var cp = _getNodeCP(p);
+            return cp ? (cp.$ownerView || cp.$view) : null;
+        }
     };
 
     bingo.cp = function (node) {

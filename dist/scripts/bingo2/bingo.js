@@ -1325,7 +1325,8 @@
         view || (view = bingo.rootView());
         injectObj = bingo.extend({
             $view: view,
-            $cp: view.$ownerCP
+            $cp: view.$ownerCP,
+            $app: view.$app
         }, injectObj);
         return _inject(p, injectObj, thisArg || view);
     };
@@ -2729,7 +2730,10 @@
             },
             $updateAsync: function () {
                 if (this._upastime_) clearTimeout(this._upastime_);
-                this._upastime_ = setTimeout(function () { this.$update(); }.bind(this), 1);
+                this._upastime_ = setTimeout(function () {
+                    if (this.bgIsDispose) return;
+                    this.$update();
+                }.bind(this), 1);
             },
             $remove: function () {
                 if (this.$ownerCP) {
@@ -3532,7 +3536,7 @@
         var promises = _renderPromise;
         _renderPromise = [];
         return _Promise.always(promises).then(function () {
-            if (_renderPromise.length > 0) return _renderStep();
+            if (_renderPromise.length > 0) return _renderThread();
         });
     }, _cpCtrls = [], _cpCtrlStep = function () {
         var ctrls = _cpCtrls;
@@ -3975,7 +3979,7 @@
             });
         };
 
-    bingo.view = function (name) {
+    bingo.view = function (p) {
         /// <summary>
         /// 获取view<br />
         /// bingo.view('main') <br />
@@ -3984,10 +3988,12 @@
 
         if (arguments.length == 0)
             return _allViews;
-        else if (bingo.isString(name))
-            _getView(name);
-        else
-            _getNodeCP(name);
+        else if (bingo.isString(p))
+            return _getView(p);
+        else {
+            var cp = _getNodeCP(p);
+            return cp ? (cp.$ownerView || cp.$view) : null;
+        }
     };
 
     bingo.cp = function (node) {
@@ -4049,15 +4055,14 @@
 
     defualtApp.service('$rootView', function () { return bingo.rootView(); });
 
-    defualtApp.service('$inject', ['$view', '$attr', function ($view, $attr) {
-        return function (p, withData) {
-            return bingo.inject(p, $view, {
-                node: $attr && $attr.node,
-                $viewnode: $attr && $attr.viewnode,
-                $attr: $attr,
-                $withData: $attr ? bingo.extend({}, $attr.withData, withData) : withData
-            }, $attr);
+    defualtApp.service('$inject', ['$view', function ($view) {
+        return function (p, injectObj, thisArg) {
+            return $view.$inject(p, injectObj, thisArg);
         };
+    }]);
+
+    defualtApp.service('$location', ['$app', function ($app) {
+        return function (name) { return $app.location(name); };
     }]);
 
     defualtApp.service('$ajax', ['$view', function ($view) {
@@ -4348,10 +4353,7 @@
             name: cp.$name,
             href: function (src) {
                 this.url = src;
-                cp.$tmpl(function () {
-                    return cp.$loadTmpl('route::' + src);
-                });
-                return this.reload();
+                return cp.$loadTmpl('route::' + src).then(function (html) { return cp.$html(html); });
             },
             //路由query部分参数
             queryParams: function () {

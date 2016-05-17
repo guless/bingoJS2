@@ -243,10 +243,7 @@
             name: cp.$name,
             href: function (src) {
                 this.url = src;
-                cp.$tmpl(function () {
-                    return cp.$loadTmpl('route::' + src);
-                });
-                return this.reload();
+                return cp.$loadTmpl('route::' + src).then(function (html) { return cp.$html(html); });
             },
             //路由query部分参数
             queryParams: function () {

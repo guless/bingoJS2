@@ -62,7 +62,11 @@
         </div>
         <div class="splice">include==============================</div>
         <div class="content">
-            {{include src="include" /}}
+            {{include src="include" /}}<br />
+            {{tmpl id="inc1"}}
+                includeId:{{text model.textarea /}}
+            {{/tmpl}}
+            {{include src="#inc1" /}}
         </div>
         <div class="splice">with==============================</div>
         <div class="content">
@@ -118,6 +122,10 @@
             <div>
                 <button onclick="[[addList]]">添加行</button>
             </div>
+        </div>
+        <div class="splice">route==============================</div>
+        <div class="content">
+            {{route src="route1" name="main" /}}
         </div>
    </script>
     <script src="../scripts/bingo2/bingo.js"></script>
