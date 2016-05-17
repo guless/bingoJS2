@@ -737,6 +737,26 @@
                 _pri.tmpl = p;
                 return this;
             },
+            $saveTmpl: function (id, tmpl, isApp) {
+                if (isApp)
+                    this.$app.saveTmpl(id, tmpl);
+                else {
+                    var cp = (this.$ownerView || this.$view).$ownerCP;
+                    var cObj = cp.__tmpl || (cp.__tmpl = {});
+                    cObj[id] = tmpl;
+                }
+            },
+            $loadTmpl: function (p) {
+
+                if (bingo.isString(p) && p.indexOf('#') == 0) {
+                    var id = p.substr(1);
+                    var cp = (this.$ownerView || this.$view).$ownerCP;
+                    var tmpl = cp.__tmpl && cp.__tmpl[id];
+                    return bingo.isString(tmpl) ? _Promise.resolve(tmpl) : this.$app.tmpl(p);
+                } else
+                    return this.$app.tmpl(p);
+
+            },
             $render: function () {
                 _pri.render(this);
                 return _renderThread();
@@ -1362,6 +1382,8 @@
             $parent: p.parent || view.$ownerCP,
             $view: view, $contents: p.tmpl
         }).$tmpl(p.tmpl);
+
+        p.isRoot && (view.$ownerCP = cp);
         
         return cp.$render().then(function () {
 
@@ -1592,10 +1614,26 @@
     bingo.view = function (name) {
         /// <summary>
         /// 获取view<br />
-        /// bingo.view('main')
+        /// bingo.view('main') <br />
+        /// bingo.view(document.body)
         /// </summary>
-        return arguments.length == 0 ? _allViews : _getView(name);
+
+        if (arguments.length == 0)
+            return _allViews;
+        else if (bingo.isString(name))
+            _getView(name);
+        else
+            _getNodeCP(name);
     };
+
+    bingo.cp = function (node) {
+        /// <summary>
+        /// 获取cp <br />
+        /// bingo.cp(document.body);
+        /// </summary>
+        /// <param name="node"></param>
+        return _getNodeCP(node);
+    }
 
     bingo.rootView = function () { return _rootView; };
     var _rootView = _newView({
@@ -1626,6 +1664,7 @@
                 _compile({
                     tmpl: tmpl,
                     view: _rootView,
+                    isRoot:true,
                     context: _query('#context1'),
                     opName: 'appendTo'
                 });

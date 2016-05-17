@@ -18,6 +18,17 @@
     });
 
     //设置tmpl资源路由
+    demoApp.route('route', {
+        //路由url, 如: view/system/user/list
+        type: 'route',
+        url: '{controller*}',
+        //路由到目标url, 生成:modules/system/user/list.html
+        toUrl: '{controller*}.html',
+        //变量默认值, 框架提供内部用的变量: app, controller, component, service
+        defaultValue: { app: 'demo', controller: '' }
+    });
+
+    //设置tmpl资源路由
     demoApp.route('tmpl', {
         //路由url, 如: view/system/user/list
         type: 'tmpl',

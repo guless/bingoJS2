@@ -355,6 +355,10 @@
         ajax: function (url, p, bRoute) {
             return _loadRouteType(this, 'ajax', url, bRoute, p);
         },
+        _tmpl: {},
+        saveTmpl: function (id, tmpl) {
+            this._tmpl[id] = tmpl;
+        },
         tmpl: function (p, bRoute, aP) {
             /// <summary>
             /// bingo.tmpl('tmpl/aaaa/user').then(...;<br />
@@ -369,8 +373,13 @@
                     } else {
                         return _loadRouteType(this, 'tmpl', p, bRoute, aP);
                     }
-                } else
-                    node = document.getElementById(p.substr(1));
+                } else {
+                    var id = p.substr(1);
+                    if (this._tmpl[id])
+                        return _Promise.resolve(this._tmpl[id]);
+                    else
+                        node = document.getElementById(p.substr(1));
+                }
             }
             if (node) {
                 var cLen = node.children.length, first = node.firstElementChild;

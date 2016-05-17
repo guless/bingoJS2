@@ -49,6 +49,16 @@
 
     });
 
+    defualtApp.command('using', function (cp) {
+        var src = cp.$attrs.$getAttr('src');
+        return src && cp.$app.using(src);
+    });
+
+    defualtApp.command('service', function (cp) {
+        var src = cp.$attrs.$getAttr('src'),
+            name = cp.$attrs.$getAttr('name');
+        return src && name && cp.$inject(src);
+    });
 
     var _forItemReg = /[ ]*([^ ]+)[ ]+in[ ]+(?:(.+)[ ]+tmpl[ ]*=[ ]*(.+)|(.+))/;
 
@@ -180,7 +190,7 @@
     defualtApp.command('include', function (cp) {
 
         cp.$tmpl(function () {
-            return cp.$app.tmpl(cp.$attrs.$getAttr('src'));
+            return cp.$loadTmpl(cp.$attrs.$getAttr('src'));
         });
 
     });
@@ -209,5 +219,67 @@
         cp.$tmpl(cp.$contents);
         cp.$export = cp;
     });
+
+    //{{tmpl id="tmpl001" for="app"}} tmpl contents {{/tmpl}}
+    defualtApp.command('tmpl', function (cp) {
+        var id = cp.$attrs.$getAttr('id');
+        if (id) {
+            var isApp = /app/i.test(cp.$attrs.$getAttr('for'));
+            cp.$saveTmpl(id, cp.$contents, isApp);
+        }
+    });
+
+    defualtApp.command('route', function (cp) {
+
+        var src = cp.$attrs.$getAttr('src'),
+            app = cp.$app;
+
+        src && cp.$tmpl(function () {
+            return cp.$loadTmpl('route::' + src);
+        });
+
+        var location = {
+            url: src,
+            name: cp.$name,
+            href: function (src) {
+                this.url = src;
+                cp.$tmpl(function () {
+                    return cp.$loadTmpl('route::' + src);
+                });
+                return this.reload();
+            },
+            //路由query部分参数
+            queryParams: function () {
+                return this.routeParams().queryParams
+            },
+            //路由参数
+            routeParams: function () {
+                var url = this.url;
+                var routeContext = app.routeContext('route::' + url);
+                return routeContext.params;
+            },
+            reload: function () {
+                return cp.$reload();
+            },
+            toString: function () {
+                return this.url;
+            },
+            close: function () {
+                cp.$remove();
+            }
+        };
+
+        cp.$name && (cp.$app._location[cp.$name] = location);
+
+        cp.$export = location;
+    });
+
+    bingo.app.extend({
+        _location:{},
+        location: function (name) {
+            return this._location[name];
+        }
+    });
+    
     
 })(bingo);

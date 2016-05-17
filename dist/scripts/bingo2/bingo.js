@@ -1767,6 +1767,10 @@
         ajax: function (url, p, bRoute) {
             return _loadRouteType(this, 'ajax', url, bRoute, p);
         },
+        _tmpl: {},
+        saveTmpl: function (id, tmpl) {
+            this._tmpl[id] = tmpl;
+        },
         tmpl: function (p, bRoute, aP) {
             /// <summary>
             /// bingo.tmpl('tmpl/aaaa/user').then(...;<br />
@@ -1781,8 +1785,13 @@
                     } else {
                         return _loadRouteType(this, 'tmpl', p, bRoute, aP);
                     }
-                } else
-                    node = document.getElementById(p.substr(1));
+                } else {
+                    var id = p.substr(1);
+                    if (this._tmpl[id])
+                        return _Promise.resolve(this._tmpl[id]);
+                    else
+                        node = document.getElementById(p.substr(1));
+                }
             }
             if (node) {
                 var cLen = node.children.length, first = node.firstElementChild;
@@ -3092,6 +3101,26 @@
                 _pri.tmpl = p;
                 return this;
             },
+            $saveTmpl: function (id, tmpl, isApp) {
+                if (isApp)
+                    this.$app.saveTmpl(id, tmpl);
+                else {
+                    var cp = (this.$ownerView || this.$view).$ownerCP;
+                    var cObj = cp.__tmpl || (cp.__tmpl = {});
+                    cObj[id] = tmpl;
+                }
+            },
+            $loadTmpl: function (p) {
+
+                if (bingo.isString(p) && p.indexOf('#') == 0) {
+                    var id = p.substr(1);
+                    var cp = (this.$ownerView || this.$view).$ownerCP;
+                    var tmpl = cp.__tmpl && cp.__tmpl[id];
+                    return bingo.isString(tmpl) ? _Promise.resolve(tmpl) : this.$app.tmpl(p);
+                } else
+                    return this.$app.tmpl(p);
+
+            },
             $render: function () {
                 _pri.render(this);
                 return _renderThread();
@@ -3717,6 +3746,8 @@
             $parent: p.parent || view.$ownerCP,
             $view: view, $contents: p.tmpl
         }).$tmpl(p.tmpl);
+
+        p.isRoot && (view.$ownerCP = cp);
         
         return cp.$render().then(function () {
 
@@ -3947,10 +3978,26 @@
     bingo.view = function (name) {
         /// <summary>
         /// 获取view<br />
-        /// bingo.view('main')
+        /// bingo.view('main') <br />
+        /// bingo.view(document.body)
         /// </summary>
-        return arguments.length == 0 ? _allViews : _getView(name);
+
+        if (arguments.length == 0)
+            return _allViews;
+        else if (bingo.isString(name))
+            _getView(name);
+        else
+            _getNodeCP(name);
     };
+
+    bingo.cp = function (node) {
+        /// <summary>
+        /// 获取cp <br />
+        /// bingo.cp(document.body);
+        /// </summary>
+        /// <param name="node"></param>
+        return _getNodeCP(node);
+    }
 
     bingo.rootView = function () { return _rootView; };
     var _rootView = _newView({
@@ -3981,6 +4028,7 @@
                 _compile({
                     tmpl: tmpl,
                     view: _rootView,
+                    isRoot:true,
                     context: _query('#context1'),
                     opName: 'appendTo'
                 });
@@ -4106,6 +4154,16 @@
 
     });
 
+    defualtApp.command('using', function (cp) {
+        var src = cp.$attrs.$getAttr('src');
+        return src && cp.$app.using(src);
+    });
+
+    defualtApp.command('service', function (cp) {
+        var src = cp.$attrs.$getAttr('src'),
+            name = cp.$attrs.$getAttr('name');
+        return src && name && cp.$inject(src);
+    });
 
     var _forItemReg = /[ ]*([^ ]+)[ ]+in[ ]+(?:(.+)[ ]+tmpl[ ]*=[ ]*(.+)|(.+))/;
 
@@ -4237,7 +4295,7 @@
     defualtApp.command('include', function (cp) {
 
         cp.$tmpl(function () {
-            return cp.$app.tmpl(cp.$attrs.$getAttr('src'));
+            return cp.$loadTmpl(cp.$attrs.$getAttr('src'));
         });
 
     });
@@ -4266,6 +4324,68 @@
         cp.$tmpl(cp.$contents);
         cp.$export = cp;
     });
+
+    //{{tmpl id="tmpl001" for="app"}} tmpl contents {{/tmpl}}
+    defualtApp.command('tmpl', function (cp) {
+        var id = cp.$attrs.$getAttr('id');
+        if (id) {
+            var isApp = /app/i.test(cp.$attrs.$getAttr('for'));
+            cp.$saveTmpl(id, cp.$contents, isApp);
+        }
+    });
+
+    defualtApp.command('route', function (cp) {
+
+        var src = cp.$attrs.$getAttr('src'),
+            app = cp.$app;
+
+        src && cp.$tmpl(function () {
+            return cp.$loadTmpl('route::' + src);
+        });
+
+        var location = {
+            url: src,
+            name: cp.$name,
+            href: function (src) {
+                this.url = src;
+                cp.$tmpl(function () {
+                    return cp.$loadTmpl('route::' + src);
+                });
+                return this.reload();
+            },
+            //路由query部分参数
+            queryParams: function () {
+                return this.routeParams().queryParams
+            },
+            //路由参数
+            routeParams: function () {
+                var url = this.url;
+                var routeContext = app.routeContext('route::' + url);
+                return routeContext.params;
+            },
+            reload: function () {
+                return cp.$reload();
+            },
+            toString: function () {
+                return this.url;
+            },
+            close: function () {
+                cp.$remove();
+            }
+        };
+
+        cp.$name && (cp.$app._location[cp.$name] = location);
+
+        cp.$export = location;
+    });
+
+    bingo.app.extend({
+        _location:{},
+        location: function (name) {
+            return this._location[name];
+        }
+    });
+    
     
 })(bingo);
 
