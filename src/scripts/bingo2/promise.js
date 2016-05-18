@@ -165,28 +165,28 @@
     Promise.isPromise = _isPromise;
     bingo.Promise = Promise;
 
-    bingo.Deferred = function () {
-        var deferred = {
-            promise: function () {
-                return promise;
-            }
-        };
+    //bingo.Deferred = function () {
+    //    var deferred = {
+    //        promise: function () {
+    //            return promise;
+    //        }
+    //    };
 
-        var promise = Promise(function (resolve, reject) {
-            deferred.resolve = function (p) {
-                /// <summary>
-                /// 解决
-                /// </summary>
-                resolve(p);
-            };
-            deferred.reject = function (p) {
-                /// <summary>
-                /// 拒绝
-                /// </summary>
-                reject(p);
-            };
-        });
-        return deferred;
-    };
+    //    var promise = Promise(function (resolve, reject) {
+    //        deferred.resolve = function (p) {
+    //            /// <summary>
+    //            /// 解决
+    //            /// </summary>
+    //            resolve(p);
+    //        };
+    //        deferred.reject = function (p) {
+    //            /// <summary>
+    //            /// 拒绝
+    //            /// </summary>
+    //            reject(p);
+    //        };
+    //    });
+    //    return deferred;
+    //};
 
 })(bingo);

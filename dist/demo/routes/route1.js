@@ -7,10 +7,6 @@ demoApp.controller('route1', function ($view, $location) {
         console.log('route1 ready');
     });
 
-    $view.$readyAll(function () {
-        console.log('route1 readyall');
-    });
-
     $view.reload = function () {
         $location('main').reload();
     };

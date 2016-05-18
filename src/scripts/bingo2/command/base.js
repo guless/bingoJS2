@@ -189,8 +189,8 @@
 
     defualtApp.command('include', function (cp) {
 
-        cp.$tmpl(function () {
-            return cp.$loadTmpl(cp.$attrs.$getAttr('src'));
+        cp.$init(function () {
+            return cp.$loadTmpl(cp.$attrs.$getAttr('src')).then(function (tmpl) { return cp.$html(tmpl); });
         });
 
     });
@@ -234,8 +234,8 @@
         var src = cp.$attrs.$getAttr('src'),
             app = cp.$app;
 
-        src && cp.$tmpl(function () {
-            return cp.$loadTmpl('route::' + src);
+        src && cp.$init(function () {
+            location.href(src);
         });
 
         var location = {
