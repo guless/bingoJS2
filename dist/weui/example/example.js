@@ -1,6 +1,11 @@
 /// <reference path="lib.js" />
 
 (function (bingo, app) {
+    bingo.ready(function () {
+        bingo.compile(document.getElementById('context')).then(function (cp) {
+
+        });
+    });
 
     app.controller('main', ['$view', '$ui', function ($view, $ui) {
 
@@ -165,4 +170,4 @@
     }]);//end searchbar
 
 
-})(bingoV2, demoApp);
+})(bingoV2, bingo.app('weiui'));

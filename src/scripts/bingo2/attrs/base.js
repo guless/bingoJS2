@@ -101,7 +101,7 @@
                 }
             };
 
-            $attr.$layoutResult(function (c) {
+            vAttr.$layoutResult(function (c) {
                 _set(c.value);
             });
 

@@ -2185,185 +2185,6 @@
 })(bingo);
 
 
-(function (bingo) {
-
-    /*
-        与bg-route同用, 取bg-route的url等相关
-        $location.href('view/system/user/list');
-        var href = $location.href();
-        var params = $location.params();
-    
-    */
-    var _routeCmdName = 'bg-route',
-        _dataKey = '_bg_location_',
-        _documentElement = document.documentElement;
-
-    //bingo.location('main') 或 bingo.location($('#id')) 或 bingo.location(docuemnt.body)
-
-    bingo.location = function (p) {
-        /// <summary>
-        /// location 没有给删除如果dom在一直共用一个
-        /// </summary>
-        /// <param name="p">可选，可以是字串、jquery和dom node, 默认document.documentElement</param>
-        /// <returns value='_locationClass.NewObject()'></returns>
-        bingo.isString(p) && (p = '[bg-name="' + p + '"]');
-        var node = null;
-        if (bingo.isString(p))
-            node = document.querySelectorAll(p)[0];
-        else if (p)
-            node = p;
-
-        var isRoute = node ? true : false;
-        if (!isRoute)
-            node = _documentElement;
-
-        var o = node[_dataKey];
-        if (!o) {
-            o = new _locationClass().ownerNode(node).isRoute(isRoute).name(node.getAttribute('bg-name') || '');
-            o.bgLinkNode(node);
-            o.bgOnDispose(function () {
-                node[_dataKey] = null;
-                this.bgTrigger('onClosed');
-
-            });
-            node[_dataKey] = o;
-        }
-        return o;
-    };
-
-    bingo.location.bgEventDef('onHref onHrefBefore onLoadBefore onLoaded');
-
-    var _hashReg = /#([^#]*)$/,
-        _hash = function (url) {
-            return _hashReg.test(url) ? RegExp.$1 : '';
-        };
-    bingo.extend(bingo.location, {
-        href: function (url, target) {
-            var loc = target instanceof _locationClass ? target : bingo.location(target);
-            if (loc.isRoute()) {
-                loc.ownerNode().setAttribute(_routeCmdName, url);
-                loc.bgTrigger('onHref', [url]);
-            }
-        },
-        hash: function (url) {
-            return _hash(url);
-        }
-    });
-
-    var _locationClass = bingo.location.Class = bingo.Class(function () {
-
-        this.Prop({
-            ownerNode: null,
-            //是否路由出来的, 否则为window
-            isRoute: false,
-            name:''
-        });
-
-        this.Define({
-            //路由query部分参数
-            queryParams: function () {
-                return this.routeParams().queryParams
-            },
-            //路由参数
-            routeParams: function () {
-                var url = this.url();
-                var routeContext = bingo.routeContext(url);
-                return routeContext.params;
-            },
-            href: function (url, target) {
-                bingo.location.href(url, bingo.isNullEmpty(target) ? this : target);
-            },
-            reload: function (target) {
-                return this.href(this.url(), target);
-            },
-            onLoaded: function(callback){
-                return this.on('onLoaded', callback);
-            },
-            url: function () {
-                if (this.isRoute())
-                    return this.ownerNode().getAttribute(_routeCmdName);
-                else
-                    return window.location + '';
-            },
-            hash: function () {
-                return bingo.location.hash(this.url());
-            },
-            toString: function () {
-                return this.url();
-            },
-            views: function () {
-                return bingo.view(this.ownerNode())._bgpri_.children;
-            },
-            close: function () {
-                if (!this.isRoute()) return;
-                if (this.bgTrigger('onCloseBefore') === false) return;
-                var node = this.ownerNode();
-                node.parentNode.removeChild(node);
-            }
-        });
-
-        this.Event('onHref onCloseBefore onClosed');
-
-    });
-
-    var _defualtApp = bingo.defualtApp;
-
-    //$location.href('view/demo/userlist')
-    //$location.href('view/demo/userlist', 'main')
-    _defualtApp.service('$location', ['node', function (node) {
-        return function (targer) { return bingo.location(targer || node); };
-    }]);
-
-    /*
-        使用方法:
-        bg-route="system/user/list"
-    
-        连接到system/user/list, 目标:main
-        <a href="#system/user/list" bg-target="main">在main加载连接</a>
-        设置frame:'main'
-        <div bg-route="" bg-name="main"></div>
-    */
-    var _tagRoute = 'bg-route', _tagCtrl = 'bg-controller';
-    _defualtApp.command(_tagRoute, function () {
-        return {
-            priority: 1000,
-            replace: false,
-            view: true,
-            compileChild: false,
-            compilePre: ['node', function (node) {
-                this.tmpl = node.getAttribute(_tagRoute);
-                node.setAttribute(_tagCtrl, this.tmpl);
-            }],
-            compile: ['$compile', 'node', '$attr', '$location', function ($compile, node, $attr, $location) {
-
-                //只要最后一次，防止连续点击链接
-                var _node = node.cloneNode(false), _last = null, _href = function (url) {
-                    if (bingo.location.bgTrigger('onLoadBefore', [url, $location]) === false) return;
-                    _last && !_last.bgIsDispose && _last.stop();
-                    _last = $compile(_node.outerHTML).replaceTo(node);
-                    return _last.compile().then(function () {
-                        _last = null;
-                        if ($attr.bgIsDispose) return;
-                        $location.bgTrigger('onLoaded', [$location, url]);
-                        bingo.location.bgTrigger('onLoaded', [$location]);
-                    });
-                };
-
-                $location().onHref(function (url) {
-                    _node.setAttribute(_tagCtrl, url);
-                    _node.setAttribute(_tagRoute, url);
-                    _href(url);
-                });
-                
-                //console.log('bg-route init==============>');
-                //return _href($attr.content, 0);
-            }]
-        };
-    }); //end bg-route
-
-})(bingo);
-
-
 (function (bingo, undefined) {
     "use strict";
 
@@ -2773,7 +2594,7 @@
             bingo.each(_pri.obsListUn, function (item) {
                 item[0].bgIsDispose || item[0].unObserve();
             });
-            _removeView(this);
+            _removeView(this.$app, this);
 
             if (parentView && !parentView.bgIsDispose) {
                 parentView.$children = bingo.removeArrayItem(this, parentView.$children);
@@ -2802,7 +2623,7 @@
         }
 
         //编译时同步用
-        _addView(view);
+        _addView(view.$app, view);
         return view;
     }, _cpNodeName = '_bgcp_', _getNodeCP = function (node) {
         return node[_cpNodeName];
@@ -2881,11 +2702,11 @@
         var first = _getCPFirstNode(cp),
             last = _getCPLastNode(cp);
         if (first == last) return [first];
-        var list = [first], item;
-        while (last != (item = first.nextSibling)) {
-            list.push(item);
+        var list = first.nodeType == 1 ? [first] : [], item = first;
+        while (last != (item = item.nextSibling) && item) {
+            item.nodeType == 1 && list.push(item);
         }
-        list.push(last);
+        last.nodeType == 1 && list.push(last);
         return list;
     }, _newCP = function (p, extendWith, bd) {
         var _pri = {
@@ -2979,11 +2800,10 @@
             },
             $html: function (s) {
                 if (arguments.length > 0) {
-                    var context = _getCPRefNode(this);
                     _clearCP(this);
                     this.$tmpl(s);
 
-                    return _compile({ cp: this, context: context, opName: 'insertBefore' });
+                    return _compile({ cp: this, context: _getCPRefNode(this), opName: 'insertBefore' });
                 } else {
                     var list = [];
                     bingo.each(this.$nodes, function (item) {
@@ -3360,29 +3180,27 @@
     //{{cmd /}}
     //{{cmd attr="asdf" /}}
     //{{cmd attr="asdf"}} contents {{/cmd}}
-    var _commandReg = /\{\{\s*(\S+)\s*(.*?)\/\}\}|\{\{\s*(\S+)\s*?(.*?)\}\}((?:.|\n|\r)*)\{\{\/\3\}\}/gi,
+    var _tmplCmdReg = /\{\{\s*(\/?)\s*([^\s{}]+)\s*((?:(?:.|\n|\r)(?!\{\{|\}\}))*)(.?)\}\}/gi,
         //解释else
         _checkElse = /\{\{\s*(\/?if|else)\s*(.*?)\}\}/gi,
         //解释指令属性: attr="fasdf"
-        _cmdAttrReg = /(\S+)\s*=\s*(?:\"((?:\\\"|[^"])*?)\"|\'((?:\\\'|[^'])*?)\')/gi;
+        _cmdAttrReg = /(\S+)\s*=\s*(?:\"((?:\\\"|[^"])*?)\"|\'((?:\\\'|[^'])*?)\')/gi,
+        //删除注释内容
+        _commentRMReg = /\<\!\-\-((?:.|\n|\r)*?)\-\-\>/g;
 
     //scriptTag
     var _getScriptTag = function (id) { return ['<', 'script type="text/html" bg-id="', id, '"></', 'script>'].join(''); };
 
-    var _allViews = [],
-        _addView = function (view) {
-            _allViews.push(view);
+    var _addView = function (app, view) {
+            app._view.push(view);
         },
-        _removeView = function (view) {
-            _allViews = bingo.removeArrayItem(view, _allViews);
+        _removeView = function (app, view) {
+            app._view = bingo.removeArrayItem(view, app._view);
         },
-        _getView = function (name) {
-            var index = bingo.inArray(function (item) { return item.$name == name; }, _allViews);
-            return index > -1 ? _allViews[index] : null;
+        _getView = function (app, name) {
+            var index = bingo.inArray(function (item) { return item.$name == name; }, app._view);
+            return index > -1 ? app._view[index] : null;
         };
-
-
-    var _tmplCmdReg = /\{\{\s*(\/?)\s*([^\s{}]+)\s*((?:(?:.|\n|\r)(?!\{\{|\}\}))*)(.?)\}\}/gi;
 
     var _traverseTmpl = function (tmpl) {
         var item, isSingle, isEnd, tag, attrs, find, contents,
@@ -3390,6 +3208,7 @@
             strIndex = 0,
             index, lv = 0, id;
         _tmplCmdReg.lastIndex = 0;
+        tmpl = tmpl.replace(_commentRMReg, '');
         while (item = _tmplCmdReg.exec(tmpl)) {
             find = item[0];
             index = item.index;
@@ -3437,7 +3256,6 @@
     };
 
     var _traverseCmd = function (tmpl, cp, bd) {
-        //_commandReg.lastIndex = 0;
         var list = [], view, app;
         bingo.isString(tmpl) || (tmpl = bingo.toStr(tmpl));
         var tmplContext = _traverseTmpl(tmpl);
@@ -3620,7 +3438,7 @@
     }, _scriptType = /\/(java|ecma)script/i,
     _cleanScript = /^\s*<!(?:\[CDATA\[|\-\-)|[\]\-]{2}>\s*$/g, _globalEval = function (node) {
         if (node.src) {
-            bingo.using(node.src);
+            bingo.defualtApp.using(node.src);
         } else {
             var data = (node.text || node.textContent || node.innerHTML || "").replace(_cleanScript, "");
             if (data) {
@@ -3977,31 +3795,34 @@
             });
         };
 
-    bingo.view = function (p) {
-        /// <summary>
-        /// 获取view<br />
-        /// bingo.view('main') <br />
-        /// bingo.view(document.body)
-        /// </summary>
 
-        if (arguments.length == 0)
-            return _allViews;
-        else if (bingo.isString(p))
-            return _getView(p);
-        else {
-            var cp = _getNodeCP(p);
-            return cp ? (cp.$ownerView || cp.$view) : null;
+    bingo.app.extend({
+        _view: [],
+        view: function (p) {
+            /// <summary>
+            /// 获取view<br />
+            /// app.view('main') <br />
+            /// app.view(document.body)
+            /// </summary>
+
+            if (arguments.length == 0)
+                return this._view;
+            else if (bingo.isString(p))
+                return _getView(this, p);
+            else {
+                var cp = _getNodeCP(p);
+                return cp ? (cp.$ownerView || cp.$view) : null;
+            }
+        },
+        cp: function (node) {
+            /// <summary>
+            /// 获取cp <br />
+            /// app.cp(document.body);
+            /// </summary>
+            /// <param name="node"></param>
+            return _getNodeCP(node);
         }
-    };
-
-    bingo.cp = function (node) {
-        /// <summary>
-        /// 获取cp <br />
-        /// bingo.cp(document.body);
-        /// </summary>
-        /// <param name="node"></param>
-        return _getNodeCP(node);
-    }
+    });
 
     bingo.rootView = function () { return _rootView; };
     var _rootView = _newView({
@@ -4360,6 +4181,7 @@
         });
 
         var location = {
+            bgNoObserve: true,
             url: src,
             name: cp.$name,
             href: function (src) {
@@ -4384,6 +4206,7 @@
             },
             close: function () {
                 cp.$remove();
+                this.bgDispose();
             }
         };
 
@@ -4505,7 +4328,7 @@
                 }
             };
 
-            $attr.$layoutResult(function (c) {
+            vAttr.$layoutResult(function (c) {
                 _set(c.value);
             });
 

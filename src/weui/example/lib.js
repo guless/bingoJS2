@@ -1,6 +1,8 @@
-﻿(function (bingo) {
+﻿(function (bingo, app) {
 
-    var app = window.demoApp = bingo.app('demo'), _pageManager = {
+
+    var _pageManager = {
+        bgNoObserve: true,
         action: '',
         pageList: [],
         isBack: function (name) {
@@ -13,28 +15,29 @@
         },
         open: function (name) {
             this.pageList.push(name);
-            var view = bingo.view('main'), node = view.$getNode();
-            var tmpl = '<div bg-route="' + name + '" bg-name="' + name + '"></div>';
-            bingo.compile(view).tmpl(tmpl).appendTo(node).compile();
+            var view = app.view('home');
+            var tmpl = '{{include src="' + name + '" /}}';
+            view.$insertAfter(tmpl);
         },
         back: function () {
             this.action = 'back';
             history.back();
         },
         close: function (name) {
-            var view = bingo.view(name);
+            var view = app.view(name);
             if (!view) return;
             this.pageList.pop();
-            var node = view.$getNode();
+            var node = view.$getNodes()[0];
             var jo = $(node);
-            jo.children('.page').addClass('slideOut').on('animationend', function () {
-                jo.remove();
+            jo.addClass('slideOut').on('animationend', function () {
+                view.$ownerCP.$parent.$remove();
             }).on('webkitAnimationEnd', function () {
-                jo.remove();
+                view.$ownerCP.$parent.$remove();
             });
         },
+        _hashReg: /#([^#]*)$/,
         hash: function () {
-            return bingo.location.hash(location + '');
+            return this._hashReg.test(location + '') ? RegExp.$1 : '';
         },
         _init:false,
         init: function () {
@@ -70,10 +73,15 @@
         }
     };//end _pageManager
 
-    app.service('$ui', ['$view', 'node', '$compile', '$component', function ($view, node, $compile, $component) {
+    app.service('$ui', ['$view', function ($view) {
         if ($view.$ui) return $view.$ui;
-        _pageManager.init();
+
+        $view.$ready(function () {
+            _pageManager.init();
+        });
+
         var $ui = $view.$ui = {
+            bgNoObserve:true,
             go: function (name) {
                 _pageManager.go(name);
             },
@@ -128,52 +136,52 @@
                 return dlg;
             }
         };
-        var _getPageNode = function () { return $(node).children('.page');};
+        var _getPageNode = function () { return $($view.$getNodes()[0]);};
         $view.$ready(function () {
             $view.$name != 'main' && _getPageNode().addClass('slideIn ' + $view.$name);
         });
         return $ui;
     }]);//end service $ui
 
-    app.component('loading', {
-        //模板
-        $tmpl: 'comp/loading',
-        msg: '', timeout: -1,
-        //编译阶段, node还是原始的node, 这里可以分析原始node内容
-        $compile: ['$compCfg', function (p) {
-        }],
-        //初始化
-        $init: ['$compCfg', function (p) {
-            var tFn = function () {
-                tid = null;
-                this.$remove();
-            }.bind(this);
-            var tid;
-            this.$observe('timeout', function (c) {
-                tid && clearTimeout(tid);
-                tid = setTimeout(tFn, c.value);
-            }.bind(this));
-            this.msg = p.msg;
-            this.timeout = p.timeout;
-        }]
-    });
+    //app.component('loading', {
+    //    //模板
+    //    $tmpl: 'comp/loading',
+    //    msg: '', timeout: -1,
+    //    //编译阶段, node还是原始的node, 这里可以分析原始node内容
+    //    $compile: ['$compCfg', function (p) {
+    //    }],
+    //    //初始化
+    //    $init: ['$compCfg', function (p) {
+    //        var tFn = function () {
+    //            tid = null;
+    //            this.$remove();
+    //        }.bind(this);
+    //        var tid;
+    //        this.$observe('timeout', function (c) {
+    //            tid && clearTimeout(tid);
+    //            tid = setTimeout(tFn, c.value);
+    //        }.bind(this));
+    //        this.msg = p.msg;
+    //        this.timeout = p.timeout;
+    //    }]
+    //});
 
-    app.component('complete', {
-        $tmpl: 'comp/complete',
-        msg: '', time: -1,
-        $init: ['$compCfg', function (p) {
-            var tFn = function () {
-                tid = null;
-                this.$remove();
-            }.bind(this);
-            var tid;
-            this.$observe('time', function (c) {
-                tid && clearTimeout(tid);
-                tid = setTimeout(tFn, c.value);
-            });
-            this.msg = p.msg;
-            this.time = p.time;
-        }]
-    });
+    //app.component('complete', {
+    //    $tmpl: 'comp/complete',
+    //    msg: '', time: -1,
+    //    $init: ['$compCfg', function (p) {
+    //        var tFn = function () {
+    //            tid = null;
+    //            this.$remove();
+    //        }.bind(this);
+    //        var tid;
+    //        this.$observe('time', function (c) {
+    //            tid && clearTimeout(tid);
+    //            tid = setTimeout(tFn, c.value);
+    //        });
+    //        this.msg = p.msg;
+    //        this.time = p.time;
+    //    }]
+    //});
 
-})(bingoV2);
+})(bingoV2, bingo.app('weiui'));

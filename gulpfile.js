@@ -14,8 +14,11 @@ var srcPath = __dirname + '/src',
     buildPath = distPath + "/scripts/bingo2";
 
 var srcList = ['core.js', 'promise.js', 'event.js', 'observe.js',
-    'package.js', 'linkNode.js', 'route.js', 'location.js', 'compiles.js',
+    'package.js', 'linkNode.js', 'route.js', 'compiles.js',
     'service/base.js', 'command/base.js', 'attrs/base.js'];
+//var srcList = ['core.js', 'promise.js', 'event.js', 'observe.js',
+//    'package.js', 'linkNode.js', 'route.js', 'location.js', 'compiles.js',
+//    'service/base.js', 'command/base.js', 'attrs/base.js'];
 
 srcList = srcList.map(function (item) {
     return [bgSrcPath , item].join('/');

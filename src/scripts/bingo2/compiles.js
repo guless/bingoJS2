@@ -408,7 +408,7 @@
             bingo.each(_pri.obsListUn, function (item) {
                 item[0].bgIsDispose || item[0].unObserve();
             });
-            _removeView(this);
+            _removeView(this.$app, this);
 
             if (parentView && !parentView.bgIsDispose) {
                 parentView.$children = bingo.removeArrayItem(this, parentView.$children);
@@ -437,7 +437,7 @@
         }
 
         //编译时同步用
-        _addView(view);
+        _addView(view.$app, view);
         return view;
     }, _cpNodeName = '_bgcp_', _getNodeCP = function (node) {
         return node[_cpNodeName];
@@ -516,11 +516,11 @@
         var first = _getCPFirstNode(cp),
             last = _getCPLastNode(cp);
         if (first == last) return [first];
-        var list = [first], item;
-        while (last != (item = first.nextSibling)) {
-            list.push(item);
+        var list = first.nodeType == 1 ? [first] : [], item = first;
+        while (last != (item = item.nextSibling) && item) {
+            item.nodeType == 1 && list.push(item);
         }
-        list.push(last);
+        last.nodeType == 1 && list.push(last);
         return list;
     }, _newCP = function (p, extendWith, bd) {
         var _pri = {
@@ -614,11 +614,10 @@
             },
             $html: function (s) {
                 if (arguments.length > 0) {
-                    var context = _getCPRefNode(this);
                     _clearCP(this);
                     this.$tmpl(s);
 
-                    return _compile({ cp: this, context: context, opName: 'insertBefore' });
+                    return _compile({ cp: this, context: _getCPRefNode(this), opName: 'insertBefore' });
                 } else {
                     var list = [];
                     bingo.each(this.$nodes, function (item) {
@@ -995,29 +994,27 @@
     //{{cmd /}}
     //{{cmd attr="asdf" /}}
     //{{cmd attr="asdf"}} contents {{/cmd}}
-    var _commandReg = /\{\{\s*(\S+)\s*(.*?)\/\}\}|\{\{\s*(\S+)\s*?(.*?)\}\}((?:.|\n|\r)*)\{\{\/\3\}\}/gi,
+    var _tmplCmdReg = /\{\{\s*(\/?)\s*([^\s{}]+)\s*((?:(?:.|\n|\r)(?!\{\{|\}\}))*)(.?)\}\}/gi,
         //解释else
         _checkElse = /\{\{\s*(\/?if|else)\s*(.*?)\}\}/gi,
         //解释指令属性: attr="fasdf"
-        _cmdAttrReg = /(\S+)\s*=\s*(?:\"((?:\\\"|[^"])*?)\"|\'((?:\\\'|[^'])*?)\')/gi;
+        _cmdAttrReg = /(\S+)\s*=\s*(?:\"((?:\\\"|[^"])*?)\"|\'((?:\\\'|[^'])*?)\')/gi,
+        //删除注释内容
+        _commentRMReg = /\<\!\-\-((?:.|\n|\r)*?)\-\-\>/g;
 
     //scriptTag
     var _getScriptTag = function (id) { return ['<', 'script type="text/html" bg-id="', id, '"></', 'script>'].join(''); };
 
-    var _allViews = [],
-        _addView = function (view) {
-            _allViews.push(view);
+    var _addView = function (app, view) {
+            app._view.push(view);
         },
-        _removeView = function (view) {
-            _allViews = bingo.removeArrayItem(view, _allViews);
+        _removeView = function (app, view) {
+            app._view = bingo.removeArrayItem(view, app._view);
         },
-        _getView = function (name) {
-            var index = bingo.inArray(function (item) { return item.$name == name; }, _allViews);
-            return index > -1 ? _allViews[index] : null;
+        _getView = function (app, name) {
+            var index = bingo.inArray(function (item) { return item.$name == name; }, app._view);
+            return index > -1 ? app._view[index] : null;
         };
-
-
-    var _tmplCmdReg = /\{\{\s*(\/?)\s*([^\s{}]+)\s*((?:(?:.|\n|\r)(?!\{\{|\}\}))*)(.?)\}\}/gi;
 
     var _traverseTmpl = function (tmpl) {
         var item, isSingle, isEnd, tag, attrs, find, contents,
@@ -1025,6 +1022,7 @@
             strIndex = 0,
             index, lv = 0, id;
         _tmplCmdReg.lastIndex = 0;
+        tmpl = tmpl.replace(_commentRMReg, '');
         while (item = _tmplCmdReg.exec(tmpl)) {
             find = item[0];
             index = item.index;
@@ -1072,7 +1070,6 @@
     };
 
     var _traverseCmd = function (tmpl, cp, bd) {
-        //_commandReg.lastIndex = 0;
         var list = [], view, app;
         bingo.isString(tmpl) || (tmpl = bingo.toStr(tmpl));
         var tmplContext = _traverseTmpl(tmpl);
@@ -1255,7 +1252,7 @@
     }, _scriptType = /\/(java|ecma)script/i,
     _cleanScript = /^\s*<!(?:\[CDATA\[|\-\-)|[\]\-]{2}>\s*$/g, _globalEval = function (node) {
         if (node.src) {
-            bingo.using(node.src);
+            bingo.defualtApp.using(node.src);
         } else {
             var data = (node.text || node.textContent || node.innerHTML || "").replace(_cleanScript, "");
             if (data) {
@@ -1612,31 +1609,34 @@
             });
         };
 
-    bingo.view = function (p) {
-        /// <summary>
-        /// 获取view<br />
-        /// bingo.view('main') <br />
-        /// bingo.view(document.body)
-        /// </summary>
 
-        if (arguments.length == 0)
-            return _allViews;
-        else if (bingo.isString(p))
-            return _getView(p);
-        else {
-            var cp = _getNodeCP(p);
-            return cp ? (cp.$ownerView || cp.$view) : null;
+    bingo.app.extend({
+        _view: [],
+        view: function (p) {
+            /// <summary>
+            /// 获取view<br />
+            /// app.view('main') <br />
+            /// app.view(document.body)
+            /// </summary>
+
+            if (arguments.length == 0)
+                return this._view;
+            else if (bingo.isString(p))
+                return _getView(this, p);
+            else {
+                var cp = _getNodeCP(p);
+                return cp ? (cp.$ownerView || cp.$view) : null;
+            }
+        },
+        cp: function (node) {
+            /// <summary>
+            /// 获取cp <br />
+            /// app.cp(document.body);
+            /// </summary>
+            /// <param name="node"></param>
+            return _getNodeCP(node);
         }
-    };
-
-    bingo.cp = function (node) {
-        /// <summary>
-        /// 获取cp <br />
-        /// bingo.cp(document.body);
-        /// </summary>
-        /// <param name="node"></param>
-        return _getNodeCP(node);
-    }
+    });
 
     bingo.rootView = function () { return _rootView; };
     var _rootView = _newView({

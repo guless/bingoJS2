@@ -239,6 +239,7 @@
         });
 
         var location = {
+            bgNoObserve: true,
             url: src,
             name: cp.$name,
             href: function (src) {
@@ -263,6 +264,7 @@
             },
             close: function () {
                 cp.$remove();
+                this.bgDispose();
             }
         };
 
