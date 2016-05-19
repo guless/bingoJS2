@@ -43,6 +43,14 @@
 
     });
 
+    defualtApp.attr('node', function (vAttr) {
+
+        vAttr.$init(function () {
+            vAttr.$value(vAttr.$node);
+        });
+
+    });
+
     bingo.each('checked,unchecked,disabled,enabled,readonly'.split(','), function (attrName) {
         defualtApp.attr(attrName, function (vAttr) {
 

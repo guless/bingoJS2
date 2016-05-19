@@ -614,10 +614,11 @@
             },
             $html: function (s) {
                 if (arguments.length > 0) {
+                    var context = _getCPRefNode(this);
                     _clearCP(this);
                     this.$tmpl(s);
 
-                    return _compile({ cp: this, context: _getCPRefNode(this), opName: 'insertBefore' });
+                    return _compile({ cp: this, context: context, opName: 'insertBefore' });
                 } else {
                     var list = [];
                     bingo.each(this.$nodes, function (item) {
@@ -1328,7 +1329,7 @@
                 return (node.nodeType == 8 && node.nodeValue.indexOf(_commentPrefix) == 0);
             } else {
                 return (_isScriptTag.test(node.tagName)) ?
-                    !node.getAttribute('bg-id') : false;
+                    node.getAttribute('bg-id') : false;
             }
         },
 
@@ -1677,21 +1678,16 @@
 
         ////DOMContentLoaded 时起动
         var _readyName = 'DOMContentLoaded', _ready = function () {
-            _off.call(_doc, _readyName, _ready, false);
-            _off.call(window, 'load', _ready, false);
-            //_doc.removeEventListener(_readyName, _ready, false);
-            //window.removeEventListener('load', _ready, false);
+            _doc.removeEventListener(_readyName, _ready, false);
+            window.removeEventListener('load', _ready, false);
             //等待动态加载js完成后开始
             bingo.bgEnd('ready');
         };
 
-        _on.call(_doc, _readyName, _ready, false);
-        _on.call(window, 'load', _ready, false);
-        //_doc.addEventListener(_readyName, _ready, false);
-        //window.addEventListener("load", _ready, false);
+        _doc.addEventListener(_readyName, _ready, false);
+        window.addEventListener("load", _ready, false);
 
-
-        _on.call(window, 'unload', function () {
+        window.addEventListener('unload', function () {
             bingo.rootView().$ownerCP.$remove()
         }, false);
     })();

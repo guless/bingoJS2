@@ -53,7 +53,7 @@
                 <div>结果: {{text console.log('model text'),JSON.stringify(model) /}}</div>
             </div>
             <div class="splice">text==============================</div>
-            <div class="content">
+            <div class="content" node="[[node1]]">
                 {{text model.textarea /}}
             </div>
             <div class="splice">html==============================</div>
@@ -149,6 +149,11 @@
             $view.$observe(function () { return $view.model; }, function (c) {
                 console.log('aaaaa', c);
                 //$view.modelReport();
+            });
+
+            $view.node1 = null;
+            $view.$init(function () {
+                console.log($view.node1);
             });
 
             $view.list1 = [{ id: '1', text: '1111' }, { id: '2', text: '2222' }];
