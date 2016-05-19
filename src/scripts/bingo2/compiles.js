@@ -6,6 +6,7 @@
     //todo ctrl 的注入promise问题处理
     //todo command:route ser
     //todo 特殊command支持attr风格， 如 {{if where="表达式" name="if1"}}
+    //todo 删除注释内容
 
     //aFrame====================================
 
@@ -1658,8 +1659,12 @@
                 return _compile({
                     tmpl: tmpl,
                     view: view,
+                    parent: view.$ownerCP || cp,
                     context: node,
                     opName: 'appendTo'
+                }).then(function (cpT) {
+                    cpT.$parent.$children.push(cpT);
+                    return cpT;
                 });
             });
             return r;
@@ -1670,25 +1675,25 @@
 
     (function () {
 
-        //console.time('boot');
-        //初始rootView
-        //触发bingo.ready
-        //_rootView.$ready(function () {
-        //    bingo.bgEnd('ready');
-        //    //console.timeEnd('boot');
-        //});
-
         ////DOMContentLoaded 时起动
         var _readyName = 'DOMContentLoaded', _ready = function () {
-            _doc.removeEventListener(_readyName, _ready, false);
-            window.removeEventListener('load', _ready, false);
+            _off.call(_doc, _readyName, _ready, false);
+            _off.call(window, 'load', _ready, false);
+            //_doc.removeEventListener(_readyName, _ready, false);
+            //window.removeEventListener('load', _ready, false);
             //等待动态加载js完成后开始
             bingo.bgEnd('ready');
         };
 
-        _doc.addEventListener(_readyName, _ready, false);
-        window.addEventListener("load", _ready, false);
+        _on.call(_doc, _readyName, _ready, false);
+        _on.call(window, 'load', _ready, false);
+        //_doc.addEventListener(_readyName, _ready, false);
+        //window.addEventListener("load", _ready, false);
 
+
+        _on.call(window, 'unload', function () {
+            bingo.rootView().$ownerCP.$remove()
+        }, false);
     })();
 
 })(bingo);

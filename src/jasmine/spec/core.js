@@ -5,6 +5,8 @@ describe('core --- bingoJS ' + bingo.version , function () {
     var undefined;
     function fnTTTT() { };
 
+    var app = bingo.defualtApp;
+
     it('try catch', function () {
         //测试有些版本 try没有catch不执行finally问题
         var count = 0;
@@ -1085,13 +1087,13 @@ describe('core --- bingoJS ' + bingo.version , function () {
 
         it('using', function () {
 
-            bingo.using('spec/using/a.js').then(function () {
-                bingo.using('spec/using/aAfter.js');
+            app.using('spec/using/a.js').then(function () {
+                app.using('spec/using/aAfter.js');
             });
-            bingo.using('spec/using/b.js');
+            app.using('spec/using/b.js');
 
             var waitOk = false;
-            bingo.usingAll().then(function () {
+            app.usingAll().then(function () {
                 waitOk = true;
             });
             waitsFor(function () { return waitOk; });
@@ -1104,24 +1106,6 @@ describe('core --- bingoJS ' + bingo.version , function () {
 
         }); //end using
 
-        //it('usingMap', function () {
-
-
-        //    bingo.usingMap('test/aaaa.js', ['as/**', 'bs/*.js', 'bbb/aaa.js', 'qu/aaa?.js']);
-        //    var _map = bingo.usingMap.map;
-
-        //    expect(_map('test/aaaa.js')).toEqual('test/aaaa.js');
-        //    expect(_map('as/aaaa.js')).toEqual('test/aaaa.js');
-        //    expect(_map('bs/aaa.js')).toEqual('test/aaaa.js');
-        //    expect(_map('bbb/aaa.js')).toEqual('test/aaaa.js');
-        //    expect(_map('qu/aaaB.js')).toEqual('test/aaaa.js');
-
-        //    expect(_map('bbb/aaa.js?sdf=as')).toEqual('test/aaaa.js');
-
-        //    expect(_map('bbbb/asf/aaa.js')).not.toEqual('test/aaaa.js');
-        //    expect(_map('bbbb/aaa.js')).not.toEqual('test/aaaa.js');
-
-        //});//end usingMap
 
     }); // end describe using
 
@@ -1355,44 +1339,44 @@ describe('core --- bingoJS ' + bingo.version , function () {
 
     }); //end describe linkNode
 
-    describe('bingo.route ======>', function () {
+    describe('route ======>', function () {
 
-        it('bingo.route', function () {
+        it('route', function () {
 
             //定义route
-            bingo.route('my', {
+            app.route('my', {
                 url: 'my/{module}/{action}/{id}',
-                to: 'spec/route/{module}_{action}.js',
+                toUrl: 'spec/route/{module}_{action}.js',
                 defaultValue: { module: 'sys', action: 'user', id: '' }
             });
 
-            bingo.route('myTest', {
+            app.route('myTest', {
                 //支持*
                 url: 'myTest*/{module}/{action}/{id}',
-                to: 'spec/route/{module}_{action}_test.js',
+                toUrl: 'spec/route/{module}_{action}_test.js',
                 defaultValue: { module: 'sys', action: 'user', id: '' }
             });
 
             var routeUrl = 'my/sys/user/1';
 
             //module, controller, action为框架所需参数, 其它参数会生成query, 如id=1
-            expect(bingo.route(routeUrl).using).toEqual('spec/route/sys_user.js?id=1');
+            expect(app.route(routeUrl).toUrl).toEqual('spec/route/sys_user.js?id=1');
 
-            //bingo.routeContext, 解释成具体内容
-            //var rCtext = bingo.routeContext(routeUrl);
+            //app.routeContext, 解释成具体内容
+            //var rCtext = app.routeContext(routeUrl);
             //expect(rCtext).toEqual({
             //    name: 'my', params: { module: 'sys', action: 'user', id: '1', queryParams: {} },
-            //    url: 'my/sys/user/1', to: 'spec/route/sys_user.js?id=1',
+            //    url: 'my/sys/user/1', toUrl: 'spec/route/sys_user.js?id=1',
             //    actionContext: rCtext.actionContext
             //});
 
-            //bingo.routeLink, 生成route url
-            expect(bingo.routeLink('my', { module: 'sys', action: 'user', id: '1' })).toEqual(routeUrl);
+            //app.routeLink, 生成route url
+            expect(app.routeLink('my', { module: 'sys', action: 'user', id: '1' })).toEqual(routeUrl);
 
             //以下测试using一个route url
             window.testusingRoute = 0;
             var isOk = false;
-            bingo.using(routeUrl).then(function () {
+            app.using(routeUrl).then(function () {
                 isOk = true;
             });
             waitsFor(function () { return isOk; }, 5000);
@@ -1401,33 +1385,33 @@ describe('core --- bingoJS ' + bingo.version , function () {
             });
 
             //测试myTest
-            expect(bingo.route('myTest/sys/user/1').using).toEqual('spec/route/sys_user_test.js?id=1');
-            expect(bingo.route('myTest111/sys/user/1').using).toEqual('spec/route/sys_user_test.js?id=1');
+            expect(app.route('myTest/sys/user/1').toUrl).toEqual('spec/route/sys_user_test.js?id=1');
+            expect(app.route('myTest111/sys/user/1').toUrl).toEqual('spec/route/sys_user_test.js?id=1');
 
 
-            bingo.route('view', {
+            app.route('view', {
                 //路由url, 如: view/system/user/list
                 //priority: 200,
                 url: 'view/{module}/{contorller*}',
                 //路由到目标url, 生成:modules/system/views/user/list.html
-                to: 'modules/{module}/{contorller*}.html'
+                toUrl: 'modules/{module}/{contorller*}.html'
             });
 
-            var context1 = bingo.routeContext('view/demo/user/list$aa:1?bb=22&c=333');
+            var context1 = app.routeContext('view/demo/user/list$aa:1?bb=22&c=333');
             expect(context1.params.aa).toEqual('1');
             expect(context1.params.bb).toEqual('22');
             expect(context1.params.c).toEqual('333');
 
 
-            bingo.route('test_all', {
+            app.route('test_all', {
                 //路由url, 如: view/system/user/list
                 priority: 90,
                 url: 'view/{app}/{controller*}_{md5}',
                 //路由到目标url, 生成:modules/system/views/user/list.html
-                to: 'modules/{app}/{controller*}_{md5}.html'
+                toUrl: 'modules/{app}/{controller*}_{md5}.html'
             });
 
-            var tContext = bingo.routeContext('view/command/renderSync/ddddd/test_aasdf$id:11111');
+            var tContext = app.routeContext('view/command/renderSync/ddddd/test_aasdf$id:11111');
             expect(tContext.params.app).toEqual('command');
             expect(tContext.params.controller).toEqual('renderSync/ddddd/test');
             expect(tContext.params.md5).toEqual('aasdf');

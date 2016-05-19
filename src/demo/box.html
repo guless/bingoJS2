@@ -62,7 +62,7 @@
         </script>
     </div>
 
-    <script src="../scripts/bingo2/bingo.js"></script>
+    <script src="../scripts/bingo2/bingo.min.js"></script>
     <script src="../scripts/other/Tween.js"></script>
     <script src="route.js"></script>
     <script type="text/javascript">
@@ -103,7 +103,6 @@
                     if (fun[c.value]) fun = fun[c.value];
                 });
                 $view.tween = 'Expo';
-                //return;
 
                 //box 容器节点
                 $view.node = null;
@@ -111,23 +110,12 @@
                     var i = 0;
                     //创建box
                     var createBox = function () {
-                        //不能超过500个, 几乎是无限
                         if (i > 30) return;
                         i++;
                         bingo.aFrame(function () { createBox(); },2);
 
                         $view.boxcontents.$insertAfter('{{box /}}');
 
-                        //var id = bingo.makeAutoId();
-                        ////创建一个box组件
-                        //$comp.create({ context: $view.node, src: 'box', name: id }).then(function () {
-                        //    createBox();
-
-                        //    //box组件释放时i计数减一
-                        //    $comp(id).bgOnDispose(function () {
-                        //        i--;
-                        //    });
-                        //});
                     };
                     //开始创建
                     createBox();
@@ -156,12 +144,6 @@
                     _reset();
 
                     $view.$ready(function () {
-                        //初始box参数
-                        //var color = colors[parseInt(Math.random() * 4)];
-                        //var nodeList = $view.$getNodes(), node = nodeList[nodeList.length-1], style = node.style;
-                        //style.left = parseInt(Math.random() * (contentWidth - boxSize)) + 'px';
-                        //style.backgroundColor = color;
-                        //style.display = 'block';
 
                         var t = 0, height = moveHeigth, d = iDuration, top = 0;
                         //观察top属性改变
@@ -177,7 +159,7 @@
                                 //动画结束
                                 this.top = height;
                                 bingo.aFrame(function () {
-                                    t = 0, top = 0;
+                                    t = 0, top = 0, d = iDuration;
                                     _reset();
                                     //删除box节点（删除box组件）
                                     //cp.$parent.$remove();
