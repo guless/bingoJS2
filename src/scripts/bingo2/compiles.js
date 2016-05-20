@@ -63,13 +63,16 @@
             bingo.aFrame(r, frN);
         });
     };
-    bingo.aFrameProxy = function (fn, frN) {
+    bingo.aFrameProxy = function (fn, frN, dispoer) {
         var doing = false;
         var fFn = function () {
             if (doing) return;
             doing = true;
             var args = arguments;
-            bingo.aFrame(function () { doing = false; fn.apply(this, args); }.bind(this), frN);
+            bingo.aFrame(function () {
+                if (dispoer && dispoer.bgIsDispose) return;
+                doing = false; fn.apply(this, args);
+            }.bind(this), frN);
         };
         //保存原来observe fn
         fFn.orgFn = fn;
@@ -246,6 +249,7 @@
                 var obs = this.$view.$layout(wFn, fn, num, this, true, (init === false));
                 _pri.obsList.push(obs);
                 (init !== false) && bd && bd.pushStep('CPInit', function () {
+                    this.$view.bgToObserve(true);
                     return [obs.init()];
                 }.bind(this));
                 return obs;
@@ -330,7 +334,7 @@
                 return obs;
             },
             $layout: function (p, fn, fnN, dispoer, check, autoInit) {
-                return this.$observe(p, bingo.aFrameProxy(fn, fnN), dispoer, check, autoInit);
+                return this.$observe(p, bingo.aFrameProxy(fn, fnN, dispoer), dispoer, check, autoInit);
             },
             $layoutAfter: function (p, fn, dispoer, check, autoInit) {
                 return this.$layout(p, fn, 1, dispoer, check, autoInit);

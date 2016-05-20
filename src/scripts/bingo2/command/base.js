@@ -227,6 +227,7 @@
             var isApp = /app/i.test(cp.$attrs.$getAttr('for'));
             cp.$saveTmpl(id, cp.$contents, isApp);
         }
+        cp.$init(function () { cp.$remove(); });
     });
 
     defualtApp.command('route', function (cp) {

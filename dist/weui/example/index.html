@@ -118,6 +118,7 @@
                     </div>
                 </div>
             </div>
+            {{cp name="cp1" /}}
 
             {{tmpl id="tpl_button" for="app"}}
                 {{view controller="button" name="button" app="weiui" /}}
@@ -470,7 +471,7 @@
             {{/tmpl}}
 
             {{tmpl id="tpl_dialog1" for="app"}}
-                {{view controller="dialog1" name="dialog1" app="weiui" /}}
+                {{view controller="dialogTest" app="weiui" /}}
                 <div class="weui_dialog_alert" id="dialog2">
                     <div class="weui_mask"></div>
                     <div class="weui_dialog">
@@ -885,7 +886,7 @@
             {{/tmpl}}
 
             {{tmpl id="tpl_complete" for="app"}}
-                {{view controller="complete" name="complete" app="weiui" /}}
+                {{view app="weiui" /}}
                 <div>
                     <div class="weui_mask_transparent"></div>
                     <div class="weui_toast">
@@ -896,7 +897,8 @@
             {{/tmpl}}
 
             {{tmpl id="tpl_loading" for="app"}}
-                {{view controller="loading" name="loading" app="weiui" /}}
+                {{view app="weiui" /}}
+                {{controller}}$view.msg = 'asdf'{{/controller}}
                 <div class="weui_loading_toast">
                     <div class="weui_mask_transparent"></div>
                     <div class="weui_toast">
@@ -920,7 +922,6 @@
             {{/tmpl}}
         </script>
     </div>
-
     <script src="./zepto.min.js"></script>
     <script src="../../scripts/bingo2/bingo.js"></script>
     <script src="route.js"></script>

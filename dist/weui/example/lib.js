@@ -15,9 +15,10 @@
         },
         open: function (name) {
             this.pageList.push(name);
-            var view = app.view('home');
-            var tmpl = '{{include src="' + name + '" /}}';
-            view.$insertAfter(tmpl);
+            app.tmpl('#tpl_' + name).then(function (tmpl) {
+                var cp = app.view('home').cp1;
+                cp.$insertAfter(tmpl);
+            });
         },
         back: function () {
             this.action = 'back';
@@ -30,9 +31,10 @@
             var node = view.$getNodes()[0];
             var jo = $(node);
             jo.addClass('slideOut').on('animationend', function () {
-                view.$ownerCP.$parent.$remove();
+                //view.$ownerCP是指view所属的cp
+                view.$ownerCP.$remove();
             }).on('webkitAnimationEnd', function () {
-                view.$ownerCP.$parent.$remove();
+                view.$ownerCP.$remove();
             });
         },
         _hashReg: /#([^#]*)$/,
@@ -89,27 +91,35 @@
                 _pageManager.back();
             },
             showLoading: function (msg, timeout) {
-                var pNode = _getPageNode[0];
-                return $component.create({
-                    context: pNode, src: 'comp/loading', name: '',
-                    msg: msg || '数据加载中',
-                    timeout: timeout || 10000
+
+                app.tmpl('#tpl_loading').then(function (tmpl) {
+                    $view.$insertAfter(tmpl).then(function (cp) {
+                        cp.$ownerView.msg = msg || '数据加载中';
+                        setTimeout(function () {
+                            cp.$remove();
+                        }, timeout || 3000);
+                    });
                 });
+
             },
             showComplete: function (msg, time) {
-                var pNode = _getPageNode[0];
-                return $component.create({
-                    context: pNode, src: 'comp/complete', name: '',
-                    msg: msg || '操作成功',
-                    time: time || 2000
+
+                app.tmpl('#tpl_complete').then(function (tmpl) {
+                    $view.$insertAfter(tmpl).then(function (cp) {
+                        cp.$ownerView.msg = msg || '操作成功';
+                        setTimeout(function () {
+                            cp.$remove();
+                        }, time || 3000);
+                    });
                 });
+
             },
             $params: function () {
                 return this.$dialog().params;
             },
             $dialog: function (name, p) {
                 if (arguments.length == 0)
-                    return $view.__dlg;
+                    return this.__dlg;
 
                 var dlg = {
                     params: p,
@@ -120,18 +130,18 @@
                         return this.bgOn('receive', fn);
                     }
                 };
-
-                var node = _getPageNode()[0];
-                var tmpl = '<div bg-route="' + name + '" bg-name="' + name + '"></div>';
-                bingo.compile($view).tmpl(tmpl).controller(['$view', function ($view) {
-
-                    dlg.close = function (p) {
-                        if (arguments.length > 0)
-                            this.send.apply(this, arguments);
-                        $view.$remove();
-                    };
-                    $view.__dlg = dlg;
-                }]).appendTo(node).compile();
+                app.tmpl('#tpl_dialog1').then(function (tmpl) {
+                    var cp = app.view('home').cp1;
+                    cp.$insertAfter(tmpl).then(function (cp) {
+                        var $view = cp.$ownerView;
+                        dlg.close = function (p) {
+                            if (arguments.length > 0)
+                                this.send.apply(this, arguments);
+                            cp.$remove();
+                        };
+                        $view.$ui.__dlg = dlg;
+                    });
+                });
 
                 return dlg;
             }
@@ -143,45 +153,14 @@
         return $ui;
     }]);//end service $ui
 
-    //app.component('loading', {
-    //    //模板
-    //    $tmpl: 'comp/loading',
-    //    msg: '', timeout: -1,
-    //    //编译阶段, node还是原始的node, 这里可以分析原始node内容
-    //    $compile: ['$compCfg', function (p) {
-    //    }],
-    //    //初始化
-    //    $init: ['$compCfg', function (p) {
-    //        var tFn = function () {
-    //            tid = null;
-    //            this.$remove();
-    //        }.bind(this);
-    //        var tid;
-    //        this.$observe('timeout', function (c) {
-    //            tid && clearTimeout(tid);
-    //            tid = setTimeout(tFn, c.value);
-    //        }.bind(this));
-    //        this.msg = p.msg;
-    //        this.timeout = p.timeout;
-    //    }]
-    //});
+    app.command('complete', function (cp) {
+        cp.$tmpl(function () {
+            return app.tmpl('#tpl_complete');
+        });
+        cp.$controller(['$view', function ($view) {
+            $view.msg = '';
+        }]);
+    });
 
-    //app.component('complete', {
-    //    $tmpl: 'comp/complete',
-    //    msg: '', time: -1,
-    //    $init: ['$compCfg', function (p) {
-    //        var tFn = function () {
-    //            tid = null;
-    //            this.$remove();
-    //        }.bind(this);
-    //        var tid;
-    //        this.$observe('time', function (c) {
-    //            tid && clearTimeout(tid);
-    //            tid = setTimeout(tFn, c.value);
-    //        });
-    //        this.msg = p.msg;
-    //        this.time = p.time;
-    //    }]
-    //});
 
 })(bingoV2, bingo.app('weiui'));

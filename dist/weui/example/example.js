@@ -51,14 +51,14 @@
         $view.showDialog1 = false;
 
         $view.showDialog2 = function () {
-            $ui.$dialog('dialog1', {title:'aaaa'}).receive(function (s) {
+            $ui.$dialog('dialogTest', { title: 'aaaa' }).receive(function (s) {
                 $ui.showComplete(s);
             });
         };
     }]);//end dialog
 
-    app.controller('dialog1', ['$view', '$ui', function ($view, $ui) {
-        $view.params = $ui.$params();
+    app.controller('dialogTest', ['$view', '$ui', function ($view, $ui) {
+        //$view.params = $ui.$params();
 
         $view.close = function () {
             $ui.$dialog().close('关闭成功!');
