@@ -104,6 +104,9 @@
         reject: function (arg) {
             return Promise(function (resolve, reject) { reject(arg); });
         },
+        timeout: function (time, arg) {
+            return Promise(function (resolve) { setTimeout(function () { resolve(arg); }, time); });
+        },
         //所有resolve才返回resolve, 否则返回reject
         //all([1, 2,...], function(p){ return bingo.Promise.resolve(p);}).then
         //all([promise1, promise1,...]).then

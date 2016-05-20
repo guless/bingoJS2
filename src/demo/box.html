@@ -16,13 +16,13 @@
             {{view controller="main" app="demo" /}}
             <p style="font-weight:bold;">Tween实例效果-测试 bingoJS {{text bingo.version + ' ' + (bingo.isAFrame?"A":"T") /}} 绑定性能</p>
             <div>
-                <p><strong> 场景：</strong>创建一组box并通过Tween算法设置box.top属性检验绑定性能(检验box创建，编译，动画，删除整个过程)</p>
+                <p><strong> 场景：</strong>创建一个command box并通过Tween算法设置box.top属性检验绑定性能(检验box创建，编译，动画，删除整个过程)</p>
             </div>
             <div>
-                <p><strong> 说明：</strong>dome定义了一个控制器(controller)和一个box组件(component)</p>
+                <p><strong> 说明：</strong>dome定义了一个控制器(controller)和一个box(command)</p>
                 <ul>
                     <li><strong> 控制器(controller)：</strong>主要负责box组件的创建</li>
-                    <li><strong> box组件(component)：</strong>定义top属性与dom层top值绑定，参数Tween算法运动， 运动完后自动删除</li>
+                    <li><strong> box(command)：</strong>定义top属性与dom层top值绑定，参数Tween算法运动， 运动完后自动删除</li>
                 </ul>
             </div>
             <div style="margin-bottom:10px;">

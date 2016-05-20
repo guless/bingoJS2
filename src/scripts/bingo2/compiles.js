@@ -12,14 +12,36 @@
 
     var _rAFrame = window.requestAnimationFrame,
         _cAFrame = window.cancelAnimationFrame,
-        _aFrame = function (fn, frN, obj) {
+        _isAFrame = true,
+        _aFrameList = [], _aFrameId,
+        _aFrame = function (obj) {
             /// <param name="fn" value="fn.call(obj, obj)"></param>
-            obj.id = _rAFrame(function () {
-                if (frN == 0)
-                    fn.call(obj, obj);
-                else
-                    _aFrame(fn, frN - 1, obj);
-            });
+            _aFrameList.push(obj);
+            _aFrameCK();
+        }, _aFrameCK = function () {
+            if (!_aFrameId) {
+                var fn = function () {
+                    clearTimeout(_aFrameId);
+                    _aFrameId = null;
+                    var list = [], orgs = _aFrameList;
+                    _aFrameList = [];
+                    bingo.each(orgs, function (item) {
+                        if (!item._stop) {
+                            item.n--;
+                            if (item.n < 0) {
+                                item.fn(item);
+                            } else {
+                                list.push(item);
+                            }
+                        }
+                    });
+                    list.length > 0 && (_aFrameList = list.concat(_aFrameList));
+                    if (_aFrameList.length > 0) return _aFrameCK();
+                };
+                _aFrameId = setTimeout(fn, 50);
+                _rAFrame(fn);
+            }
+            return _aFrameId;
         };
 
     if (!_rAFrame) {
@@ -33,6 +55,7 @@
         });
 
         if (!_rAFrame) {
+            _isAFrame = false;
             _rAFrame = function (callback) {
                 return window.setTimeout(callback, 10);
             };
@@ -41,7 +64,7 @@
             };
         }
     }
-    bingo.isAFrame = !!_rAFrame;
+    bingo.isAFrame = _isAFrame;
 
     bingo.aFrame = function (fn, frN) {
         /// <summary>
@@ -51,11 +74,14 @@
         /// <param name="frN">第几帧， 默认0</param>
         (!bingo.isNumeric(frN) || frN < 0) && (frN = 0);
         var obj = {
-            stop: function () { _cAFrame(this.id); },
-            next: function (fn) { return bingo.aFrame(fn, frN); },
+            fn:fn,
+            n: frN,
+            _stop:false,
+            stop: function () { this._stop = true; },
+            next: function (fn) { return bingo.aFrame(fn, this.n + 1); },
             frame: bingo.aFrame
         };
-        _aFrame(fn, frN, obj);
+        _aFrame(obj);
         return obj;
     };
     bingo.aFramePromise = function (frN) {
@@ -317,7 +343,7 @@
                 _pri.readys.push(fn);
             },
             $observe: function (p, fn, dispoer, check, autoInit) {
-                this.bgToObserve(true);
+                autoInit !== false && this.bgToObserve(true);
                 var fn1 = function () {
                     //这里会重新检查非法绑定
                     //所以尽量先定义变量到$view, 再绑定

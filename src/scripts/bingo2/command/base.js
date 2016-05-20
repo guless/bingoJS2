@@ -169,20 +169,23 @@
                     });
                     return s;
                 }
+            }, _tid, _html = function (c, index) {
+                if (_tid) return;
+                _tid = true;
+                return bingo.Promise.timeout(1).then(function () { _tid = false; return cp.$html(_getContent(index, c.value)); });
             };
-
         cp.$layout(function () {
             return cp.$attrs.$result();
         }, function (c) {
-            return cp.$html(_getContent(-1, c.value));
+            return _html(c, -1);
         });
 
         bingo.each(_elseList, function (item, index) {
             item.$attrs.$contents && cp.$layout(function () {
                 return item.$attrs.$result();
             }, function (c) {
-                return cp.$html(_getContent(index, c.value));
-            }, 0, false);
+                return _html(c, index);
+            });
         });
 
     });

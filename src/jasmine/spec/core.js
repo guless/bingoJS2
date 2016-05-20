@@ -1109,235 +1109,235 @@ describe('core --- bingoJS ' + bingo.version , function () {
 
     }); // end describe using
 
-    describe('linkNode', function () {
+    //describe('linkNode', function () {
 
-        it('base', function () {
-            var node = $.parseHTML('<div><span></span><div><a></a></div>text</div>')[0];
-            document.body.appendChild(node);
-            var all = node.querySelectorAll('*');
-            var count = all.length;
-            expect(count).toEqual(3);
+    //    it('base', function () {
+    //        var node = $.parseHTML('<div><span></span><div><a></a></div>text</div>')[0];
+    //        document.body.appendChild(node);
+    //        var all = node.querySelectorAll('*');
+    //        var count = all.length;
+    //        expect(count).toEqual(3);
 
-            var textNode = node.lastChild;
-            expect(textNode.nodeType).toEqual(3);
-            textNode.testprop = 222;
-            expect(textNode.testprop === 222).toEqual(true);
+    //        var textNode = node.lastChild;
+    //        expect(textNode.nodeType).toEqual(3);
+    //        textNode.testprop = 222;
+    //        expect(textNode.testprop === 222).toEqual(true);
 
-            expect(bingo.isNull(textNode.parentNode)).toEqual(false);
-            node.removeChild(node.lastChild);
-            expect(bingo.isNull(textNode.parentNode)).toEqual(true);
+    //        expect(bingo.isNull(textNode.parentNode)).toEqual(false);
+    //        node.removeChild(node.lastChild);
+    //        expect(bingo.isNull(textNode.parentNode)).toEqual(true);
 
-            //测试冒泡
-            var tick = 0;
-            node.addEventListener('DOMNodeRemoved', function () {
-                tick++;
-            });
-            node.firstChild.addEventListener('DOMNodeRemoved', function () {
-                tick++;
-            });
-            node.removeChild(node.firstChild);
-            expect(tick).toEqual(2);
-            document.body.removeChild(node);
-
-
-            node = $.parseHTML('<div><span></span><div><a></a></div></div>')[0];
-            document.body.appendChild(node);
-            tick = 0;
-            node.addEventListener('DOMNodeRemoved', function () {
-                tick++;
-            });
-            node.firstChild.addEventListener('DOMNodeRemoved', function (e) {
-                e.stopPropagation();
-                tick++;
-            });
-            node.removeChild(node.firstChild);
-            expect(tick).toEqual(1);
-            document.body.removeChild(node);
-
-            //$(document.documentElement).bind('DOMNodeRemoved', function (e) {
-            //    e.target == node.firstChild &&  console.log('DOMNodeRemoved documentElement');
-            //});
-            //$(node.firstChild).remove();
-            ////console.log('aaa');
-            //node.removeChild(node.firstChild);
-        }); // end base
-
-        it('link', function () {
-            var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
-            var div = node.firstChild.nextSibling;
-            //IE必须先添加到document才生效
-            document.body.appendChild(node);
-
-            var count = 0;
-            bingo.linkNode(div, function () {
-                expect(div === this).toEqual(true);
-                count++;
-            });
-            bingo.linkNode(div.firstChild, function () {
-                expect(div.firstChild === this).toEqual(true);
-                count++;
-            });
-
-            node.removeChild(div);
-
-            waitsFor(function () { return count == 2; }, 1000);
-
-            runs(function () {
-                expect(count).toEqual(2);
-            });
-            document.body.removeChild(node);
-
-        }); // end link
-
-        it('unLink', function () {
-            var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
-            var span = node.firstChild;
-            document.body.appendChild(node);
-
-            var count = 0, wait = false;
-            bingo.linkNode(span, function () {
-                count++;
-            });
-
-            bingo.unLinkNode(span);
-
-            node.removeChild(span);
-            setTimeout(function () { wait = true; }, 50);
-
-            waitsFor(function () { return wait; }, 1000);
-
-            runs(function () {
-                expect(count).toEqual(0);
-            });
-            document.body.removeChild(node);
-
-        }); // end unLink
-
-        it('unLink fn', function () {
-            var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
-            var span = node.firstChild;
-            document.body.appendChild(node);
-
-            var count = 0, wait = false,
-                fn = function () {
-                    count++;
-                };
-            bingo.linkNode(span, fn);
-            bingo.linkNode(span, function () {
-                count++;
-            });
-
-            bingo.unLinkNode(span, fn);
-
-            node.removeChild(span);
-            setTimeout(function () { wait = true; }, 50);
-
-            waitsFor(function () { return wait; }, 1000);
-
-            runs(function () {
-                expect(count).toEqual(1);
-            });
-            document.body.removeChild(node);
-
-        }); // end unLink fn
+    //        //测试冒泡
+    //        var tick = 0;
+    //        node.addEventListener('DOMNodeRemoved', function () {
+    //            tick++;
+    //        });
+    //        node.firstChild.addEventListener('DOMNodeRemoved', function () {
+    //            tick++;
+    //        });
+    //        node.removeChild(node.firstChild);
+    //        expect(tick).toEqual(2);
+    //        document.body.removeChild(node);
 
 
-        it('link object', function () {
-            var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
-            var div = node.firstChild.nextSibling;
-            //IE必须先添加到document才生效
-            document.body.appendChild(node);
+    //        node = $.parseHTML('<div><span></span><div><a></a></div></div>')[0];
+    //        document.body.appendChild(node);
+    //        tick = 0;
+    //        node.addEventListener('DOMNodeRemoved', function () {
+    //            tick++;
+    //        });
+    //        node.firstChild.addEventListener('DOMNodeRemoved', function (e) {
+    //            e.stopPropagation();
+    //            tick++;
+    //        });
+    //        node.removeChild(node.firstChild);
+    //        expect(tick).toEqual(1);
+    //        document.body.removeChild(node);
 
-            var count = 0, o = { a: 1 };
-            o.bgLinkNode(div);
-            o.bgOnDispose(function () {
-                count++;
-            });
+    //        //$(document.documentElement).bind('DOMNodeRemoved', function (e) {
+    //        //    e.target == node.firstChild &&  console.log('DOMNodeRemoved documentElement');
+    //        //});
+    //        //$(node.firstChild).remove();
+    //        ////console.log('aaa');
+    //        //node.removeChild(node.firstChild);
+    //    }); // end base
 
-            node.removeChild(div);
+    //    it('link', function () {
+    //        var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
+    //        var div = node.firstChild.nextSibling;
+    //        //IE必须先添加到document才生效
+    //        document.body.appendChild(node);
 
-            waitsFor(function () { return count == 1; }, 1000);
+    //        var count = 0;
+    //        bingo.linkNode(div, function () {
+    //            expect(div === this).toEqual(true);
+    //            count++;
+    //        });
+    //        bingo.linkNode(div.firstChild, function () {
+    //            expect(div.firstChild === this).toEqual(true);
+    //            count++;
+    //        });
 
-            runs(function () {
-                expect(count).toEqual(1);
-            });
-            document.body.removeChild(node);
+    //        node.removeChild(div);
 
-        }); // end link object
+    //        waitsFor(function () { return count == 2; }, 1000);
 
-        it('unlink object', function () {
-            var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
-            var div = node.firstChild.nextSibling;
+    //        runs(function () {
+    //            expect(count).toEqual(2);
+    //        });
+    //        document.body.removeChild(node);
 
-            var count = 0, o = { a: 1 };
-            o.bgLinkNode(div);
-            o.bgLinkNode(div);
-            o.bgOnDispose(function () {
-                count++;
-            });
-            o.bgUnLinkNode(div);
+    //    }); // end link
 
-            node.removeChild(div);
-            setTimeout(function () { count++ }, 10);
-            waitsFor(function () { return count == 1; }, 1000);
+    //    it('unLink', function () {
+    //        var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
+    //        var span = node.firstChild;
+    //        document.body.appendChild(node);
 
-            runs(function () {
-                expect(count).toEqual(1);
-            });
+    //        var count = 0, wait = false;
+    //        bingo.linkNode(span, function () {
+    //            count++;
+    //        });
 
-        }); // end unlink object
+    //        bingo.unLinkNode(span);
 
-        it('link All object', function () {
-            var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
-            var div = node.firstChild.nextSibling;
-            //IE必须先添加到document才生效
-            document.body.appendChild(node);
+    //        node.removeChild(span);
+    //        setTimeout(function () { wait = true; }, 50);
 
-            var count = 0, o = { a: 1 };
-            o.bgLinkNodeAll(function () {
-                count++;
-            });
+    //        waitsFor(function () { return wait; }, 1000);
 
-            node.removeChild(div);
+    //        runs(function () {
+    //            expect(count).toEqual(0);
+    //        });
+    //        document.body.removeChild(node);
 
-            waitsFor(function () { return count >= 1; }, 1000);
+    //    }); // end unLink
 
-            runs(function () {
-                expect(count >= 1).toEqual(true);
-            });
-            document.body.removeChild(node);
+    //    it('unLink fn', function () {
+    //        var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
+    //        var span = node.firstChild;
+    //        document.body.appendChild(node);
 
-        }); // end link All object
+    //        var count = 0, wait = false,
+    //            fn = function () {
+    //                count++;
+    //            };
+    //        bingo.linkNode(span, fn);
+    //        bingo.linkNode(span, function () {
+    //            count++;
+    //        });
 
-        it('unLink All object', function () {
-            var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
-            var div = node.firstChild.nextSibling;
-            //IE必须先添加到document才生效
-            document.body.appendChild(node);
+    //        bingo.unLinkNode(span, fn);
 
-            var count = 0, o = { a: 1 };
-            var fn = function () {
-                expect(1).toEqual(2);
-                count++;
-            };
-            o.bgLinkNodeAll(fn);
-            o.bgUnLinkNodeAll(fn);
+    //        node.removeChild(span);
+    //        setTimeout(function () { wait = true; }, 50);
 
-            node.removeChild(div);
+    //        waitsFor(function () { return wait; }, 1000);
 
-            setTimeout(function () { count++ }, 100);
-            waitsFor(function () { return count == 1; }, 1000);
+    //        runs(function () {
+    //            expect(count).toEqual(1);
+    //        });
+    //        document.body.removeChild(node);
 
-            runs(function () {
-                expect(count).toEqual(1);
-            });
-            document.body.removeChild(node);
-
-        }); // end unLink All object
+    //    }); // end unLink fn
 
 
+    //    it('link object', function () {
+    //        var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
+    //        var div = node.firstChild.nextSibling;
+    //        //IE必须先添加到document才生效
+    //        document.body.appendChild(node);
 
-    }); //end describe linkNode
+    //        var count = 0, o = { a: 1 };
+    //        o.bgLinkNode(div);
+    //        o.bgOnDispose(function () {
+    //            count++;
+    //        });
+
+    //        node.removeChild(div);
+
+    //        waitsFor(function () { return count == 1; }, 1000);
+
+    //        runs(function () {
+    //            expect(count).toEqual(1);
+    //        });
+    //        document.body.removeChild(node);
+
+    //    }); // end link object
+
+    //    it('unlink object', function () {
+    //        var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
+    //        var div = node.firstChild.nextSibling;
+
+    //        var count = 0, o = { a: 1 };
+    //        o.bgLinkNode(div);
+    //        o.bgLinkNode(div);
+    //        o.bgOnDispose(function () {
+    //            count++;
+    //        });
+    //        o.bgUnLinkNode(div);
+
+    //        node.removeChild(div);
+    //        setTimeout(function () { count++ }, 10);
+    //        waitsFor(function () { return count == 1; }, 1000);
+
+    //        runs(function () {
+    //            expect(count).toEqual(1);
+    //        });
+
+    //    }); // end unlink object
+
+    //    it('link All object', function () {
+    //        var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
+    //        var div = node.firstChild.nextSibling;
+    //        //IE必须先添加到document才生效
+    //        document.body.appendChild(node);
+
+    //        var count = 0, o = { a: 1 };
+    //        o.bgLinkNodeAll(function () {
+    //            count++;
+    //        });
+
+    //        node.removeChild(div);
+
+    //        waitsFor(function () { return count >= 1; }, 1000);
+
+    //        runs(function () {
+    //            expect(count >= 1).toEqual(true);
+    //        });
+    //        document.body.removeChild(node);
+
+    //    }); // end link All object
+
+    //    it('unLink All object', function () {
+    //        var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
+    //        var div = node.firstChild.nextSibling;
+    //        //IE必须先添加到document才生效
+    //        document.body.appendChild(node);
+
+    //        var count = 0, o = { a: 1 };
+    //        var fn = function () {
+    //            expect(1).toEqual(2);
+    //            count++;
+    //        };
+    //        o.bgLinkNodeAll(fn);
+    //        o.bgUnLinkNodeAll(fn);
+
+    //        node.removeChild(div);
+
+    //        setTimeout(function () { count++ }, 100);
+    //        waitsFor(function () { return count == 1; }, 1000);
+
+    //        runs(function () {
+    //            expect(count).toEqual(1);
+    //        });
+    //        document.body.removeChild(node);
+
+    //    }); // end unLink All object
+
+
+
+    //}); //end describe linkNode
 
     describe('route ======>', function () {
 
