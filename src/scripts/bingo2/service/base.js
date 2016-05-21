@@ -1,6 +1,7 @@
 ﻿
 (function (bingo) {
     "use strict";
+<<<<<<< HEAD
 
     bingo.service('$rootView', function () { return bingo.rootView(); });
     bingo.service('$parentView', ['$view', function ($view) { return $view.$parentView(); }]);
@@ -47,11 +48,33 @@
     });//end $bindContext;
 
     bingo.service('$observe', ['$view', function ($view) {
+=======
+    var defualtApp = bingo.defualtApp;
+
+    defualtApp.service('$rootView', function () { return bingo.rootView(); });
+
+    defualtApp.service('$inject', ['$view', function ($view) {
+        return function (p, injectObj, thisArg) {
+            return $view.$inject(p, injectObj, thisArg);
+        };
+    }]);
+
+    defualtApp.service('$location', ['$app', function ($app) {
+        return function (name) { return $app.location(name); };
+    }]);
+
+    defualtApp.service('$ajax', ['$view', function ($view) {
+        return function (p) { return bingo.ajax(p, $view); };
+    }]);
+
+    defualtApp.service('$observe', ['$view', function ($view) {
+>>>>>>> master
         return function (p, fn, disposer) {
             return $view.$observe(p, fn, disposer);
         };
     }]);
 
+<<<<<<< HEAD
     bingo.service('$layout', ['$view', function ($view) {
         return function (p, fn, disposer) {
             return $view.$layout(p, fn, 1, disposer);
@@ -59,13 +82,26 @@
     }]);
 
     bingo.service('$tmpl', ['$view', function ($view) {
+=======
+    defualtApp.service('$layout', ['$view', function ($view) {
+        return function (p, fn, disposer) {
+            return $view.$layout(p, fn, 0, disposer);
+        };
+    }]);
+
+    defualtApp.service('$tmpl', ['$view', function ($view) {
+>>>>>>> master
         return function (p, async) {
             return bingo.tmpl(p, async);
         };
     }]);
 
     var _cacheObj = {};
+<<<<<<< HEAD
     bingo.service('$cache', function () {
+=======
+    defualtApp.service('$cache', function () {
+>>>>>>> master
         return function (key, value, max) {
             var args = [_cacheM].concat(bingo.sliceArray(arguments));
             return bingo.cache.apply(bingo, args);
@@ -74,7 +110,11 @@
 
     //参数，使用后，自动清除
     var _paramObj = {};
+<<<<<<< HEAD
     bingo.service('$param', function () {
+=======
+    defualtApp.service('$param', function () {
+>>>>>>> master
         return function (key, value) {
             if (arguments.length == 1)
                 return bingo.cache(_paramObj, key);

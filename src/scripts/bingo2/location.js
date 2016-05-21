@@ -120,9 +120,17 @@
 
     });
 
+<<<<<<< HEAD
     //$location.href('view/demo/userlist')
     //$location.href('view/demo/userlist', 'main')
     bingo.service('$location', ['node', function (node) {
+=======
+    var _defualtApp = bingo.defualtApp;
+
+    //$location.href('view/demo/userlist')
+    //$location.href('view/demo/userlist', 'main')
+    _defualtApp.service('$location', ['node', function (node) {
+>>>>>>> master
         return function (targer) { return bingo.location(targer || node); };
     }]);
 
@@ -136,7 +144,11 @@
         <div bg-route="" bg-name="main"></div>
     */
     var _tagRoute = 'bg-route', _tagCtrl = 'bg-controller';
+<<<<<<< HEAD
     bingo.command(_tagRoute, function () {
+=======
+    _defualtApp.command(_tagRoute, function () {
+>>>>>>> master
         return {
             priority: 1000,
             replace: false,
@@ -149,10 +161,17 @@
             compile: ['$compile', 'node', '$attr', '$location', function ($compile, node, $attr, $location) {
 
                 //只要最后一次，防止连续点击链接
+<<<<<<< HEAD
                 var _node = node.cloneNode(false), _last = null, _href = function (url, type) {
                     if (bingo.location.bgTrigger('onLoadBefore', [url, $location]) === false) return;
                     _last && !_last.bgIsDispose && _last.stop();
                     _last = type == 0 ? $compile(url).htmlTo(node) : $compile(_node.outerHTML).replaceTo(node);
+=======
+                var _node = node.cloneNode(false), _last = null, _href = function (url) {
+                    if (bingo.location.bgTrigger('onLoadBefore', [url, $location]) === false) return;
+                    _last && !_last.bgIsDispose && _last.stop();
+                    _last = $compile(_node.outerHTML).replaceTo(node);
+>>>>>>> master
                     return _last.compile().then(function () {
                         _last = null;
                         if ($attr.bgIsDispose) return;
@@ -164,10 +183,18 @@
                 $location().onHref(function (url) {
                     _node.setAttribute(_tagCtrl, url);
                     _node.setAttribute(_tagRoute, url);
+<<<<<<< HEAD
                     _href(url, 1);
                 });
                 
                 return _href($attr.content, 0);
+=======
+                    _href(url);
+                });
+                
+                //console.log('bg-route init==============>');
+                //return _href($attr.content, 0);
+>>>>>>> master
             }]
         };
     }); //end bg-route

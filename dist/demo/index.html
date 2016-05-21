@@ -2,13 +2,20 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<<<<<<< HEAD
     <title>bingoJS 2</title>
     <style type="text/css">
         .bg-head {
+=======
+    <title>bingoJS {{text bingo.version + ' ' + (bingo.isAFrame?"A":"T") /}}</title>
+    <style type="text/css">
+        div.splice {
+>>>>>>> master
             margin-top: 20px;
             margin-bottom: 5px;
         }
 
+<<<<<<< HEAD
         .bg-body > * {
             margin-left: 20px;
         }
@@ -289,6 +296,85 @@
         });
 
 
+=======
+        div.content {
+            margin-left: 20px;
+        }
+
+        div.content * {
+            margin: 3px 0;
+        }
+
+        a {
+            color: #4078c0;
+            text-decoration: none;
+        }
+
+        a:hover, a:active {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div id="bingo_app">
+        <script type="text/html">
+            {{view name="main" app="demo" /}}
+            bingoJS {{text bingo.version + ' ' + (bingo.isAFrame?"A":"T") /}}
+
+            {{splice title="测试" /}}
+            {{content}}
+            
+            <ul>
+                <li><a href="/jasmine/core.html" target="_blank">内核单元测试， 是否支持您的浏览器</a></li>
+                <li><a href="/demo/base.html" target="_blank">基础测试，默认指令(command), 元素属性绑定</a></li>
+                <li><a href="/demo/views.html" target="_blank">view测试, view层级关系，view的事件</a></li>
+            </ul>
+            
+            {{/content}}
+
+            {{splice title="demo" /}}
+            {{content}}
+            
+            <ul>
+                <li><a href="/demo/box.html" target="_blank">box动画， 演示绑定与编译性能</a></li>
+                <li><a href="/weui/example/index.html" target="_blank">WeUI, 使用bingoJS重新组织weiui</a></li>
+            </ul>
+            
+            {{/content}}
+        </script>
+    </div>
+    <script src="../scripts/bingo2/bingo.js"></script>
+    <script src="route.js"></script>
+    <script type="text/javascript">
+        (function () {
+            var app = demoApp;
+
+            app.command('splice', function (cp) {
+                cp.$tmpl(function () {
+                    return '<div class="splice">' + cp.$attrs.$getAttr('title') + '==============================</div>';
+                });
+            });
+
+            app.command('content', function (cp) {
+                cp.$tmpl(function () {
+                    return '<div class="content">' + cp.$contents + '</div>';
+                });
+            });
+
+        })();
+
+        
+        bingo.ready(function () {
+            console.time('boot');
+            //处理title
+            bingo.compile(document.querySelector('head>title'));
+            //console.profile('boot');
+            bingo.compile(document.getElementById('bingo_app')).then(function () {
+                //console.profileEnd('boot');
+                console.timeEnd('boot');
+            });
+        });
+>>>>>>> master
     </script>
 </body>
 </html>

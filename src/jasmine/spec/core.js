@@ -2,9 +2,17 @@
 
 describe('core --- bingoJS ' + bingo.version , function () {
 
+<<<<<<< HEAD
     var undefined, $ = jLite;
     function fnTTTT() { };
 
+=======
+    var undefined;
+    function fnTTTT() { };
+
+    var app = bingo.defualtApp;
+
+>>>>>>> master
     it('try catch', function () {
         //测试有些版本 try没有catch不执行finally问题
         var count = 0;
@@ -1085,6 +1093,7 @@ describe('core --- bingoJS ' + bingo.version , function () {
 
         it('using', function () {
 
+<<<<<<< HEAD
             bingo.using('spec/using/a.js').then(function () {
                 bingo.using('spec/using/aAfter.js');
             });
@@ -1092,6 +1101,15 @@ describe('core --- bingoJS ' + bingo.version , function () {
 
             var waitOk = false;
             bingo.usingAll().then(function () {
+=======
+            app.using('spec/using/a.js').then(function () {
+                app.using('spec/using/aAfter.js');
+            });
+            app.using('spec/using/b.js');
+
+            var waitOk = false;
+            app.usingAll().then(function () {
+>>>>>>> master
                 waitOk = true;
             });
             waitsFor(function () { return waitOk; });
@@ -1104,6 +1122,7 @@ describe('core --- bingoJS ' + bingo.version , function () {
 
         }); //end using
 
+<<<<<<< HEAD
         //it('usingMap', function () {
 
 
@@ -1370,12 +1389,263 @@ describe('core --- bingoJS ' + bingo.version , function () {
                 //支持*
                 url: 'myTest*/{module}/{action}/{id}',
                 to: 'spec/route/{module}_{action}_test.js',
+=======
+
+    }); // end describe using
+
+    //describe('linkNode', function () {
+
+    //    it('base', function () {
+    //        var node = $.parseHTML('<div><span></span><div><a></a></div>text</div>')[0];
+    //        document.body.appendChild(node);
+    //        var all = node.querySelectorAll('*');
+    //        var count = all.length;
+    //        expect(count).toEqual(3);
+
+    //        var textNode = node.lastChild;
+    //        expect(textNode.nodeType).toEqual(3);
+    //        textNode.testprop = 222;
+    //        expect(textNode.testprop === 222).toEqual(true);
+
+    //        expect(bingo.isNull(textNode.parentNode)).toEqual(false);
+    //        node.removeChild(node.lastChild);
+    //        expect(bingo.isNull(textNode.parentNode)).toEqual(true);
+
+    //        //测试冒泡
+    //        var tick = 0;
+    //        node.addEventListener('DOMNodeRemoved', function () {
+    //            tick++;
+    //        });
+    //        node.firstChild.addEventListener('DOMNodeRemoved', function () {
+    //            tick++;
+    //        });
+    //        node.removeChild(node.firstChild);
+    //        expect(tick).toEqual(2);
+    //        document.body.removeChild(node);
+
+
+    //        node = $.parseHTML('<div><span></span><div><a></a></div></div>')[0];
+    //        document.body.appendChild(node);
+    //        tick = 0;
+    //        node.addEventListener('DOMNodeRemoved', function () {
+    //            tick++;
+    //        });
+    //        node.firstChild.addEventListener('DOMNodeRemoved', function (e) {
+    //            e.stopPropagation();
+    //            tick++;
+    //        });
+    //        node.removeChild(node.firstChild);
+    //        expect(tick).toEqual(1);
+    //        document.body.removeChild(node);
+
+    //        //$(document.documentElement).bind('DOMNodeRemoved', function (e) {
+    //        //    e.target == node.firstChild &&  console.log('DOMNodeRemoved documentElement');
+    //        //});
+    //        //$(node.firstChild).remove();
+    //        ////console.log('aaa');
+    //        //node.removeChild(node.firstChild);
+    //    }); // end base
+
+    //    it('link', function () {
+    //        var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
+    //        var div = node.firstChild.nextSibling;
+    //        //IE必须先添加到document才生效
+    //        document.body.appendChild(node);
+
+    //        var count = 0;
+    //        bingo.linkNode(div, function () {
+    //            expect(div === this).toEqual(true);
+    //            count++;
+    //        });
+    //        bingo.linkNode(div.firstChild, function () {
+    //            expect(div.firstChild === this).toEqual(true);
+    //            count++;
+    //        });
+
+    //        node.removeChild(div);
+
+    //        waitsFor(function () { return count == 2; }, 1000);
+
+    //        runs(function () {
+    //            expect(count).toEqual(2);
+    //        });
+    //        document.body.removeChild(node);
+
+    //    }); // end link
+
+    //    it('unLink', function () {
+    //        var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
+    //        var span = node.firstChild;
+    //        document.body.appendChild(node);
+
+    //        var count = 0, wait = false;
+    //        bingo.linkNode(span, function () {
+    //            count++;
+    //        });
+
+    //        bingo.unLinkNode(span);
+
+    //        node.removeChild(span);
+    //        setTimeout(function () { wait = true; }, 50);
+
+    //        waitsFor(function () { return wait; }, 1000);
+
+    //        runs(function () {
+    //            expect(count).toEqual(0);
+    //        });
+    //        document.body.removeChild(node);
+
+    //    }); // end unLink
+
+    //    it('unLink fn', function () {
+    //        var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
+    //        var span = node.firstChild;
+    //        document.body.appendChild(node);
+
+    //        var count = 0, wait = false,
+    //            fn = function () {
+    //                count++;
+    //            };
+    //        bingo.linkNode(span, fn);
+    //        bingo.linkNode(span, function () {
+    //            count++;
+    //        });
+
+    //        bingo.unLinkNode(span, fn);
+
+    //        node.removeChild(span);
+    //        setTimeout(function () { wait = true; }, 50);
+
+    //        waitsFor(function () { return wait; }, 1000);
+
+    //        runs(function () {
+    //            expect(count).toEqual(1);
+    //        });
+    //        document.body.removeChild(node);
+
+    //    }); // end unLink fn
+
+
+    //    it('link object', function () {
+    //        var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
+    //        var div = node.firstChild.nextSibling;
+    //        //IE必须先添加到document才生效
+    //        document.body.appendChild(node);
+
+    //        var count = 0, o = { a: 1 };
+    //        o.bgLinkNode(div);
+    //        o.bgOnDispose(function () {
+    //            count++;
+    //        });
+
+    //        node.removeChild(div);
+
+    //        waitsFor(function () { return count == 1; }, 1000);
+
+    //        runs(function () {
+    //            expect(count).toEqual(1);
+    //        });
+    //        document.body.removeChild(node);
+
+    //    }); // end link object
+
+    //    it('unlink object', function () {
+    //        var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
+    //        var div = node.firstChild.nextSibling;
+
+    //        var count = 0, o = { a: 1 };
+    //        o.bgLinkNode(div);
+    //        o.bgLinkNode(div);
+    //        o.bgOnDispose(function () {
+    //            count++;
+    //        });
+    //        o.bgUnLinkNode(div);
+
+    //        node.removeChild(div);
+    //        setTimeout(function () { count++ }, 10);
+    //        waitsFor(function () { return count == 1; }, 1000);
+
+    //        runs(function () {
+    //            expect(count).toEqual(1);
+    //        });
+
+    //    }); // end unlink object
+
+    //    it('link All object', function () {
+    //        var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
+    //        var div = node.firstChild.nextSibling;
+    //        //IE必须先添加到document才生效
+    //        document.body.appendChild(node);
+
+    //        var count = 0, o = { a: 1 };
+    //        o.bgLinkNodeAll(function () {
+    //            count++;
+    //        });
+
+    //        node.removeChild(div);
+
+    //        waitsFor(function () { return count >= 1; }, 1000);
+
+    //        runs(function () {
+    //            expect(count >= 1).toEqual(true);
+    //        });
+    //        document.body.removeChild(node);
+
+    //    }); // end link All object
+
+    //    it('unLink All object', function () {
+    //        var node = $.parseHTML('<div><span>ddd</span><div><a>aaa</a></div></div>')[0];
+    //        var div = node.firstChild.nextSibling;
+    //        //IE必须先添加到document才生效
+    //        document.body.appendChild(node);
+
+    //        var count = 0, o = { a: 1 };
+    //        var fn = function () {
+    //            expect(1).toEqual(2);
+    //            count++;
+    //        };
+    //        o.bgLinkNodeAll(fn);
+    //        o.bgUnLinkNodeAll(fn);
+
+    //        node.removeChild(div);
+
+    //        setTimeout(function () { count++ }, 100);
+    //        waitsFor(function () { return count == 1; }, 1000);
+
+    //        runs(function () {
+    //            expect(count).toEqual(1);
+    //        });
+    //        document.body.removeChild(node);
+
+    //    }); // end unLink All object
+
+
+
+    //}); //end describe linkNode
+
+    describe('route ======>', function () {
+
+        it('route', function () {
+
+            //定义route
+            app.route('my', {
+                url: 'my/{module}/{action}/{id}',
+                toUrl: 'spec/route/{module}_{action}.js',
+                defaultValue: { module: 'sys', action: 'user', id: '' }
+            });
+
+            app.route('myTest', {
+                //支持*
+                url: 'myTest*/{module}/{action}/{id}',
+                toUrl: 'spec/route/{module}_{action}_test.js',
+>>>>>>> master
                 defaultValue: { module: 'sys', action: 'user', id: '' }
             });
 
             var routeUrl = 'my/sys/user/1';
 
             //module, controller, action为框架所需参数, 其它参数会生成query, 如id=1
+<<<<<<< HEAD
             expect(bingo.route(routeUrl).using).toEqual('spec/route/sys_user.js?id=1');
 
             //bingo.routeContext, 解释成具体内容
@@ -1388,11 +1658,29 @@ describe('core --- bingoJS ' + bingo.version , function () {
 
             //bingo.routeLink, 生成route url
             expect(bingo.routeLink('my', { module: 'sys', action: 'user', id: '1' })).toEqual(routeUrl);
+=======
+            expect(app.route(routeUrl).toUrl).toEqual('spec/route/sys_user.js?id=1');
+
+            //app.routeContext, 解释成具体内容
+            //var rCtext = app.routeContext(routeUrl);
+            //expect(rCtext).toEqual({
+            //    name: 'my', params: { module: 'sys', action: 'user', id: '1', queryParams: {} },
+            //    url: 'my/sys/user/1', toUrl: 'spec/route/sys_user.js?id=1',
+            //    actionContext: rCtext.actionContext
+            //});
+
+            //app.routeLink, 生成route url
+            expect(app.routeLink('my', { module: 'sys', action: 'user', id: '1' })).toEqual(routeUrl);
+>>>>>>> master
 
             //以下测试using一个route url
             window.testusingRoute = 0;
             var isOk = false;
+<<<<<<< HEAD
             bingo.using(routeUrl).then(function () {
+=======
+            app.using(routeUrl).then(function () {
+>>>>>>> master
                 isOk = true;
             });
             waitsFor(function () { return isOk; }, 5000);
@@ -1401,33 +1689,59 @@ describe('core --- bingoJS ' + bingo.version , function () {
             });
 
             //测试myTest
+<<<<<<< HEAD
             expect(bingo.route('myTest/sys/user/1').using).toEqual('spec/route/sys_user_test.js?id=1');
             expect(bingo.route('myTest111/sys/user/1').using).toEqual('spec/route/sys_user_test.js?id=1');
 
 
             bingo.route('view', {
+=======
+            expect(app.route('myTest/sys/user/1').toUrl).toEqual('spec/route/sys_user_test.js?id=1');
+            expect(app.route('myTest111/sys/user/1').toUrl).toEqual('spec/route/sys_user_test.js?id=1');
+
+
+            app.route('view', {
+>>>>>>> master
                 //路由url, 如: view/system/user/list
                 //priority: 200,
                 url: 'view/{module}/{contorller*}',
                 //路由到目标url, 生成:modules/system/views/user/list.html
+<<<<<<< HEAD
                 to: 'modules/{module}/{contorller*}.html'
             });
 
             var context1 = bingo.routeContext('view/demo/user/list$aa:1?bb=22&c=333');
+=======
+                toUrl: 'modules/{module}/{contorller*}.html'
+            });
+
+            var context1 = app.routeContext('view/demo/user/list$aa:1?bb=22&c=333');
+>>>>>>> master
             expect(context1.params.aa).toEqual('1');
             expect(context1.params.bb).toEqual('22');
             expect(context1.params.c).toEqual('333');
 
 
+<<<<<<< HEAD
             bingo.route('test_all', {
+=======
+            app.route('test_all', {
+>>>>>>> master
                 //路由url, 如: view/system/user/list
                 priority: 90,
                 url: 'view/{app}/{controller*}_{md5}',
                 //路由到目标url, 生成:modules/system/views/user/list.html
+<<<<<<< HEAD
                 to: 'modules/{app}/{controller*}_{md5}.html'
             });
 
             var tContext = bingo.routeContext('view/command/renderSync/ddddd/test_aasdf$id:11111');
+=======
+                toUrl: 'modules/{app}/{controller*}_{md5}.html'
+            });
+
+            var tContext = app.routeContext('view/command/renderSync/ddddd/test_aasdf$id:11111');
+>>>>>>> master
             expect(tContext.params.app).toEqual('command');
             expect(tContext.params.controller).toEqual('renderSync/ddddd/test');
             expect(tContext.params.md5).toEqual('aasdf');

@@ -3,7 +3,18 @@
     "use strict";
 
     //IE必须先添加到document才生效
+<<<<<<< HEAD
     var _ev = 'DOMNodeRemoved', _aT;
+=======
+    var _ev = 'DOMNodeRemoved', _aT,
+        _queryNodes = function (e) {
+            var r = [], o, s;
+            s = document.createTreeWalker(e, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT | NodeFilter.SHOW_DOCUMENT | NodeFilter.SHOW_DOCUMENT_FRAGMENT, null, null);
+            while (o = s.nextNode()) r.push(o); //遍历迭代器
+            return r;
+        };
+    //window.getCommentNodes = _getCommentNodes;
+>>>>>>> master
     document.documentElement.addEventListener(_ev, function (e) {
         var target = e.target;
         setTimeout(function () {
@@ -11,7 +22,11 @@
             if (!parentNode) {
                 target.bgTrigger(_ev, [e]);
                 _aT || (_aT = setTimeout(function () { _aT = null; _linkAll.bgTrigger('onLinkNodeAll'); }, 0));
+<<<<<<< HEAD
                 target.hasChildNodes() && bingo.each(target.querySelectorAll('*'), (function () {
+=======
+                target.hasChildNodes() && bingo.each(_queryNodes(target), (function () {
+>>>>>>> master
                     this.bgTrigger(_ev, [e]);
                 }));
             }

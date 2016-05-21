@@ -133,6 +133,7 @@
                 _done();
         };
 
+<<<<<<< HEAD
     var _usingDone = false;
     bingo.extend({
         using: function (url) {
@@ -153,6 +154,55 @@
             }
         },
         usingAll: function (lv) {
+=======
+    var _routeTypeReg = /^(.+)\:\:(.*)/,
+        _makeRoueTypeUrl = function (url) {
+            var type, s;
+            if (_routeTypeReg.test(url)) {
+                type = RegExp.$1;
+                s = RegExp.$2;
+            } else {
+                s = url;
+            }
+            return { all: url, url: s, type: type || '' };
+        }, _mergeRouteUrlType = function (url, type) {
+            return [type, url].join('::');
+        }, _loadRouteType = function (app, type, url, bRoute, p) {
+            if (bRoute !== false) {
+                var urlType = _makeRoueTypeUrl(url),
+                    types = urlType.type,
+                    sUrl = urlType.url;
+
+                bingo.isNullEmpty(types) && (url = _mergeRouteUrlType(url, type));
+
+                var route = app.route(url), config = bingo.config();
+                if (route) {
+                    sUrl = route.toUrl;
+                    if (route.promise)
+                        return route.promise(sUrl, p);
+                    else
+                        return config[type](sUrl, p);
+                } else {
+                    return config[type](sUrl, p);
+                }
+            } else
+                return config[type](url);
+        };
+
+    bingo.app.extend({
+        using: function (url, bRoute) {
+            /// <returns value=''></returns>
+            /// <summary>
+            /// bingo.using('/js/file1.js').then <br />
+            /// </summary>
+            /// <param name="url"></param>
+            /// <param name="bRoute">是否经过route, 默认是</param>
+
+            return _loadRouteType(this, 'using', url, bRoute);
+        },
+        usingAll: function (url, lv) {
+            url && this.using(url);
+>>>>>>> master
             bingo.isNumeric(lv) || (lv = bingo.using.Normal);
             return bingo.Promise(function (r) {
                 _addAll(r, lv);
@@ -160,6 +210,10 @@
         }
     });
 
+<<<<<<< HEAD
+=======
+    bingo.using = {};
+>>>>>>> master
     bingo.extend(bingo.using, {
         First: 0,
         NormalBefore: 45,
@@ -321,6 +375,7 @@
         return xhr;
     };
 
+<<<<<<< HEAD
     var _ajaxDoing = false;
     bingo.ajax = function (url, p) {
         if (_ajaxDoing) {
@@ -373,6 +428,50 @@
         }
         return _Promise.resolve(html);
     };
+=======
+    var _tagTestReg = /^\s*<(\w+|!)[^>]*>/;
+
+    bingo.app.extend({
+        ajax: function (url, p, bRoute) {
+            return _loadRouteType(this, 'ajax', url, bRoute, p);
+        },
+        _tmpl: {},
+        saveTmpl: function (id, tmpl) {
+            this._tmpl[id] = tmpl;
+        },
+        tmpl: function (p, bRoute, aP) {
+            /// <summary>
+            /// bingo.tmpl('tmpl/aaaa/user').then(...;<br />
+            /// bingo.tmpl('#userTmplId').then(...;<br />
+            /// bingo.tmpl(node).then(...;<br />
+            /// </summary>
+            var html = '', node = p;
+            if (bingo.isString(p)) {
+                if (p.indexOf('#') < 0) {
+                    if (!p || _tagTestReg.test(p)) {
+                        return _Promise.resolve(p);
+                    } else {
+                        return _loadRouteType(this, 'tmpl', p, bRoute, aP);
+                    }
+                } else {
+                    var id = p.substr(1);
+                    if (this._tmpl[id])
+                        return _Promise.resolve(this._tmpl[id]);
+                    else
+                        node = document.getElementById(p.substr(1));
+                }
+            }
+            if (node) {
+                var cLen = node.children.length, first = node.firstElementChild;
+                if (cLen == 1 && first.tagName.toLowerCase() == 'script')
+                    html = first.innerHTML;
+                else
+                    html = node.innerHTML;
+            }
+            return _Promise.resolve(html);
+        }
+    });
+>>>>>>> master
 
     var _cacheName = '_bg_cache2_';
     bingo.cache = function (owner, key, p, max) {
@@ -418,6 +517,7 @@
             //路由地址
             url: 'view/{controller*}',
             //路由转发到地址（可以function(url, params)）
+<<<<<<< HEAD
             to: 'modules/{controller*}.html',
             //第二种配置
             to: {
@@ -437,6 +537,12 @@
                 usin:function(p){
                     return _usingIn(this.using);
                 }
+=======
+            toUrl: 'modules/{controller*}.html',
+            //或者
+            promise: function(url, p){
+                    return bingo.Promise(funcion(resole){ $.ajax(url, p).then(resole);})
+>>>>>>> master
             }
             //默认值
             defaultValue: { app: '', controller: 'user/list' }
@@ -446,6 +552,7 @@
             var url = bingo.route('view/user/list');
                 返回结果==>{tmpl:'modules/user/list.html'}
     */
+<<<<<<< HEAD
     //路由
     bingo.route = function (p, context) {
         if (arguments.length == 1)
@@ -500,6 +607,8 @@
         return [url, urlPath].join('');
     };
 
+=======
+>>>>>>> master
 
     var _makeRegexPath = /(\W)/g,
         //查找query部分, ?aaa=111&b=222
@@ -580,7 +689,11 @@
 
         return obj;
     }, _getRouteContext = function () {
+<<<<<<< HEAD
         var context = { app: null, controller: null, component: null };
+=======
+        var context = { app: null, controller: null };
+>>>>>>> master
         var params = this.params;
         if (params) {
             var appName = params.app;
@@ -589,6 +702,7 @@
             params.controller && (context.controller = app.controller(params.controller));
             context.controller && (context.controller = context.controller.fn);
 
+<<<<<<< HEAD
             params.component && (context.component = app.component(params.component));
             context.component && (context.component = context.component.fn);
         }
@@ -598,6 +712,15 @@
         return { name: name, params: params, url: url, to: to, context: _getRouteContext };
     },
     _passParam = ',component,controller,service,app,queryParams,',
+=======
+        }
+        return context;
+    }, _makeRouteContext = function (routeContext, name, url, toUrl, params) {
+        //生成 routeContext
+        return { name: name, params: params, url: url, toUrl: toUrl, promise:routeContext.promise, context: _getRouteContext };
+    },
+    _passParam = ',controller,service,app,queryParams,',
+>>>>>>> master
     _paramToUrl = function (url, params, paramType) {
         //_urlToParams反操作, paramType:为0转到普通url参数(?a=1&b=2), 为1转到route参数($a:1$b:2)， 默认为0
         _tranAttrRex.lastIndex = 0;
@@ -641,6 +764,7 @@
         return url;
     };
 
+<<<<<<< HEAD
     var _routes = {
         datas: [],
         defaultRoute: {
@@ -741,6 +865,133 @@
         return bingo.config().ajax(this.ajax, p);
     }, _usingPromise = function (p) {
         return bingo.config().using(this.using);
+=======
+    var _checkRoute = function (app) {
+        return app._route || (app._route = _newRouter(app));
+    };
+
+    bingo.app.extend({
+        route: function (p, context) {
+            if (arguments.length == 1)
+                return this.routeContext(p);
+            else
+                p && context && _checkRoute(this).add(p, context);
+        },
+        routeContext: function (url) {
+            return _checkRoute(this).getRouteByUrl(url);
+        },
+        routeLink: function (name, p) {
+            var r = _checkRoute(this).getRuote(name)
+            if (!r && this != bingo.defualtApp)
+                r = _checkRoute(bingo.defualtApp).getRuote(name);
+            return r ? _paramToUrl(r.context.url, p, 1) : '';
+        },
+        routeLinkQuery: function (url, p) {
+            url || (url = '');
+            var urlPath = '';
+            if (url.indexOf('$') >= 0 || url.indexOf('?') >= 0) {
+                var routeContext = this.routeContext(url);
+                p = bingo.extend({}, p, routeContext.params.queryParams);
+                var sp = url.indexOf('$') >= 0 ? '$' : '?';
+                url = url.split(sp)[0];
+            }
+            bingo.eachProp(p, function (item, n) {
+                item = encodeURIComponent(item || '');
+                //route参数形式, $aaa:1$bbb=2
+                urlPath = [urlPath, '$', n, ':', item].join('');
+            });
+            return [url, urlPath].join('');
+        }
+    });
+
+
+    var _newRouter = function (app) {
+        var route = {
+            bgNoObserve: true,
+            datas: [],
+            add: function (name, context) {
+                var route = this.getRuote(name);
+                if (bingo.isUndefined(context.priority))
+                    context.priority = 100;
+                if (route) {
+                    route.context = context;
+                } else {
+                    this.datas.push({
+                        name: name,
+                        context: context
+                    });
+                }
+                this.datas.sort(function (item1, item2) { return item1.context.priority - item2.context.priority; });
+            },
+            getRuote: function (name) {
+                var item = null;
+                bingo.each(this.datas, function () {
+                    if (this.name == name) { item = this; return false; }
+                });
+                return item;
+            },
+            getRouteByUrl: function (url) {
+                if (!url) return '';
+
+                var urlType = _makeRoueTypeUrl(url),
+                    types = urlType.type;
+                url = urlType.url;
+
+                var querys = url.split('?'), urlOld = url;
+                if (querys.length > 1) url = querys[0];
+                var routeContext = null, name = '',tt;
+                var params = null;
+                bingo.each(this.datas, function () {
+                    routeContext = this.context;
+                    tt = routeContext.type;
+                    if (!tt || tt == types) {
+                        params = _urlToParams(url, routeContext);
+                        //如果params不为null, 认为是要查找的url
+                        if (params) { name = this.name; return false; }
+                    }
+                });
+
+                if (!params && app != bingo.defualtApp) {
+                    return _checkRoute(bingo.defualtApp).getRouteByUrl(urlOld);
+                }
+
+                //再找组装参数
+                if (!params) {
+                    routeContext = _defaultRoute;
+                    name = 'defaultRoute';
+                }
+                if (params || routeContext.defaultValue)
+                    params = bingo.extend({}, routeContext.defaultValue, params);
+
+                //var toUrl = bingo.isFunction(routeContext.toUrl) ?
+                //    routeContext.toUrl.call(routeContext, url, params)
+                //    : routeContext.toUrl;
+
+                if (querys.length > 1) {
+                    params || (params = {});
+                    querys[1].replace(/([^=&]+)\=([^=&]*)/g, function (find, name, value) {
+                        (name in params) || (params[name] = value);
+                    });
+                }
+
+                var toUrl = routeContext.toUrl || '';
+                toUrl = _makeTo(toUrl, routeContext, url, params);
+
+                return _makeRouteContext(routeContext, name, url, toUrl, params);
+            }
+
+        };
+        return route;
+    };
+
+    var _defaultRoute = {
+        url: '**',
+        toUrl: function (url, param) { return url; }
+    },
+    _makeTo = function (toUrl, routeContext, url, params) {
+        bingo.isFunction(toUrl) && (toUrl = toUrl.call(routeContext, url, params));
+        return _paramToUrl(toUrl, params);
+>>>>>>> master
     };
 
     //route=====================================================

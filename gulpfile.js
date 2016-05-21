@@ -14,21 +14,40 @@ var srcPath = __dirname + '/src',
     buildPath = distPath + "/scripts/bingo2";
 
 var srcList = ['core.js', 'promise.js', 'event.js', 'observe.js',
+<<<<<<< HEAD
     'package.js', 'linkNode.js', 'route.js', 'location.js', 'compiles.js',
     'service/base.js', 'command/base.js'];
+=======
+    'package.js', 'route.js', 'compiles.js',
+    'service/base.js', 'command/base.js', 'attrs/base.js'];
+//var srcList = ['core.js', 'promise.js', 'event.js', 'observe.js',
+//    'package.js', 'linkNode.js', 'route.js', 'location.js', 'compiles.js',
+//    'service/base.js', 'command/base.js', 'attrs/base.js'];
+>>>>>>> master
 
 srcList = srcList.map(function (item) {
     return [bgSrcPath , item].join('/');
 });
 
+<<<<<<< HEAD
 gulp.task('build', ['build:concat', 'build:uglify', 'build:copy']);
 gulp.task('rebuild', ['clean', 'build']);
+=======
+gulp.task('build', ['clean'], function () {
+    return gulp.start('build:start');
+});
+>>>>>>> master
 
 gulp.task('clean', function () {
     return gulp.src(distPath)
         .pipe(clean());
 });
 
+<<<<<<< HEAD
+=======
+gulp.task('build:start', ['build:concat', 'build:uglify', 'build:copy']);
+
+>>>>>>> master
 gulp.task('build:concat', function () {
     return gulp.src(srcList)
         .pipe(plumber())
@@ -60,6 +79,10 @@ gulp.task('watch', function () {
 
 gulp.task('server', function () {
     yargs.p = yargs.p || 8080;
+<<<<<<< HEAD
+=======
+    var index = yargs.n ? '/demo/test.html' : (yargs.t ? '/jasmine/core.html' : '/demo/index.html');
+>>>>>>> master
     browserSync.init({
         server: {
             baseDir: "./dist"
@@ -73,7 +96,11 @@ gulp.task('server', function () {
         port: yargs.p,
         open: "external",
         //startPath: '/demo/box.html'
+<<<<<<< HEAD
         startPath: '/weui/example/index.html'
+=======
+        startPath: index
+>>>>>>> master
     });
 });
 
@@ -89,4 +116,17 @@ gulp.task('default', ['build'], function () {
     if (yargs.w) {
         gulp.start('watch');
     }
+<<<<<<< HEAD
 });
+=======
+});
+//gulp.task('default', function () {
+//    if (yargs.s) {
+//        gulp.start('server');
+//    }
+
+//    if (yargs.w) {
+//        gulp.start('watch');
+//    }
+//});
+>>>>>>> master
