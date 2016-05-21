@@ -66,7 +66,7 @@ gulp.task('watch', function () {
 
 gulp.task('server', function () {
     yargs.p = yargs.p || 8080;
-    var index = yargs.n ? '/demo/test.html' : (yargs.t ? '/jasmine/core.html' : '/weui/example/index.html');
+    var index = yargs.n ? '/demo/test.html' : (yargs.t ? '/jasmine/core.html' : '/demo/index.html');
     browserSync.init({
         server: {
             baseDir: "./dist"
@@ -78,7 +78,7 @@ gulp.task('server', function () {
             }
         },
         port: yargs.p,
-        open: false,// "external",
+        open: "external",
         //startPath: '/demo/box.html'
         startPath: index
     });
@@ -88,16 +88,7 @@ gulp.task('server', function () {
 //  -w: 实时监听
 //  -s: 启动服务器
 //  -p: 服务器启动端口，默认8080
-//gulp.task('default', ['build'], function () {
-//    if (yargs.s) {
-//        gulp.start('server');
-//    }
-
-//    if (yargs.w) {
-//        gulp.start('watch');
-//    }
-//});
-gulp.task('default', function () {
+gulp.task('default', ['build'], function () {
     if (yargs.s) {
         gulp.start('server');
     }
@@ -106,3 +97,12 @@ gulp.task('default', function () {
         gulp.start('watch');
     }
 });
+//gulp.task('default', function () {
+//    if (yargs.s) {
+//        gulp.start('server');
+//    }
+
+//    if (yargs.w) {
+//        gulp.start('watch');
+//    }
+//});

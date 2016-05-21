@@ -19,10 +19,10 @@
         }
     </style>
 </head>
-<body id="1">
+<body>
     test start aaa
-    <div id="bingo_test">
-        <script type="text/html" id="tmpl1">
+    <div id="bingo_app">
+        <script type="text/html">
             asdfsadfdfaaaa
             {{view controller="view_test1" name='view1' app="demo" /}}
             <div class="splice">model==============================</div>
@@ -178,7 +178,7 @@
         bingo.ready(function () {
             console.time('boot');
             //console.profile('boot');
-            bingo.compile(document.getElementById('bingo_test')).then(function () {
+            bingo.compile(document.getElementById('bingo_app')).then(function () {
                 //console.profileEnd('boot');
                 console.timeEnd('boot');
             });
