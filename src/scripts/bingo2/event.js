@@ -147,15 +147,10 @@
                 bingo.eachProp(this, function (item, n) {
                     if (item && item.bgAutoDispose === true)
                         item.bgDispose();
-<<<<<<< HEAD
-                    n != 'bgIsDispose' && (this[n] = null);
-                }, this);
-=======
                     this[n] = null;
                 }, this);
                 this.bgDispose = bingo.noop;
                 this.bgIsDispose = true;
->>>>>>> master
                 this.bgDisposeStatus = 2;
             }
         },

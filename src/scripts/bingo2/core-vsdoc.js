@@ -20,11 +20,7 @@
 
     var bingo = window.bingo = {
         //主版本号.子版本号.修正版本号.编译版本号(日期)
-<<<<<<< HEAD
-        version: { major: 2, minor: 0, rev: 0, build: 'beta', toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
-=======
         version: { major: 2, minor: 0, rev: 0, build: 'beta1', toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
->>>>>>> master
         _no_observe: true,//防止observe
         isDebug: false,
         prdtVersion: '',
@@ -134,12 +130,8 @@
             return index;
         },
         removeArrayItem: function (ele, list) {
-<<<<<<< HEAD
-            return list.filter(function (item) { return item != ele; });
-=======
             var isF = bingo.isFunction(ele);
             return list.filter(function (item) { return isF ? !ele.apply(this, arguments) : item != ele; });
->>>>>>> master
         },
         makeAutoId: function () {
             var time = new Date().valueOf();
@@ -261,8 +253,6 @@
             return bingo.isString(eventName)
                 ? (bingo.isNullEmpty(eventName) ? null : bingo.trim(eventName).split(/\s+/g).map(function (item) { return bingo.trim(item); }))
                 : eventName;
-<<<<<<< HEAD
-=======
         },
         isArgs: function (args) {
             /// <summary>
@@ -323,7 +313,6 @@
                 return true;
             default:
                 return type === p;
->>>>>>> master
         }
     };
 

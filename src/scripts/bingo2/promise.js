@@ -7,11 +7,8 @@
 
     var Promise = function (fn) {
         return new Promise.fn._init(fn);
-<<<<<<< HEAD
-=======
     }, _isPromise = function (p) {
         return p && !!p.then;
->>>>>>> master
     };
     Promise.fn = Promise.prototype = {
         constructor: Promise,
@@ -45,24 +42,17 @@
         },
         _doNext: function (res, type) {
             if (res && bingo.isFunction(res.then)) {
-<<<<<<< HEAD
-=======
                 if (res.state == _rejected && !res._thenH) {
                     this.state = type;
                     this._result = null;
                     this._end();
                     return;
                 }
->>>>>>> master
                 this.state = _pending;
                 this._result = undefined;
                 res.then(function (res) {
                     this._doNext(res, _fulfilled);
-<<<<<<< HEAD
-                }.bind(this), function (res) {
-=======
                 }.bind(this)).catch(function (res) {
->>>>>>> master
                     this._doNext(res, _rejected);
                 }.bind(this));
                 return;
@@ -114,12 +104,9 @@
         reject: function (arg) {
             return Promise(function (resolve, reject) { reject(arg); });
         },
-<<<<<<< HEAD
-=======
         timeout: function (time, arg) {
             return Promise(function (resolve) { setTimeout(function () { resolve(arg); }, time); });
         },
->>>>>>> master
         //所有resolve才返回resolve, 否则返回reject
         //all([1, 2,...], function(p){ return bingo.Promise.resolve(p);}).then
         //all([promise1, promise1,...]).then
@@ -129,25 +116,15 @@
                 var resList = [], len = list.length;
                 if (list.length > 0) {
                     bingo.each(list, function (item, index) {
-<<<<<<< HEAD
-                        if (!item || !item.then) {
-                            resList[index] = item;
-                            (--len) || resolve(resList);
-                        } else {
-=======
                         if (_isPromise(item)) {
->>>>>>> master
                             var tFn = function (res) {
                                 resList[index] = res;
                                 (--len) || resolve(resList);
                             };
                             item.then(tFn, alway ? tFn : reject);
-<<<<<<< HEAD
-=======
                         } else {
                             resList[index] = item;
                             (--len) || resolve(resList);
->>>>>>> master
                         }
                     });
                 } else
@@ -162,17 +139,10 @@
                 var list = _makeArgs(args, fn);
                 if (list.length > 0)
                     bingo.each(list, function (item, index) {
-<<<<<<< HEAD
-                        if (!item || !item.then)
-                            resolve(item);
-                        else
-                            item.then(resolve, reject);
-=======
                         if (_isPromise(item))
                             item.then(resolve, reject);
                         else
                             resolve(item);
->>>>>>> master
                     });
                 else
                     resolve();
@@ -195,10 +165,6 @@
     };
     Promise.when = Promise.all;
 
-<<<<<<< HEAD
-    bingo.Promise = Promise;
-
-=======
     Promise.isPromise = _isPromise;
     bingo.Promise = Promise;
 
@@ -226,5 +192,4 @@
     //    return deferred;
     //};
 
->>>>>>> master
 })(bingo);
