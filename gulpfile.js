@@ -66,7 +66,7 @@ gulp.task('watch', function () {
 
 gulp.task('server', function () {
     yargs.p = yargs.p || 8080;
-    var index = yargs.n ? '/demo/test.html' : (yargs.t ? '/jasmine/core.html' : '/demo/index.html');
+    var index = yargs.n ? '/demo/test.html' : (yargs.t ? '/jasmine/core.html' : '/index.html');
     browserSync.init({
         server: {
             baseDir: "./dist"

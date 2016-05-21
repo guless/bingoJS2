@@ -1,5 +1,9 @@
 #bingoJS2 - demo
 
+## demo
+
+[https://guless.github.io/bingoJS2/dist/index.html](https://guless.github.io/bingoJS2/dist/index.html)
+
 ## 安装/使用:
 
 遵循以下4个简单的步骤, 就能使用demo

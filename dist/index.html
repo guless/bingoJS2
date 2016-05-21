@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
@@ -31,32 +31,32 @@
     <div id="bingo_app">
         <script type="text/html">
             {{view name="main" app="demo" /}}
-            bingoJS {{text bingo.version + ' ' + (bingo.isAFrame?"A":"T") /}}
+            <a href="https://github.com/guless/bingoJS2" target="_blank">bingoJS {{text bingo.version + ' ' + (bingo.isAFrame?"A":"T") /}}</a>
 
             {{splice title="测试" /}}
             {{content}}
-            
+
             <ul>
-                <li><a href="/jasmine/core.html" target="_blank">内核单元测试， 是否支持您的浏览器</a></li>
-                <li><a href="/demo/base.html" target="_blank">基础测试，默认指令(command), 元素属性绑定</a></li>
-                <li><a href="/demo/views.html" target="_blank">view测试, view层级关系，view的事件</a></li>
+                <li><a href="./jasmine/core.html" target="_blank">内核单元测试， 是否支持您的浏览器</a></li>
+                <li><a href="./demo/base.html" target="_blank">基础测试，默认指令(command), 元素属性绑定</a></li>
+                <li><a href="./demo/views.html" target="_blank">view测试, view层级关系，view的事件</a></li>
             </ul>
-            
+
             {{/content}}
 
             {{splice title="demo" /}}
             {{content}}
-            
+
             <ul>
-                <li><a href="/demo/box.html" target="_blank">box动画， 演示绑定与编译性能</a></li>
-                <li><a href="/weui/example/index.html" target="_blank">WeUI, 使用bingoJS重新组织weiui</a></li>
+                <li><a href="./demo/box.html" target="_blank">box动画， 演示绑定与编译性能</a></li>
+                <li><a href="./weui/example/index.html" target="_blank">WeUI, 使用bingoJS重新组织weiui</a></li>
             </ul>
-            
+
             {{/content}}
         </script>
     </div>
-    <script src="../scripts/bingo2/bingo.js"></script>
-    <script src="route.js"></script>
+    <script src="./scripts/bingo2/bingo.js"></script>
+    <script src="./demo/route.js"></script>
     <script type="text/javascript">
         (function () {
             var app = demoApp;
