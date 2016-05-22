@@ -123,6 +123,10 @@
                     <button onclick="[[addList]]">添加行</button>
                 </div>
             </div>
+            <div class="splice">link==============================</div>
+            <div class="content">
+                {{link link="{ desc: '@model.textarea' }" /}}
+            </div>
             <div class="splice">route==============================</div>
             <div class="content">
                 {{route src="route1" name="main" /}}
@@ -175,6 +179,18 @@
             window.view1 = $view;
             console.log('view_test1');
         });
+        
+        demoApp.command('link', function (cp) {
+
+            cp.$tmpl('{{view /}}<div><input type="text" model="[[desc]]" /> {{text desc /}}</div>');
+
+            cp.$init(function () {
+                var p = cp.$attrs.link.$result();
+                p && cp.$ownerView.$link(p);
+            });
+
+        });
+
         bingo.ready(function () {
             console.time('boot');
             //console.profile('boot');

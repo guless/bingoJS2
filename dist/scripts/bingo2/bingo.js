@@ -2533,6 +2533,29 @@
             },
             $reload: function () {
                 return this.$ownerCP.$reload();
+            },
+            $link: function (props, view) {
+                /// <summary>
+                /// 关联数据来源<br />
+                /// $link({title:'@title', name:'=name'})<br />
+                /// $link({title:'@title', name:'=name'}, this.$parent)
+                /// </summary>
+                /// <param name="props"></param>
+                /// <param name="view">可选， 默认$parent</param>
+                view || (view = this.$parent);
+                if (!view) return;
+                var same = view == this;
+                bingo.eachProp(props, function (item, n) {
+                    var r = (item.indexOf('@') == 0);
+                    r && (item = item.substr(1));
+                    if (same && item == n) return;
+                    view.$observe(item, function (c) { this.bgDataValue(n, c.value); }.bind(this));
+                    this[n] = view.bgDataValue(item);
+                    if (r)
+                        this.bgToObserve(true);
+                    else
+                        this.$observe(n, function (c) { this.bgDataValue(item, c.value); }.bind(view));
+                }, this);
             }
         }).$extend(p);
 
