@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>指令(command)</title>
+    <link href="style.css" rel="stylesheet" />
+</head>
+<body>
+    <div id="demo">
+        <script type="text/html">
+            {{view name="main" app="demo" /}}
+
+            {{splice title="command" /}}
+            {{content attr1="title + '_A'" name="content1"}}
+
+                content内容
+
+            {{/content}}
+        </script>
+    </div>
+    <script src="../scripts/bingo2/bingo.min.js"></script>
+    <script src="route.js"></script>
+    <script type="text/javascript">
+        (function () {
+            var app = bingo.app('demo');
+
+            app.command('splice', function (cp) {
+                cp.$tmpl(function () {
+                    return '<div class="splice">' + cp.$attrs.$getAttr('title') + '==============================</div>';
+                });
+            });
+
+            app.command('content', function (cp) {
+                cp.$tmpl('<div class="content">' + cp.$contents + '</div>');
+            });
+
+        })();
+        
+        bingo.ready(function () {
+            console.time('boot');
+            bingo.compile(document.getElementById('demo')).then(function () {
+                //console.profileEnd('boot');
+                console.timeEnd('boot');
+            });
+        });
+    </script>
+</body>
+</html>

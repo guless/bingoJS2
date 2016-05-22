@@ -3,29 +3,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <title>bingoJS {{text bingo.version + ' ' + (bingo.isAFrame?"A":"T") /}}</title>
-    <style type="text/css">
-        div.splice {
-            margin-top: 20px;
-            margin-bottom: 5px;
-        }
-
-        div.content {
-            margin-left: 20px;
-        }
-
-        div.content * {
-            margin: 3px 0;
-        }
-
-        a {
-            color: #4078c0;
-            text-decoration: none;
-        }
-
-        a:hover, a:active {
-            text-decoration: underline;
-        }
-    </style>
+    <link href="demo/style.css" rel="stylesheet" />
 </head>
 <body>
     <div id="bingo_app">
@@ -53,9 +31,19 @@
             </ul>
 
             {{/content}}
+            {{splice title="文档demo" /}}
+            {{content}}
+
+            <ul>
+                <li><a href="./demo/boot.html" target="_blank">启动</a></li>
+                <li><a href="./demo/tmpl.html" target="_blank">模板(tmpl)</a></li>
+                <li><a href="./demo/command.html" target="_blank">指令(command)</a></li>
+            </ul>
+
+            {{/content}}
         </script>
     </div>
-    <script src="./scripts/bingo2/bingo.js"></script>
+    <script src="./scripts/bingo2/bingo.min.js"></script>
     <script src="./demo/route.js"></script>
     <script type="text/javascript">
         (function () {

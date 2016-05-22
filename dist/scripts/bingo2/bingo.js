@@ -2113,10 +2113,7 @@
     "use strict";
 
     //CP: Content Provider(内容提供者)
-    //todo ctrl 的注入promise问题处理
-    //todo command:route ser
     //todo 特殊command支持attr风格， 如 {{if where="表达式" name="if1"}}
-    //todo 删除注释内容
 
     //aFrame====================================
 
