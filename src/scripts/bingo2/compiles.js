@@ -416,7 +416,10 @@
                 return this.$ownerCP.$insertAfter(p, ref);
             },
             $inject: function (p, injectObj, thisArg) {
-                return bingo.inject(p, this, bingo.extend({ $cp: this.$ownerCP }, injectObj), thisArg);
+                return this.$app.inject(p, bingo.extend({
+                    $view: this,
+                    $cp: this.$ownerCP
+                }, injectObj), thisArg);
             },
             $reload: function () {
                 return this.$ownerCP.$reload();
@@ -821,10 +824,17 @@
                 _pri.ctrl = fn;
             },
             $inject: function (p, injectObj, thisArg) {
-                return bingo.inject(p, this.$view, bingo.extend({ $cp: this }, injectObj), thisArg);
+                return this.$app.inject(p,
+                    bingo.extend({
+                        $view: this.$view,
+                        $cp: this
+                    }, injectObj), thisArg);
             },
             $reload: function () {
                 return _pri.reload(this);
+            },
+            $link: function (props, view) {
+                return (this.$ownerView || this.$view).$link(props, view);
             }
         }, bd).$extend(p);
 
@@ -1451,6 +1461,7 @@
             $view: view, $contents: p.tmpl
         }, false, bd).$tmpl(p.tmpl);
 
+        //render-->cpctrl-->viewctrl-->dom编译-->cpinit-->viewinit--viewready
         return cp._render(bd).then(function () {
             return _Promise.resolve().then(bd.doneStep('CPCtrl')).then(bd.doneStep('ViewCtrl')).then(function () {
                 //_cpCtrlStep();

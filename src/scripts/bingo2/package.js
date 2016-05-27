@@ -142,14 +142,16 @@
        return srv ? srv.fn : null;
     };
 
-    bingo.inject = function (p, view, injectObj, thisArg) {
-        view || (view = bingo.rootView());
-        injectObj = bingo.extend({
-            $view: view,
-            $cp: view.$ownerCP,
-            $app: view.$app
-        }, injectObj);
-        return _inject(p, injectObj, thisArg || view);
-    };
+    bingo.app.extend({
+        inject: function (p, injectObj, thisArg) {
+            var view = bingo.rootView();
+            injectObj = bingo.extend({
+                $view: view,
+                $cp: view.$ownerCP,
+                $app: this
+            }, injectObj);
+            return _inject(p, injectObj, thisArg || view);
+        }
+    });
 
 })(bingo);

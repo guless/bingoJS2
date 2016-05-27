@@ -15,12 +15,9 @@
             {{view controller="boot" name='view1' app="demo" /}}
             <div class="splice">boot==============================</div>
             <div class="content">
-                <!--输出文本text-->
-                <div>{{text text /}}</div>
-                <div>{{text new Date() /}}</div>
-                <!--使用select指令-->
-                <div>select：{{select name="select1" /}}</div>
-             </div>
+                <!--打印user.desc的内容-->
+                {{print user.desc /}}
+            </div>
         </script>
     </div>
     <script src="../scripts/bingo2/bingo.min.js"></script>
@@ -31,20 +28,33 @@
 
         //定义controller
         app.controller('boot', function ($view) {
-            $view.text = 'hello world';
+
+            //定义user变量
+            $view.user = {
+                desc:'<span>用户描述</span>'
+            };
+
+
+            setTimeout(function () {
+
+                //改变user.desc
+                $view.user.desc = '<span>用户描述已经改变</span>';
+
+            }, 2000);
+            
         });
 
-        //定义指令select
-        app.command('select', function (cp) {
+        //定义print指令
+        app.command('print', function (cp) {
 
-            //使用{{view}}指令指明一个新view
-            cp.$tmpl('{{view /}}<select>{{for item in list}}<option value="[[item.id]]">{{text item.text /}}</option>{{/for}}</select>');
-
-            //用controller关联
-            cp.$controller(function ($view) {
-                //定义list内容
-                $view.list = [{ id: 1, text: '1111' }, { id: 2, text: '2222' }];
+            //观察print的绑定变量，如果改变请求布局
+            cp.$layout(function () {
+                return cp.$attrs.$result();
+            }, function (c) {
+                //将绑定内容html到dom
+                return cp.$html(c.value);
             });
+
         });
 
         //ready

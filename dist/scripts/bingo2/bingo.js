@@ -1324,15 +1324,17 @@
        return srv ? srv.fn : null;
     };
 
-    bingo.inject = function (p, view, injectObj, thisArg) {
-        view || (view = bingo.rootView());
-        injectObj = bingo.extend({
-            $view: view,
-            $cp: view.$ownerCP,
-            $app: view.$app
-        }, injectObj);
-        return _inject(p, injectObj, thisArg || view);
-    };
+    bingo.app.extend({
+        inject: function (p, injectObj, thisArg) {
+            var view = bingo.rootView();
+            injectObj = bingo.extend({
+                $view: view,
+                $cp: view.$ownerCP,
+                $app: this
+            }, injectObj);
+            return _inject(p, injectObj, thisArg || view);
+        }
+    });
 
 })(bingo);
 
@@ -2526,7 +2528,10 @@
                 return this.$ownerCP.$insertAfter(p, ref);
             },
             $inject: function (p, injectObj, thisArg) {
-                return bingo.inject(p, this, bingo.extend({ $cp: this.$ownerCP }, injectObj), thisArg);
+                return this.$app.inject(p, bingo.extend({
+                    $view: this,
+                    $cp: this.$ownerCP
+                }, injectObj), thisArg);
             },
             $reload: function () {
                 return this.$ownerCP.$reload();
@@ -2931,10 +2936,17 @@
                 _pri.ctrl = fn;
             },
             $inject: function (p, injectObj, thisArg) {
-                return bingo.inject(p, this.$view, bingo.extend({ $cp: this }, injectObj), thisArg);
+                return this.$app.inject(p,
+                    bingo.extend({
+                        $view: this.$view,
+                        $cp: this
+                    }, injectObj), thisArg);
             },
             $reload: function () {
                 return _pri.reload(this);
+            },
+            $link: function (props, view) {
+                return (this.$ownerView || this.$view).$link(props, view);
             }
         }, bd).$extend(p);
 
@@ -3561,6 +3573,7 @@
             $view: view, $contents: p.tmpl
         }, false, bd).$tmpl(p.tmpl);
 
+        //render-->cpctrl-->viewctrl-->dom编译-->cpinit-->viewinit--viewready
         return cp._render(bd).then(function () {
             return _Promise.resolve().then(bd.doneStep('CPCtrl')).then(bd.doneStep('ViewCtrl')).then(function () {
                 //_cpCtrlStep();
@@ -3871,8 +3884,8 @@
         return function (name) { return $app.location(name); };
     }]);
 
-    defualtApp.service('$ajax', ['$view', function ($view) {
-        return function (p) { return bingo.ajax(p, $view); };
+    defualtApp.service('$ajax', ['$app', function ($app) {
+        return function (url, p) { return $app.ajax(url, p); };
     }]);
 
     defualtApp.service('$observe', ['$view', function ($view) {
@@ -3887,9 +3900,9 @@
         };
     }]);
 
-    defualtApp.service('$tmpl', ['$view', function ($view) {
-        return function (p, async) {
-            return bingo.tmpl(p, async);
+    defualtApp.service('$tmpl', ['$app', function ($app) {
+        return function (p, ap) {
+            return $app.tmpl(p, true, ap);
         };
     }]);
 

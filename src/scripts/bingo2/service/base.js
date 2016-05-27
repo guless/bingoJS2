@@ -15,8 +15,8 @@
         return function (name) { return $app.location(name); };
     }]);
 
-    defualtApp.service('$ajax', ['$view', function ($view) {
-        return function (p) { return bingo.ajax(p, $view); };
+    defualtApp.service('$ajax', ['$app', function ($app) {
+        return function (url, p) { return $app.ajax(url, p); };
     }]);
 
     defualtApp.service('$observe', ['$view', function ($view) {
@@ -31,9 +31,9 @@
         };
     }]);
 
-    defualtApp.service('$tmpl', ['$view', function ($view) {
-        return function (p, async) {
-            return bingo.tmpl(p, async);
+    defualtApp.service('$tmpl', ['$app', function ($app) {
+        return function (p, ap) {
+            return $app.tmpl(p, true, ap);
         };
     }]);
 
