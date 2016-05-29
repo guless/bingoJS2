@@ -41,4 +41,22 @@
         defaultValue: { app: 'demo', service: '' }
     });
 
+    //设置controller资源路由
+    demoApp.route('test', {
+        priority: 20,
+        //路由url, 如: user/list
+        url: 'test/{controller*}/{page}',
+        //路由到目标url, 生成:routes/user/list.js
+        //toUrl: function (url, p) {
+        //    console.log(url, p);
+        //},
+        toUrl: 'services/{controller*}.js',
+        promise: function (url, p) {
+            console.log('promise', url, p);
+        },
+        //变量默认值, 框架提供内部用的变量: app, controller, service
+        defaultValue: { app: 'demo', controller: '' }
+    });
+
+
 })(bingoV2);
