@@ -40,7 +40,7 @@
     var _cacheObj = {};
     defualtApp.service('$cache', function () {
         return function (key, value, max) {
-            var args = [_cacheM].concat(bingo.sliceArray(arguments));
+            var args = [_cacheObj].concat(bingo.sliceArray(arguments));
             return bingo.cache.apply(bingo, args);
         };
     });

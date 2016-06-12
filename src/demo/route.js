@@ -33,6 +33,14 @@
         defaultValue: { app: 'demo', tmpl: '' }
     });
 
+    //设置ajax资源路由
+    demoApp.route('ajax', {
+        type: 'ajax',
+        url: '{ajax*}',
+        toUrl: '{ajax*}',
+        defaultValue: { app: 'demo', ajax: '' }
+    });
+
     //设置service资源路由
     demoApp.route('service', {
         type: 'service',
