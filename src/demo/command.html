@@ -17,6 +17,8 @@
                 content内容
                 <div>select：{{select link="{id:'model.id', list:'model.list'}" name="select1" /}}</div>
 
+                <div>{{print printText /}}</div>
+                <div>{{ex/html printText /}}</div>
             {{/content}}
         </script>
     </div>
@@ -46,6 +48,8 @@
                         $view.model.id = 1;
                     }, 1000);
                 });
+
+                $view.printText = '打印成功！<br />';
 
             });
 

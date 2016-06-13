@@ -3004,9 +3004,21 @@
 
         //处理command定义
         cmdDef = app.command(cp.$cmd);
-        cmdDef && (cmdDef = cmdDef.fn);
-        _promisePush(_renderPromise, cmdDef && cmdDef(cp));
-        _pri.render(cp, bd);
+        var rfn = function () {
+            cmdDef && (cmdDef = cmdDef.fn);
+            _promisePush(_renderPromise, cmdDef && cmdDef(cp));
+            _pri.render(cp, bd);
+        };
+
+        if (cmdDef || cp.$cmd == 'else') {
+            rfn();
+        } else {
+            _promisePush(_renderPromise, cp.$app.usingAll('command::' + cp.$cmd).then(function () {
+                cmdDef = app.command(cp.$cmd);
+                rfn();
+            }));
+        }
+
 
         return cp;
     }, _newCPAttr = function (contents, bd) {

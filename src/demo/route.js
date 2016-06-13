@@ -33,6 +33,14 @@
         defaultValue: { app: 'demo', tmpl: '' }
     });
 
+    //设置command资源路由
+    demoApp.route('command', {
+        type: 'command',
+        url: '{command*}',
+        toUrl: 'commands/{command*}.js',
+        defaultValue: { app: 'demo', command: '' }
+    });
+
     //设置ajax资源路由
     demoApp.route('ajax', {
         type: 'ajax',
