@@ -2397,7 +2397,12 @@
             },
             $init: function (fn) {
                 bd && bd.pushStep('CPInit', function () {
-                    return [fn({})];
+                    return [fn.call(this)];
+                }.bind(this));
+            },
+            $ready: function (fn) {
+                bd && bd.pushStep('CPReady', function () {
+                    return [fn.call(this)];
                 }.bind(this));
             }
         }).$extend(p);
@@ -2586,9 +2591,6 @@
                     _pri.ctrls = [];
                     bingo.each(ctrls, function (item) {
                         _promisePush(promises, this.$inject(item));
-                            //.then(function () {
-                            //    this.bgToObserve();
-                            //}.bind(this)));
                     }, this);
                 }
                 return promises;
@@ -3354,24 +3356,6 @@
         return _Promise.always(promises).then(function () {
             if (_renderPromise.length > 0) return _renderThread();
         });
-    }, _cpCtrls = [], _cpCtrlStep = function () {
-        var ctrls = _cpCtrls;
-        if (ctrls.length > 0) {
-            _cpCtrls = [];
-            bingo.each(ctrls, function (ctrl) {
-                ctrl();
-                _cpCtrlStep();
-            });
-        }
-    }, _viewCtrls = [], _viewCtrlStep = function () {
-        var ctrls = _viewCtrls;
-        if (ctrls.length > 0) {
-            _viewCtrls = [];
-            bingo.each(ctrls, function (ctrl) {
-                ctrl();
-                _viewCtrlStep();
-            });
-        }
     }, _newBuild = function () {
         var _stepObj = {}, _doneStep = function (stepList) {
             var promises = [];
@@ -3582,19 +3566,15 @@
             $view: view, $contents: p.tmpl
         }, false, bd).$tmpl(p.tmpl);
 
-        //render-->cpctrl-->viewctrl-->dom编译-->cpinit-->viewinit--viewready
+        //render-->cpctrl-->viewctrl-->dom编译-->cpinit-->viewinit--cpready-->viewready
         return cp._render(bd).then(function () {
             return _Promise.resolve().then(bd.doneStep('CPCtrl')).then(bd.doneStep('ViewCtrl')).then(function () {
-                //_cpCtrlStep();
-                //_viewCtrlStep();
+
                 var node = p.context, opName = p.opName;
                 _traverseCP(node, cp, opName, bd);
-                //return bingo.aFramePromise().then(function () {
-                //    var node = p.context, opName = p.opName;
-                //    _traverseCP(node, cp, opName, bd);
-                //});
+
             }).then(bd.doneStep('CPInit')).then(bd.doneStep('ViewInit'))
-            .then(bd.doneStep('ViewReady'));
+            .then(bd.doneStep('CPReady')).then(bd.doneStep('ViewReady'));
 
             //return _complieInit().then(function () { return cp; });
         }).then(function () { bd.bgDispose(); return cp; });
