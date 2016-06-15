@@ -3004,23 +3004,26 @@
             return promises;
         }.bind(cp));
 
-        //处理command定义
-        cmdDef = app.command(cp.$cmd);
-        var rfn = function () {
-            cmdDef && (cmdDef = cmdDef.fn);
-            _promisePush(_renderPromise, cmdDef && cmdDef(cp));
-            _pri.render(cp, bd);
-        };
 
-        if (cmdDef || cp.$cmd == 'else') {
-            rfn();
-        } else {
-            _promisePush(_renderPromise, cp.$app.usingAll('command::' + cp.$cmd).then(function () {
-                cmdDef = app.command(cp.$cmd);
+        if (cp.$cmd) {
+            //处理command定义
+            cmdDef = app.command(cp.$cmd);
+            var rfn = function () {
+                cmdDef && (cmdDef = cmdDef.fn);
+                _promisePush(_renderPromise, cmdDef && cmdDef(cp));
+                _pri.render(cp, bd);
+            };
+
+            if (cmdDef || cp.$cmd == 'else') {
                 rfn();
-            }));
-        }
-
+            } else {
+                _promisePush(_renderPromise, cp.$app.usingAll('command::' + cp.$cmd).then(function () {
+                    cmdDef = app.command(cp.$cmd);
+                    rfn();
+                }));
+            }
+        } else
+            _pri.render(cp, bd);
 
         return cp;
     }, _newCPAttr = function (contents, bd) {
@@ -3363,22 +3366,24 @@
                 _promisePushList(promises, fn());
             });
             return _retPromiseAll(promises);
-        };
+        }, end = false;
         return {
             pushStep: function (name, fn) {
                 if (_stepObj[name])
                     _stepObj[name].push(fn);
                 else
                     _stepObj[name] = [fn];
+
+                if (end) this.doneStep(name)();
             },
-            doneStep: function (name, reverse) {
+            doneStep: function (name) {
                 var stepList = _stepObj[name],
                   has = stepList && stepList.length > 0;
-                if (has) {
-                    _stepObj[name] = [];
-                    reverse && stepList.reverse();
-                }
+                has && (_stepObj[name] = []);
                 return function () { return has ? _doneStep(stepList) : null };
+            },
+            end: function () {
+                end = true;
             }
         };
     };
@@ -3577,7 +3582,7 @@
             .then(bd.doneStep('CPReady')).then(bd.doneStep('ViewReady'));
 
             //return _complieInit().then(function () { return cp; });
-        }).then(function () { bd.bgDispose(); return cp; });
+        }).then(function () { bd.end(); return cp; });
     };
 
     //<>&"
