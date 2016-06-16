@@ -2396,14 +2396,10 @@
                 return this.$layout(function () { return this.$value(); }.bind(this), fn, num, init);
             },
             $init: function (fn) {
-                bd && bd.pushStep('CPInit', function () {
-                    return [fn.call(this)];
-                }.bind(this));
+                _addCPEvent(this, bd, 'CPInit', fn);
             },
             $ready: function (fn) {
-                bd && bd.pushStep('CPReady', function () {
-                    return [fn.call(this)];
-                }.bind(this));
+                _addCPEvent(this, bd, 'CPReady', fn);
             }
         }).$extend(p);
 
@@ -2438,6 +2434,7 @@
             inits: [],
             readys: []
         };
+        var _inits = {}, _readys = {}
 
         //新建view
         var view = _newBase({
@@ -2447,11 +2444,21 @@
             $controller: function (fn) {
                 _pri.ctrls.push(fn);
             },
-            $init: function (fn) {
-                _pri.inits.push(fn);
+            $init: function (p, fn) {
+                if (arguments.length == 2) {
+                    (_inits[p] || (_inits[p] = [])).push(fn);
+                } else if (bingo.isString(p))
+                    return _inits[p];
+                else
+                    _pri.inits.push(p);
             },
-            $ready: function (fn) {
-                _pri.readys.push(fn);
+            $ready: function (p, fn) {
+                if (arguments.length == 2) {
+                    (_readys[p] || (_readys[p] = [])).push(fn);
+                } else if (bingo.isString(p))
+                    return _readys[p];
+                else
+                    _pri.readys.push(p);
             },
             $observe: function (p, fn, dispoer, check, autoInit) {
                 autoInit !== false && this.bgToObserve(true);
@@ -2534,9 +2541,6 @@
                     $view: this,
                     $cp: this.$ownerCP
                 }, injectObj), thisArg);
-            },
-            $reload: function () {
-                return this.$ownerCP.$reload();
             },
             $link: function (props, view) {
                 /// <summary>
@@ -2686,6 +2690,10 @@
         }
         last.nodeType == 1 && list.push(last);
         return list;
+    }, _addCPEvent = function (cp, bd, eName, fn) {
+        bd && bd.pushStep(eName, function () {
+            return [fn.call(cp)];
+        })
     }, _newCP = function (p, extendWith, bd) {
         var _pri = {
             ctrl: null,
@@ -2706,16 +2714,6 @@
                 else
                     _traverseCmd(bingo.trim(ret), cp, bd);
                 _promisePush(_renderPromise, ret);
-            },
-            reload: function (cp) {
-                var ret = this.getContent(cp);
-                if (_isPromise(ret))
-                    ret.then(function (s) {
-                        return cp.$html(bingo.trim(s));
-                    });
-                else
-                    ret = cp.$html(bingo.trim(ret));
-                return ret;
             }
         };
 
@@ -2926,9 +2924,6 @@
             },
             _render: function (bd) {
                 _pri.render(this, bd);
-                if (this.$cmd != 'view' && this.$name) {
-                    this.$view[this.$name] = this.$export || this.$ownerView || this.$view;
-                }
                 return _renderThread();
             },
             $controller: function (fn) {
@@ -2940,9 +2935,6 @@
                         $view: this.$view,
                         $cp: this
                     }, injectObj), thisArg);
-            },
-            $reload: function () {
-                return _pri.reload(this);
             },
             $link: function (props, view) {
                 return (this.$ownerView || this.$view).$link(props, view);
@@ -2999,9 +2991,24 @@
                 promises.push(this.$inject(ctrl, { $view: this.$ownerView || this.$view }));
             }
             if (this.$cmd != 'view' && this.$name) {
-                this.$view[this.$name] = this.$export || this.$ownerView || this.$view;
+                var view = this.$view;
+                view[this.$name] = this.$export || this.$ownerView || view;
             }
+
             return promises;
+        }.bind(cp));
+
+        bd && bd.pushStep('CPEvent', function () {
+            if (this.bgIsDispose) return;
+            //处理$view.$init('cp', fn), $view.$ready('cp', fn)
+            var view = this.$view;
+            var e = view.$init(this.$name + '');
+            e && bingo.each(e, function (item) { this.$init(item); }, this);
+
+            e = view.$ready(this.$name + '');
+            e && bingo.each(e, function (item) { this.$ready(item); }, this);
+
+            return [];
         }.bind(cp));
 
 
@@ -3571,9 +3578,9 @@
             $view: view, $contents: p.tmpl
         }, false, bd).$tmpl(p.tmpl);
 
-        //render-->cpctrl-->viewctrl-->dom编译-->cpinit-->viewinit--cpready-->viewready
+        //render-->cpctrl-->viewctrl-->cpevent-->dom编译-->cpinit-->viewinit--cpready-->viewready
         return cp._render(bd).then(function () {
-            return _Promise.resolve().then(bd.doneStep('CPCtrl')).then(bd.doneStep('ViewCtrl')).then(function () {
+            return _Promise.resolve().then(bd.doneStep('CPCtrl')).then(bd.doneStep('ViewCtrl')).then(bd.doneStep('CPEvent')).then(function () {
 
                 var node = p.context, opName = p.opName;
                 _traverseCP(node, cp, opName, bd);

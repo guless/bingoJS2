@@ -39,6 +39,7 @@
                 };
 
                 $view.$ready(function () {
+                    console.log('main view ready');
 
                     $view.$observe('model.id', function (c) {
                         console.log('model.id', c.value, $view.select1.id);
@@ -47,6 +48,14 @@
                     setTimeout(function () {
                         $view.model.id = 1;
                     }, 1000);
+                });
+
+                $view.$init('select1', function () {
+                    console.log('select cp init in main view');
+                });
+
+                $view.$ready('select1', function () {
+                    console.log('select cp ready in main view');
                 });
 
                 $view.printText = '打印成功！<br />';
@@ -86,11 +95,18 @@
                     $view.list = [];
                 });
 
+                //cp init
                 cp.$init(function () {
+                    console.log('select cp init');
                     //处理link内容
                     var link = cp.$attrs.link && cp.$attrs.link.$result();
                     //所父节点属性关联起来
                     link && cp.$link(link);
+                });
+
+                //测试cp ready
+                cp.$ready(function () {
+                    console.log('select cp ready');
                 });
             });
 
