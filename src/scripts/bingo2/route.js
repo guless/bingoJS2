@@ -690,7 +690,7 @@
                 if (querys.length > 1) {
                     params || (params = {});
                     querys[1].replace(/([^=&]+)\=([^=&]*)/g, function (find, name, value) {
-                        (name in params) || (params[name] = value);
+                        (name in params) || (params[name] = decodeURIComponent(value));
                     });
                 }
 
