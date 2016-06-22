@@ -4,6 +4,13 @@
 
     var demoApp = window.demoApp = bingo.app('demo');
 
+    //app默认 route, 但priority最大（最后）
+    demoApp.route('**', {
+        priority: 99999,
+        url: '**',
+        toUrl: function (url, param) { return url; }
+    });
+
     //设置controller资源路由
     demoApp.route('controller', {
         //优先级, 越小越前, 默认100
@@ -14,7 +21,7 @@
         //路由到目标url, 生成:routes/user/list.js
         toUrl: 'routes/{controller*}.js',
         //变量默认值, 框架提供内部用的变量: app, controller, service
-        defaultValue: { app: 'demo', controller: '' }
+        defaultValue: { controller: '' }
     });
 
     //设置route资源路由
@@ -22,7 +29,7 @@
         type: 'route',
         url: '{routes*}',
         toUrl: 'routes/{routes*}.html',
-        defaultValue: { app: 'demo', routes: '' }
+        defaultValue: { routes: '' }
     });
 
     //设置tmpl资源路由
@@ -30,7 +37,7 @@
         type: 'tmpl',
         url: '{tmpl*}',
         toUrl: 'tmpls/{tmpl*}.html',
-        defaultValue: { app: 'demo', tmpl: '' }
+        defaultValue: { tmpl: '' }
     });
 
     //设置command资源路由
@@ -38,7 +45,7 @@
         type: 'command',
         url: '{command*}',
         toUrl: 'commands/{command*}.js',
-        defaultValue: { app: 'demo', command: '' }
+        defaultValue: { command: '' }
     });
 
     //设置ajax资源路由
@@ -46,7 +53,7 @@
         type: 'ajax',
         url: '{ajax*}',
         toUrl: '{ajax*}',
-        defaultValue: { app: 'demo', ajax: '' }
+        defaultValue: { ajax: '' }
     });
 
     //设置service资源路由
@@ -54,7 +61,7 @@
         type: 'service',
         url: '{service*}',
         toUrl: 'services/{service*}.js',
-        defaultValue: { app: 'demo', service: '' }
+        defaultValue: { service: '' }
     });
 
     //设置controller资源路由
@@ -71,7 +78,7 @@
             console.log('promise', url, p);
         },
         //变量默认值, 框架提供内部用的变量: app, controller, service
-        defaultValue: { app: 'demo', controller: '' }
+        defaultValue: { controller: '' }
     });
 
 

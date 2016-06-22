@@ -682,10 +682,12 @@
                 if (!params) {
                     routeContext = _defaultRoute;
                     name = 'defaultRoute';
+                    params = {};
                 }
                 if (params || routeContext.defaultValue)
                     params = bingo.extend({}, routeContext.defaultValue, params);
 
+                params.app = app.name;
 
                 if (querys.length > 1) {
                     params || (params = {});
