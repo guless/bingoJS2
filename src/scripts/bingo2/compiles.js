@@ -1186,6 +1186,7 @@
 
         if (view) {
             app = bingo.app(view.$attrs.$getAttr('app'));
+            app == bingo.defualtApp && (app = cp.$app);
             view = _newView({
                 $name: bingo.trim(view.$attrs.$getAttr('name')),
                 $app: app,
