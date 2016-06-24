@@ -20,6 +20,11 @@
                 <div>{{print printText /}}</div>
                 <div>{{ex/html printText /}}</div>
             {{/content}}
+
+            {{content}}
+                {{view /}}
+                {{splice title="test app" /}}
+            {{/content}}
         </script>
     </div>
     <script src="../scripts/bingo2/bingo.min.js"></script>
@@ -69,12 +74,14 @@
                     //设置默认值
                     $view.title = '标题'
                 });
+
             });
 
             app.command('splice', function (cp) {
                 cp.$tmpl(function () {
                     return '<div class="splice">' + cp.$attrs.$getAttr('title') + '==============================</div>';
                 });
+                console.log(cp.$app.name);
             });
 
             app.command('content', function (cp) {

@@ -4,6 +4,13 @@
 
     var app = bingo.defualtApp;
 
+    //app默认 route, 但priority最大（最后）
+    app.route('**', {
+        priority: 99999,
+        url: '**',
+        toUrl: function (url, param) { return url; }
+    });
+
     //设置viewS资源路由
     app.route('controller', {
         //优先级, 越小越前, 默认100
@@ -14,7 +21,7 @@
         //路由到目标url, 生成:modules/system/user/list.html
         toUrl: 'routes/{controller*}.js',
         //变量默认值, 框架提供内部用的变量: app, controller, service
-        defaultValue: { app: 'demo', controller: '' }
+        defaultValue: { controller: '' }
     });
 
     //设置tmpl资源路由
@@ -25,7 +32,7 @@
         //路由到目标url, 生成:modules/system/user/list.html
         toUrl: 'routes/{routes*}.html',
         //变量默认值, 框架提供内部用的变量: app, controller, service
-        defaultValue: { app: 'demo', controller: '' }
+        defaultValue: { controller: '' }
     });
 
     //设置tmpl资源路由
@@ -36,7 +43,7 @@
         //路由到目标url, 生成:modules/system/user/list.html
         toUrl: 'tmpls/{tmpl*}.html',
         //变量默认值, 框架提供内部用的变量: app, controller, service
-        defaultValue: { app: 'demo', controller: '' }
+        defaultValue: { controller: '' }
     });
 
     //设置service资源路由
@@ -44,7 +51,7 @@
         type: 'service',
         url: '{service*}',
         toUrl: 'services/{service*}.js',
-        defaultValue: { app: 'demo', service: '' }
+        defaultValue: { service: '' }
     });
 
 

@@ -10,7 +10,7 @@
     var _rAFrame = window.requestAnimationFrame,
         _cAFrame = window.cancelAnimationFrame,
         _isAFrame = true,
-        _aFrameList = [], _aFrameId,
+        _aFrameList = [], _aFrameId, _aFrameTimeId,
         _aFrame = function (obj) {
             /// <param name="fn" value="fn.call(obj, obj)"></param>
             _aFrameList.push(obj);
@@ -18,25 +18,30 @@
         }, _aFrameCK = function () {
             if (!_aFrameId) {
                 var fn = function () {
-                    clearTimeout(_aFrameId);
-                    _aFrameId = null;
+                    clearTimeout(_aFrameTimeId);
+                    _aFrameTimeId = null;
                     var list = [], orgs = _aFrameList;
                     _aFrameList = [];
+                    var start = new Date().getTime(), isEnd;
                     bingo.each(orgs, function (item) {
                         if (!item._stop) {
-                            item.n--;
-                            if (item.n < 0) {
-                                item.fn(item);
-                            } else {
+                            isEnd = new Date().getTime() - start > 3;
+                            if (isEnd)
                                 list.push(item);
+                            else {
+                                item.n--;
+                                if (item.n < 0)
+                                    item.fn(item);
+                                else
+                                    list.push(item);
                             }
                         }
                     });
                     list.length > 0 && (_aFrameList = list.concat(_aFrameList));
-                    if (_aFrameList.length > 0) return _aFrameCK();
+                    _aFrameId = (_aFrameList.length > 0) ? _rAFrame(fn) : null;
                 };
-                _aFrameId = setTimeout(fn, 50);
-                _rAFrame(fn);
+                _aFrameTimeId = setTimeout(fn, 100);
+                _aFrameId = _rAFrame(fn);
             }
             return _aFrameId;
         };
@@ -235,7 +240,7 @@
                 if (arguments.length == 0) {
                     return obj.bgDataValue(contents);
                 } else {
-                    this.$view.$updateAsync();
+                    //this.$view.$updateAsync();
                     obj.bgDataValue(contents, val);
                 }
             },
@@ -357,7 +362,7 @@
                     //这里会重新检查非法绑定
                     //所以尽量先定义变量到$view, 再绑定
                     if (this.bgIsDispose) return;
-                    this.$updateAsync();
+                    //this.$updateAsync();
                     return fn.apply(this, arguments);
                 }.bind(this);
                 fn1.orgFn = fn.orgFn;//保存原来observe fn
