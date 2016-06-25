@@ -2114,70 +2114,151 @@
     "use strict";
 
     //CP: Content Provider(内容提供者)
-    //todo 特殊command支持attr风格， 如 {{if where="表达式" name="if1"}}
 
     //aFrame====================================
 
-    var _rAFrame = window.requestAnimationFrame,
-        _cAFrame = window.cancelAnimationFrame,
-        _isAFrame = true,
-        _aFrameList = [], _aFrameId, _aFrameTimeId,
+    var _aFrameList = [],
         _aFrame = function (obj) {
             /// <param name="fn" value="fn.call(obj, obj)"></param>
             _aFrameList.push(obj);
-            _aFrameCK();
+             _ticker.start();
         }, _aFrameCK = function () {
-            if (!_aFrameId) {
-                var fn = function () {
-                    clearTimeout(_aFrameTimeId);
-                    _aFrameTimeId = null;
-                    var list = [], orgs = _aFrameList;
-                    _aFrameList = [];
-                    var start = new Date().getTime(), isEnd;
-                    bingo.each(orgs, function (item) {
-                        if (!item._stop) {
-                            isEnd = new Date().getTime() - start > 3;
-                            if (isEnd)
-                                list.push(item);
-                            else {
-                                item.n--;
-                                if (item.n < 0)
-                                    item.fn(item);
-                                else
-                                    list.push(item);
-                            }
-                        }
-                    });
-                    list.length > 0 && (_aFrameList = list.concat(_aFrameList));
-                    _aFrameId = (_aFrameList.length > 0) ? _rAFrame(fn) : null;
-                };
-                _aFrameTimeId = setTimeout(fn, 100);
-                _aFrameId = _rAFrame(fn);
+            var list = [], orgs = _aFrameList;
+            _aFrameList = [];
+            bingo.each(orgs, function (item) {
+                if (!item._stop) {
+                    item.n--;
+                    if (item.n < 0)
+                        item.fn(item);
+                    else
+                        list.push(item);
+                }
+            });
+            list.length > 0 && (_aFrameList = list.concat(_aFrameList));
+            //!_aFrameList.length && _ticker.sleep();
+        }, _hasAFrame = function () { return !!_aFrameList.length; };
+
+
+    var _ticker;
+
+    (function (fps, useRAF) {
+
+        //本段代码参考于：https://github.com/greensock/GreenSock-JS/
+
+        var _reqAnimFrame = window.requestAnimationFrame,
+            _cancelAnimFrame = window.cancelAnimationFrame,
+            _getTime = Date.now || function () { return new Date().getTime(); },
+            _lastUpdate = _getTime(),
+            a = ["ms", "moz", "webkit", "o"],
+            i = a.length;
+            while (--i > -1 && !_reqAnimFrame) {
+                _reqAnimFrame = window[a[i] + "RequestAnimationFrame"];
+                _cancelAnimFrame = window[a[i] + "CancelAnimationFrame"] || window[a[i] + "CancelRequestAnimationFrame"];
             }
-            return _aFrameId;
+
+            var _isAFrame = bingo.isAFrame = (useRAF !== false && _reqAnimFrame);
+
+        var _self = {},
+            _emptyFunc = function () { },
+            _startTime = _getTime(),
+            _lagThreshold = 500,
+            _adjustedLag = 33,
+            _tinyNum = 0.0000000001,
+            _sleep = true, _hasAF = false,
+            _fps, _req, _id, _gap, _nextTime,
+            _tick = function (manual) {
+                var elapsed = _getTime() - _lastUpdate,
+                    overlap, dispatch;
+                if (elapsed > _lagThreshold) {
+                    _startTime += elapsed - _adjustedLag;
+                }
+                _lastUpdate += elapsed;
+                _self.time = (_lastUpdate - _startTime) / 1000;
+                overlap = _self.time - _nextTime;
+                if (!_fps || overlap > 0 || manual === true) {
+                    //_self.frame++;
+                    _nextTime += overlap + (overlap >= _gap ? 0.004 : _gap - overlap);
+                    dispatch = true;
+                }
+                if (manual !== true) {
+                    //make sure the request is made before we dispatch the "tick" event so that timing is maintained. Otherwise, if processing the "tick" requires a bunch of time (like 15ms) and we're using a setTimeout() that's based on 16.7ms, it'd technically take 31.7ms between frames otherwise.
+                    _id = _req(_tick);
+                }
+                if (dispatch) {
+                    if (!_hasAF && !_hasAFrame())
+                        _self.sleep();
+                    _aFrameCK();
+                    _hasAF = _hasAFrame();
+                }
+            };
+
+        _self.time = _self.frame = 0;
+        _self.tick = function () {
+            _tick(true);
         };
 
-    if (!_rAFrame) {
-        var prefixes = ['webkit', 'moz', 'ms', 'o']; //各浏览器前缀
-        bingo.each(prefixes, function (prefix) {
-            _rAFrame = window[prefix + 'RequestAnimationFrame'];
-            if (_rAFrame) {
-                _cAFrame = window[prefix + 'CancelAnimationFrame'] || window[prefix + 'CancelRequestAnimationFrame'];
-                return false;
-            }
-        });
+        _self.lagSmoothing = function (threshold, adjustedLag) {
+            _lagThreshold = threshold || (1 / _tinyNum); //zero should be interpreted as basically unlimited
+            _adjustedLag = Math.min(adjustedLag, _lagThreshold, 0);
+        };
 
-        if (!_rAFrame) {
-            _isAFrame = false;
-            _rAFrame = function (callback) {
-                return window.setTimeout(callback, 10);
-            };
-            _cAFrame = function (id) {
-                window.clearTimeout(id);
-            };
-        }
-    }
-    bingo.isAFrame = _isAFrame;
+        _self.sleep = function () {
+            if (_sleep) return;
+            _sleep = true;
+            if (_id == null) {
+                return;
+            }
+            if (!_isAFrame) {
+                clearTimeout(_id);
+            } else {
+                _cancelAnimFrame(_id);
+            }
+            _req = _emptyFunc;
+            _id = null;
+        };
+
+        _self.wake = function (seamless) {
+            if (_id !== null) {
+                _self.sleep();
+            } else if (seamless) {
+                _startTime += -_lastUpdate + (_lastUpdate = _getTime());
+            } else if (_self.frame > 10) {
+                //don't trigger lagSmoothing if we're just waking up, and make sure that at least 10 frames have elapsed because of the iOS bug that we work around below with the 1.5-second setTimout().
+                _lastUpdate = _getTime() - _lagThreshold + 5;
+            }
+            _req = (_fps === 0) ? _emptyFunc : (!_isAFrame) ? function (f) { return setTimeout(f, ((_nextTime - _self.time) * 1000 + 1) | 0); } : _reqAnimFrame;
+            _tick(2);
+            _sleep = false;
+        };
+
+        _self.fps = function (value) {
+            if (!arguments.length) {
+                return _fps;
+            }
+            _fps = value;
+            _gap = 1 / (_fps || 60);
+            _nextTime = this.time + _gap;
+            _self.wake();
+        };
+
+        //_self.fps(fps);
+
+        _self.start = function () {
+            if (!_sleep) return;
+            _self.fps(fps);
+        };
+
+        _ticker = _self;
+
+
+        //a bug in iOS 6 Safari occasionally prevents the requestAnimationFrame from working initially, so we use a 1.5-second timeout that automatically falls back to setTimeout() if it senses this condition.
+        //setTimeout(function () {
+        //    if (_useRAF === "auto" && _self.frame < 5 && document.visibilityState !== "hidden") {
+        //        _self.useRAF(true);
+        //    }
+        //}, 1500);
+
+    })(60, true);
 
     bingo.aFrame = function (fn, frN) {
         /// <summary>
@@ -4199,7 +4280,7 @@
                 return routeContext.params;
             },
             reload: function () {
-                return cp.$reload();
+                return this.href(src);
             },
             toString: function () {
                 return this.url;

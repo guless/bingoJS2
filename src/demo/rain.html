@@ -10,7 +10,7 @@
             background-color: #000;
         }
 
-        #divList {
+        .divList {
             width: 800px;
             height: 500px;
             border: solid 3px gray;
@@ -23,11 +23,11 @@
             position: absolute;
         }
 
-            .divText span {
-                display: block;
-                font-weight: bold;
-                font-family: Courier New;
-            }
+        .divText span {
+            display: block;
+            font-weight: bold;
+            font-family: Courier New;
+        }
     </style>
     <script src="http://apps.bdimg.com/libs/jquery/1.9.0/jquery.min.js"></script>
 </head>
@@ -35,13 +35,16 @@
     <div id="container">
         <script type="text/html">
             {{view controller="main" app="demo" /}}
-            <h1 style="text-align:center; color:gray;">黑客帝国文字下落(<a href="rain_org.html">原始方式</a>)</h1>
-            <div id="divList">
-                {{cp name="divList" /}}
+            <h1 style="text-align:center; color:gray;">黑客帝国文字下落(<a href="rain_org.html">使用原始方式</a>)</h1>
+            <div class="divList">
+                {{for item in rainList}}
+                    {{view controller="rain" /}}
+                    <div node="[[divNode]]" class="divText" style="left:[[left]]px; bottom:[[bottom]]px;">{{for item in cList}}<span class="s[[item.cIndex]]" style="color:#[[item.color]]; font-size:[[item.fontSize]]px; text-shadow:0px 0px 10px #[[item.color]];">{{text item.c /}}</span>{{/for}}</div>
+                {{/for}}
             </div>
         </script>
     </div>
-    <script src="../scripts/bingo2/bingo.js"></script>
+    <script src="../scripts/bingo2/bingo.min.js"></script>
     <script src="route.js"></script>
     <script type="text/javascript">
 
@@ -56,20 +59,15 @@
             });
 
             demoApp.controller('main', function ($view) {
-                var _create = function () {
-                    $view.divList.$insertAfter('{{rain /}}');
-                }, _run = function () {
-                    var x = _rand(0, 100);
-                    if (x < 100) {
-                        var size = $view.divList.$children.length;
-                        if (size > 50) return;
-                        _create();
-                    }
-                    window.setTimeout(_run, 70);
-                };
+                
+                $view.rainList = [];
+                for (var i = 0; i < 50; i++)
+                    $view.rainList.push(i);
 
                 $view.$ready(function () {
-                    _run();
+
+                    $view.bgTrigger('start');
+
                 });
 
             }); //end controller main
@@ -78,52 +76,51 @@
                 return min + Math.round(Math.random() * (max - min));
             }
 
-
-            demoApp.command('rain', function (cp) {
-
-                cp.$tmpl('{{view /}}<div node="[[divNode]]" class="divText" style="left:[[left]]px; bottom:[[bottom]]px;">{{for item in cList}}<span class="s[[item.cIndex]]" style="color:#[[item.color]]; font-size:[[item.fontSize]]px; text-shadow:0px 0px 10px #[[item.color]];">{{text item.c /}}</span>{{/for}}</div>');
-
-                cp.$controller(function ($view) {
-
-                    var fontSize = _rand(9, 24), cList = [];
-                    for (var i = 1; i < 17; i++) {
-                        var c = _rand(33, 127);
-                        var c = String.fromCharCode(c);
-                        cList.push({
-                            cIndex: i,
-                            color: '0' + i.toString(16) + '0',
-                            fontSize: fontSize,
-                            c: c
-                        });
-                    }
-
-                    $view.divNode = null;
-                    $view.cList = cList;
-                    $view.left = _rand(0, 800);
-                    $view.bottom = 500;
-                    var _moveHeight = fontSize/2,
-                        _height = 0;
+            demoApp.controller('rain', function ($view) {
 
 
-                    $view.$ready(function () {
+                var fontSize = _rand(9, 24), cList = [];
+                for (var i = 1; i < 17; i++) {
+                    var c = _rand(33, 127);
+                    var c = String.fromCharCode(c);
+                    cList.push({
+                        cIndex: i,
+                        color: '0' + i.toString(16) + '0',
+                        fontSize: fontSize,
+                        c: c
+                    });
+                }
+
+                $view.divNode = null;
+                $view.cList = cList;
+                $view.left = _rand(0, 800);
+                $view.bottom = 500;
+                var _moveHeight = fontSize / 2,
+                    _height = 0;
+
+
+                var _start = false;
+                $view.$ready(function () {
+                    _start = true;
+                    setTimeout(function(){
                         _height = $view.divNode.offsetHeight;
                         $view.bottom -= _moveHeight;
-                    });
-
-                    //观察top属性改变
-                    $view.$layout('bottom', function (c) {
-                        if ($view.bottom + _height <= 0) {
-                            $view.bottom = 500
-                            $view.left = _rand(0, 800);
-                            //cp.$parent.$remove();
-                            return;
-                        }
-                        $view.bottom -= _moveHeight;
-                    }.bind($view));
+                    }, _rand(0, 5000))
                 });
 
-            });
+                //观察top属性改变
+                $view.$layout('bottom', function (c) {
+                    if (!_start) return;
+                    if ($view.bottom + _height <= 0) {
+                        $view.bottom = 500
+                        $view.left = _rand(0, 800);
+                        //cp.$parent.$remove();
+                        return;
+                    }
+                    $view.bottom -= _moveHeight;
+                }.bind($view));
 
+            });
 
         })(bingoV2);
 

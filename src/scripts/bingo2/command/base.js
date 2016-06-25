@@ -261,7 +261,7 @@
                 return routeContext.params;
             },
             reload: function () {
-                return cp.$reload();
+                return this.href(src);
             },
             toString: function () {
                 return this.url;
