@@ -6,18 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
     <meta http-equiv="expires" content="Wed, 26 Feb 1997 08:21:57 GMT" />
     <title>test</title>
-    <style type="text/css">
-        div.splice {
-            margin-top:20px;
-            margin-bottom:5px;
-        }
-        div.content {
-            margin-left:20px;
-        }
-        div.content * {
-            margin: 3px 0;
-        }
-    </style>
+    <link href="style.css" rel="stylesheet" />
 </head>
 <body>
     test start aaa
@@ -123,13 +112,17 @@
                     <button onclick="[[addList]]">添加行</button>
                 </div>
             </div>
+            <div class="splice">link==============================</div>
+            <div class="content">
+                {{link link="{ desc: '@model.textarea' }" /}}
+            </div>
             <div class="splice">route==============================</div>
             <div class="content">
                 {{route src="route1" name="main" /}}
             </div>
        </script>
     </div>
-    <script src="../scripts/bingo2/bingo.js"></script>
+    <script src="../scripts/bingo2/bingo.min.js"></script>
     <script src="route.js"></script>
     <script type="text/javascript">
         demoApp.controller('view_test1', function ($view) {
@@ -175,6 +168,18 @@
             window.view1 = $view;
             console.log('view_test1');
         });
+        
+        demoApp.command('link', function (cp) {
+
+            cp.$tmpl('{{view /}}<div><input type="text" model="[[desc]]" /> {{text desc /}}</div>');
+
+            cp.$init(function () {
+                var p = cp.$attrs.link.$result();
+                p && cp.$ownerView.$link(p);
+            });
+
+        });
+
         bingo.ready(function () {
             console.time('boot');
             //console.profile('boot');

@@ -148,20 +148,18 @@
         }, _loadRouteType = function (app, type, url, bRoute, p) {
             if (bRoute !== false) {
                 var urlType = _makeRoueTypeUrl(url),
-                    types = urlType.type,
-                    sUrl = urlType.url;
+                    types = urlType.type;
 
                 bingo.isNullEmpty(types) && (url = _mergeRouteUrlType(url, type));
 
                 var route = app.route(url), config = bingo.config();
                 if (route) {
-                    sUrl = route.toUrl;
                     if (route.promise)
-                        return route.promise(sUrl, p);
+                        return route.promise(p);
                     else
-                        return config[type](sUrl, p);
+                        return config[type](route.toUrl, p);
                 } else {
-                    return config[type](sUrl, p);
+                    return config[type](urlType.url, p);
                 }
             } else
                 return config[type](url);
@@ -542,7 +540,10 @@
         return context;
     }, _makeRouteContext = function (routeContext, name, url, toUrl, params) {
         //生成 routeContext
-        return { name: name, params: params, url: url, toUrl: toUrl, promise:routeContext.promise, context: _getRouteContext };
+        var promise = routeContext.promise,
+            pFn = promise && function (p) { return promise(this.toUrl, p); };
+
+        return { name: name, params: params, url: url, toUrl: toUrl, promise:pFn, context: _getRouteContext };
     },
     _passParam = ',controller,service,app,queryParams,',
     _paramToUrl = function (url, params, paramType) {
@@ -681,23 +682,21 @@
                 if (!params) {
                     routeContext = _defaultRoute;
                     name = 'defaultRoute';
+                    params = {};
                 }
                 if (params || routeContext.defaultValue)
                     params = bingo.extend({}, routeContext.defaultValue, params);
 
-                //var toUrl = bingo.isFunction(routeContext.toUrl) ?
-                //    routeContext.toUrl.call(routeContext, url, params)
-                //    : routeContext.toUrl;
+                params.app = app.name;
 
                 if (querys.length > 1) {
                     params || (params = {});
                     querys[1].replace(/([^=&]+)\=([^=&]*)/g, function (find, name, value) {
-                        (name in params) || (params[name] = value);
+                        (name in params) || (params[name] = decodeURIComponent(value));
                     });
                 }
 
-                var toUrl = routeContext.toUrl || '';
-                toUrl = _makeTo(toUrl, routeContext, url, params);
+                var toUrl = _makeTo(routeContext.toUrl, routeContext, url, params);
 
                 return _makeRouteContext(routeContext, name, url, toUrl, params);
             }
@@ -712,7 +711,7 @@
     },
     _makeTo = function (toUrl, routeContext, url, params) {
         bingo.isFunction(toUrl) && (toUrl = toUrl.call(routeContext, url, params));
-        return _paramToUrl(toUrl, params);
+        return _paramToUrl(toUrl || '', params);
     };
 
     //route=====================================================

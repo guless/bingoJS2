@@ -3,68 +3,151 @@
     "use strict";
 
     //CP: Content Provider(内容提供者)
-    //todo ctrl 的注入promise问题处理
-    //todo command:route ser
-    //todo 特殊command支持attr风格， 如 {{if where="表达式" name="if1"}}
-    //todo 删除注释内容
 
     //aFrame====================================
 
-    var _rAFrame = window.requestAnimationFrame,
-        _cAFrame = window.cancelAnimationFrame,
-        _isAFrame = true,
-        _aFrameList = [], _aFrameId,
+    var _aFrameList = [],
         _aFrame = function (obj) {
             /// <param name="fn" value="fn.call(obj, obj)"></param>
             _aFrameList.push(obj);
-            _aFrameCK();
+             _ticker.start();
         }, _aFrameCK = function () {
-            if (!_aFrameId) {
-                var fn = function () {
-                    clearTimeout(_aFrameId);
-                    _aFrameId = null;
-                    var list = [], orgs = _aFrameList;
-                    _aFrameList = [];
-                    bingo.each(orgs, function (item) {
-                        if (!item._stop) {
-                            item.n--;
-                            if (item.n < 0) {
-                                item.fn(item);
-                            } else {
-                                list.push(item);
-                            }
-                        }
-                    });
-                    list.length > 0 && (_aFrameList = list.concat(_aFrameList));
-                    if (_aFrameList.length > 0) return _aFrameCK();
-                };
-                _aFrameId = setTimeout(fn, 50);
-                _rAFrame(fn);
+            var list = [], orgs = _aFrameList;
+            _aFrameList = [];
+            bingo.each(orgs, function (item) {
+                if (!item._stop) {
+                    item.n--;
+                    if (item.n < 0)
+                        item.fn(item);
+                    else
+                        list.push(item);
+                }
+            });
+            list.length > 0 && (_aFrameList = list.concat(_aFrameList));
+            //!_aFrameList.length && _ticker.sleep();
+        }, _hasAFrame = function () { return !!_aFrameList.length; };
+
+
+    var _ticker;
+
+    (function (fps, useRAF) {
+
+        //本段代码参考于：https://github.com/greensock/GreenSock-JS/
+
+        var _reqAnimFrame = window.requestAnimationFrame,
+            _cancelAnimFrame = window.cancelAnimationFrame,
+            _getTime = Date.now || function () { return new Date().getTime(); },
+            _lastUpdate = _getTime(),
+            a = ["ms", "moz", "webkit", "o"],
+            i = a.length;
+            while (--i > -1 && !_reqAnimFrame) {
+                _reqAnimFrame = window[a[i] + "RequestAnimationFrame"];
+                _cancelAnimFrame = window[a[i] + "CancelAnimationFrame"] || window[a[i] + "CancelRequestAnimationFrame"];
             }
-            return _aFrameId;
+
+            var _isAFrame = bingo.isAFrame = (useRAF !== false && _reqAnimFrame);
+
+        var _self = {},
+            _emptyFunc = function () { },
+            _startTime = _getTime(),
+            _lagThreshold = 500,
+            _adjustedLag = 33,
+            _tinyNum = 0.0000000001,
+            _sleep = true, _hasAF = false,
+            _fps, _req, _id, _gap, _nextTime,
+            _tick = function (manual) {
+                var elapsed = _getTime() - _lastUpdate,
+                    overlap, dispatch;
+                if (elapsed > _lagThreshold) {
+                    _startTime += elapsed - _adjustedLag;
+                }
+                _lastUpdate += elapsed;
+                _self.time = (_lastUpdate - _startTime) / 1000;
+                overlap = _self.time - _nextTime;
+                if (!_fps || overlap > 0 || manual === true) {
+                    //_self.frame++;
+                    _nextTime += overlap + (overlap >= _gap ? 0.004 : _gap - overlap);
+                    dispatch = true;
+                }
+                if (manual !== true) {
+                    //make sure the request is made before we dispatch the "tick" event so that timing is maintained. Otherwise, if processing the "tick" requires a bunch of time (like 15ms) and we're using a setTimeout() that's based on 16.7ms, it'd technically take 31.7ms between frames otherwise.
+                    _id = _req(_tick);
+                }
+                if (dispatch) {
+                    if (!_hasAF && !_hasAFrame())
+                        _self.sleep();
+                    _aFrameCK();
+                    _hasAF = _hasAFrame();
+                }
+            };
+
+        _self.time = _self.frame = 0;
+        _self.tick = function () {
+            _tick(true);
         };
 
-    if (!_rAFrame) {
-        var prefixes = ['webkit', 'moz', 'ms', 'o']; //各浏览器前缀
-        bingo.each(prefixes, function (prefix) {
-            _rAFrame = window[prefix + 'RequestAnimationFrame'];
-            if (_rAFrame) {
-                _cAFrame = window[prefix + 'CancelAnimationFrame'] || window[prefix + 'CancelRequestAnimationFrame'];
-                return false;
-            }
-        });
+        _self.lagSmoothing = function (threshold, adjustedLag) {
+            _lagThreshold = threshold || (1 / _tinyNum); //zero should be interpreted as basically unlimited
+            _adjustedLag = Math.min(adjustedLag, _lagThreshold, 0);
+        };
 
-        if (!_rAFrame) {
-            _isAFrame = false;
-            _rAFrame = function (callback) {
-                return window.setTimeout(callback, 10);
-            };
-            _cAFrame = function (id) {
-                window.clearTimeout(id);
-            };
-        }
-    }
-    bingo.isAFrame = _isAFrame;
+        _self.sleep = function () {
+            if (_sleep) return;
+            _sleep = true;
+            if (_id == null) {
+                return;
+            }
+            if (!_isAFrame) {
+                clearTimeout(_id);
+            } else {
+                _cancelAnimFrame(_id);
+            }
+            _req = _emptyFunc;
+            _id = null;
+        };
+
+        _self.wake = function (seamless) {
+            if (_id !== null) {
+                _self.sleep();
+            } else if (seamless) {
+                _startTime += -_lastUpdate + (_lastUpdate = _getTime());
+            } else if (_self.frame > 10) {
+                //don't trigger lagSmoothing if we're just waking up, and make sure that at least 10 frames have elapsed because of the iOS bug that we work around below with the 1.5-second setTimout().
+                _lastUpdate = _getTime() - _lagThreshold + 5;
+            }
+            _req = (_fps === 0) ? _emptyFunc : (!_isAFrame) ? function (f) { return setTimeout(f, ((_nextTime - _self.time) * 1000 + 1) | 0); } : _reqAnimFrame;
+            _tick(2);
+            _sleep = false;
+        };
+
+        _self.fps = function (value) {
+            if (!arguments.length) {
+                return _fps;
+            }
+            _fps = value;
+            _gap = 1 / (_fps || 60);
+            _nextTime = this.time + _gap;
+            _self.wake();
+        };
+
+        //_self.fps(fps);
+
+        _self.start = function () {
+            if (!_sleep) return;
+            _self.fps(fps);
+        };
+
+        _ticker = _self;
+
+
+        //a bug in iOS 6 Safari occasionally prevents the requestAnimationFrame from working initially, so we use a 1.5-second timeout that automatically falls back to setTimeout() if it senses this condition.
+        //setTimeout(function () {
+        //    if (_useRAF === "auto" && _self.frame < 5 && document.visibilityState !== "hidden") {
+        //        _self.useRAF(true);
+        //    }
+        //}, 1500);
+
+    })(60, true);
 
     bingo.aFrame = function (fn, frN) {
         /// <summary>
@@ -238,7 +321,7 @@
                 if (arguments.length == 0) {
                     return obj.bgDataValue(contents);
                 } else {
-                    this.$view.$updateAsync();
+                    //this.$view.$updateAsync();
                     obj.bgDataValue(contents, val);
                 }
             },
@@ -290,9 +373,10 @@
                 return this.$layout(function () { return this.$value(); }.bind(this), fn, num, init);
             },
             $init: function (fn) {
-                bd && bd.pushStep('CPInit', function () {
-                    return [fn({})];
-                }.bind(this));
+                _addCPEvent(this, bd, 'CPInit', fn);
+            },
+            $ready: function (fn) {
+                _addCPEvent(this, bd, 'CPReady', fn);
             }
         }).$extend(p);
 
@@ -327,6 +411,7 @@
             inits: [],
             readys: []
         };
+        var _inits = {}, _readys = {}
 
         //新建view
         var view = _newBase({
@@ -336,11 +421,21 @@
             $controller: function (fn) {
                 _pri.ctrls.push(fn);
             },
-            $init: function (fn) {
-                _pri.inits.push(fn);
+            $init: function (p, fn) {
+                if (arguments.length == 2) {
+                    (_inits[p] || (_inits[p] = [])).push(fn);
+                } else if (bingo.isString(p))
+                    return _inits[p];
+                else
+                    _pri.inits.push(p);
             },
-            $ready: function (fn) {
-                _pri.readys.push(fn);
+            $ready: function (p, fn) {
+                if (arguments.length == 2) {
+                    (_readys[p] || (_readys[p] = [])).push(fn);
+                } else if (bingo.isString(p))
+                    return _readys[p];
+                else
+                    _pri.readys.push(p);
             },
             $observe: function (p, fn, dispoer, check, autoInit) {
                 autoInit !== false && this.bgToObserve(true);
@@ -348,7 +443,7 @@
                     //这里会重新检查非法绑定
                     //所以尽量先定义变量到$view, 再绑定
                     if (this.bgIsDispose) return;
-                    this.$updateAsync();
+                    //this.$updateAsync();
                     return fn.apply(this, arguments);
                 }.bind(this);
                 fn1.orgFn = fn.orgFn;//保存原来observe fn
@@ -419,10 +514,33 @@
                 return this.$ownerCP.$insertAfter(p, ref);
             },
             $inject: function (p, injectObj, thisArg) {
-                return bingo.inject(p, this, bingo.extend({ $cp: this.$ownerCP }, injectObj), thisArg);
+                return this.$app.inject(p, bingo.extend({
+                    $view: this,
+                    $cp: this.$ownerCP
+                }, injectObj), thisArg);
             },
-            $reload: function () {
-                return this.$ownerCP.$reload();
+            $link: function (props, view) {
+                /// <summary>
+                /// 关联数据来源<br />
+                /// $link({title:'@title', name:'=name'})<br />
+                /// $link({title:'@title', name:'=name'}, this.$parent)
+                /// </summary>
+                /// <param name="props"></param>
+                /// <param name="view">可选， 默认$parent</param>
+                view || (view = this.$parent);
+                if (!view) return;
+                var same = view == this;
+                bingo.eachProp(props, function (item, n) {
+                    var r = (item.indexOf('@') == 0);
+                    r && (item = item.substr(1));
+                    if (same && item == n) return;
+                    view.$observe(item, function (c) { this.bgDataValue(n, c.value); }.bind(this));
+                    this[n] = view.bgDataValue(item);
+                    if (r)
+                        this.bgToObserve(true);
+                    else
+                        this.$observe(n, function (c) { this.bgDataValue(item, c.value); }.bind(view));
+                }, this);
             }
         }).$extend(p);
 
@@ -454,9 +572,6 @@
                     _pri.ctrls = [];
                     bingo.each(ctrls, function (item) {
                         _promisePush(promises, this.$inject(item));
-                            //.then(function () {
-                            //    this.bgToObserve();
-                            //}.bind(this)));
                     }, this);
                 }
                 return promises;
@@ -552,6 +667,10 @@
         }
         last.nodeType == 1 && list.push(last);
         return list;
+    }, _addCPEvent = function (cp, bd, eName, fn) {
+        bd && bd.pushStep(eName, function () {
+            return [fn.call(cp)];
+        })
     }, _newCP = function (p, extendWith, bd) {
         var _pri = {
             ctrl: null,
@@ -572,16 +691,6 @@
                 else
                     _traverseCmd(bingo.trim(ret), cp, bd);
                 _promisePush(_renderPromise, ret);
-            },
-            reload: function (cp) {
-                var ret = this.getContent(cp);
-                if (_isPromise(ret))
-                    ret.then(function (s) {
-                        return cp.$html(bingo.trim(s));
-                    });
-                else
-                    ret = cp.$html(bingo.trim(ret));
-                return ret;
             }
         };
 
@@ -792,19 +901,20 @@
             },
             _render: function (bd) {
                 _pri.render(this, bd);
-                if (this.$cmd != 'view' && this.$name) {
-                    this.$view[this.$name] = this.$export || this.$ownerView || this.$view;
-                }
                 return _renderThread();
             },
             $controller: function (fn) {
                 _pri.ctrl = fn;
             },
             $inject: function (p, injectObj, thisArg) {
-                return bingo.inject(p, this.$view, bingo.extend({ $cp: this }, injectObj), thisArg);
+                return this.$app.inject(p,
+                    bingo.extend({
+                        $view: this.$view,
+                        $cp: this
+                    }, injectObj), thisArg);
             },
-            $reload: function () {
-                return _pri.reload(this);
+            $link: function (props, view) {
+                return (this.$ownerView || this.$view).$link(props, view);
             }
         }, bd).$extend(p);
 
@@ -858,16 +968,46 @@
                 promises.push(this.$inject(ctrl, { $view: this.$ownerView || this.$view }));
             }
             if (this.$cmd != 'view' && this.$name) {
-                this.$view[this.$name] = this.$export || this.$ownerView || this.$view;
+                var view = this.$view;
+                view[this.$name] = this.$export || this.$ownerView || view;
             }
+
             return promises;
         }.bind(cp));
 
-        //处理command定义
-        cmdDef = app.command(cp.$cmd);
-        cmdDef && (cmdDef = cmdDef.fn);
-        _promisePush(_renderPromise, cmdDef && cmdDef(cp));
-        _pri.render(cp, bd);
+        bd && bd.pushStep('CPEvent', function () {
+            if (this.bgIsDispose) return;
+            //处理$view.$init('cp', fn), $view.$ready('cp', fn)
+            var view = this.$view;
+            var e = view.$init(this.$name + '');
+            e && bingo.each(e, function (item) { this.$init(item); }, this);
+
+            e = view.$ready(this.$name + '');
+            e && bingo.each(e, function (item) { this.$ready(item); }, this);
+
+            return [];
+        }.bind(cp));
+
+
+        if (cp.$cmd) {
+            //处理command定义
+            cmdDef = app.command(cp.$cmd);
+            var rfn = function () {
+                cmdDef && (cmdDef = cmdDef.fn);
+                _promisePush(_renderPromise, cmdDef && cmdDef(cp));
+                _pri.render(cp, bd);
+            };
+
+            if (cmdDef || cp.$cmd == 'else') {
+                rfn();
+            } else {
+                _promisePush(_renderPromise, cp.$app.usingAll('command::' + cp.$cmd).then(function () {
+                    cmdDef = app.command(cp.$cmd);
+                    rfn();
+                }));
+            }
+        } else
+            _pri.render(cp, bd);
 
         return cp;
     }, _newCPAttr = function (contents, bd) {
@@ -1132,6 +1272,7 @@
 
         if (view) {
             app = bingo.app(view.$attrs.$getAttr('app'));
+            app == bingo.defualtApp && (app = cp.$app);
             view = _newView({
                 $name: bingo.trim(view.$attrs.$getAttr('name')),
                 $app: app,
@@ -1203,24 +1344,6 @@
         return _Promise.always(promises).then(function () {
             if (_renderPromise.length > 0) return _renderThread();
         });
-    }, _cpCtrls = [], _cpCtrlStep = function () {
-        var ctrls = _cpCtrls;
-        if (ctrls.length > 0) {
-            _cpCtrls = [];
-            bingo.each(ctrls, function (ctrl) {
-                ctrl();
-                _cpCtrlStep();
-            });
-        }
-    }, _viewCtrls = [], _viewCtrlStep = function () {
-        var ctrls = _viewCtrls;
-        if (ctrls.length > 0) {
-            _viewCtrls = [];
-            bingo.each(ctrls, function (ctrl) {
-                ctrl();
-                _viewCtrlStep();
-            });
-        }
     }, _newBuild = function () {
         var _stepObj = {}, _doneStep = function (stepList) {
             var promises = [];
@@ -1228,22 +1351,24 @@
                 _promisePushList(promises, fn());
             });
             return _retPromiseAll(promises);
-        };
+        }, end = false;
         return {
             pushStep: function (name, fn) {
                 if (_stepObj[name])
                     _stepObj[name].push(fn);
                 else
                     _stepObj[name] = [fn];
+
+                if (end) this.doneStep(name)();
             },
-            doneStep: function (name, reverse) {
+            doneStep: function (name) {
                 var stepList = _stepObj[name],
                   has = stepList && stepList.length > 0;
-                if (has) {
-                    _stepObj[name] = [];
-                    reverse && stepList.reverse();
-                }
+                has && (_stepObj[name] = []);
                 return function () { return has ? _doneStep(stepList) : null };
+            },
+            end: function () {
+                end = true;
             }
         };
     };
@@ -1431,21 +1556,18 @@
             $view: view, $contents: p.tmpl
         }, false, bd).$tmpl(p.tmpl);
 
+        //render-->cpctrl-->viewctrl-->cpevent-->dom编译-->cpinit-->viewinit--cpready-->viewready
         return cp._render(bd).then(function () {
-            return _Promise.resolve().then(bd.doneStep('CPCtrl')).then(bd.doneStep('ViewCtrl')).then(function () {
-                //_cpCtrlStep();
-                //_viewCtrlStep();
+            return _Promise.resolve().then(bd.doneStep('CPCtrl')).then(bd.doneStep('ViewCtrl')).then(bd.doneStep('CPEvent')).then(function () {
+
                 var node = p.context, opName = p.opName;
                 _traverseCP(node, cp, opName, bd);
-                //return bingo.aFramePromise().then(function () {
-                //    var node = p.context, opName = p.opName;
-                //    _traverseCP(node, cp, opName, bd);
-                //});
+
             }).then(bd.doneStep('CPInit')).then(bd.doneStep('ViewInit'))
-            .then(bd.doneStep('ViewReady'));
+            .then(bd.doneStep('CPReady')).then(bd.doneStep('ViewReady'));
 
             //return _complieInit().then(function () { return cp; });
-        }).then(function () { bd.bgDispose(); return cp; });
+        }).then(function () { bd.end(); return cp; });
     };
 
     //<>&"
