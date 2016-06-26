@@ -1,4 +1,4 @@
-﻿/// <reference path="../src/helper.js" />
+/// <reference path="../src/helper.js" />
 
 describe('mv --- bingoJS ' + bingo.version, function () {
 

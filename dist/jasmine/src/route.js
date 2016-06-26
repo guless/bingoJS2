@@ -2,7 +2,7 @@
 (function (bingo) {
     "use strict";
 
-    var app = bingo.defualtApp;
+    var app = bingo.app('test');
 
     //app默认 route, 但priority最大（最后）
     app.route('**', {
@@ -19,7 +19,7 @@
         //路由url, 如: view/system/user/list
         url: '{controller*}',
         //路由到目标url, 生成:modules/system/user/list.html
-        toUrl: 'routes/{controller*}.js',
+        toUrl: 'spec/controllers/{controller*}.js',
         //变量默认值, 框架提供内部用的变量: app, controller, service
         defaultValue: { controller: '' }
     });
@@ -50,7 +50,7 @@
     app.route('service', {
         type: 'service',
         url: '{service*}',
-        toUrl: 'services/{service*}.js',
+        toUrl: 'spec/services/{service*}.js',
         defaultValue: { service: '' }
     });
 

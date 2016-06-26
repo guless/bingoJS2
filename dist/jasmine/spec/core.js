@@ -5,7 +5,7 @@ describe('core --- bingoJS ' + bingo.version , function () {
     var undefined;
     function fnTTTT() { };
 
-    var app = bingo.defualtApp;
+    var app = bingo.app('test');
 
     it('try catch', function () {
         //测试有些版本 try没有catch不执行finally问题
@@ -1406,13 +1406,13 @@ describe('core --- bingoJS ' + bingo.version , function () {
             app.route('test_all', {
                 //路由url, 如: view/system/user/list
                 priority: 90,
-                url: 'view/{app}/{controller*}_{md5}',
+                url: 'view/{controller*}_{md5}',
                 //路由到目标url, 生成:modules/system/views/user/list.html
-                toUrl: 'modules/{app}/{controller*}_{md5}.html'
+                toUrl: 'modules/{controller*}_{md5}.html'
             });
 
-            var tContext = app.routeContext('view/command/renderSync/ddddd/test_aasdf$id:11111');
-            expect(tContext.params.app).toEqual('command');
+            var tContext = app.routeContext('view/renderSync/ddddd/test_aasdf$id:11111');
+            expect(tContext.params.app).toEqual('test');
             expect(tContext.params.controller).toEqual('renderSync/ddddd/test');
             expect(tContext.params.md5).toEqual('aasdf');
             expect(tContext.params.id).toEqual('11111');

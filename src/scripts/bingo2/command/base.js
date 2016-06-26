@@ -42,7 +42,7 @@
     };
 
     defualtApp.command('view', function (cp) {
-        _addCtrl(cp);
+        return _addCtrl(cp);
     });
 
     defualtApp.command('controller', function (cp) {
@@ -52,7 +52,7 @@
         if (!src) cp.$view.$controller(function () {
             cp.$eval();
         });
-        else _addCtrl(src);
+        else return _addCtrl(src);
 
     });
 
@@ -198,10 +198,10 @@
     });
 
     defualtApp.command('include', function (cp) {
+        var src = cp.$attrs.$getAttr('src');
 
-        cp.$tmpl(function () {
-            var src = cp.$attrs.$getAttr('src');
-            return !src ? cp.$contents : cp.$loadTmpl(src);
+        cp.$init(function () {
+            return !src ? cp.$html(cp.$contents) : cp.$loadTmpl(src).then(function (tmpl) { return cp.$html(tmpl); });
         });
 
     });

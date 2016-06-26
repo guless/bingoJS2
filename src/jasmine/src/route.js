@@ -19,7 +19,7 @@
         //路由url, 如: view/system/user/list
         url: '{controller*}',
         //路由到目标url, 生成:modules/system/user/list.html
-        toUrl: 'routes/{controller*}.js',
+        toUrl: 'spec/controllers/{controller*}.js',
         //变量默认值, 框架提供内部用的变量: app, controller, service
         defaultValue: { controller: '' }
     });
