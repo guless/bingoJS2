@@ -4,7 +4,8 @@
 
     var defualtApp = bingo.defualtApp;
 
-    defualtApp.command('view', function (cp) {
+    var _addCtrl = function (cp) {
+
 
         var ctrlAttr = cp.$attrs.$getAttr('controller');
 
@@ -16,7 +17,7 @@
             else if (window.bgTestProps(ctrlAttr))
                 ctrl = window.bgDataValue(ctrlAttr);
 
-            if (ctrl) {
+            if (bingo.isFunction(ctrl) && bingo.isFunction(ctrl)) {
                 cp.$view.$controller(ctrl);
             } else {
                 var url = 'controller::' + ctrlAttr;
@@ -38,14 +39,20 @@
             }
 
         }
+    };
 
+    defualtApp.command('view', function (cp) {
+        _addCtrl(cp);
     });
 
     defualtApp.command('controller', function (cp) {
 
-        cp.$view.$controller(function () {
+        var src = cp.$attrs.$getAttr('src');
+
+        if (!src) cp.$view.$controller(function () {
             cp.$eval();
         });
+        else _addCtrl(src);
 
     });
 
@@ -192,8 +199,9 @@
 
     defualtApp.command('include', function (cp) {
 
-        cp.$init(function () {
-            return cp.$loadTmpl(cp.$attrs.$getAttr('src')).then(function (tmpl) { return cp.$html(tmpl); });
+        cp.$tmpl(function () {
+            var src = cp.$attrs.$getAttr('src');
+            return !src ? cp.$contents : cp.$loadTmpl(src);
         });
 
     });

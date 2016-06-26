@@ -2,7 +2,7 @@
 (function (bingo) {
     "use strict";
 
-    var app = bingo.defualtApp;
+    var app = bingo.app('test');
 
     //app默认 route, 但priority最大（最后）
     app.route('**', {
@@ -50,7 +50,7 @@
     app.route('service', {
         type: 'service',
         url: '{service*}',
-        toUrl: 'services/{service*}.js',
+        toUrl: 'spec/services/{service*}.js',
         defaultValue: { service: '' }
     });
 
