@@ -236,24 +236,31 @@
 
     var _vm = {
         _cacheName: '__contextFun__',
-        bindContext: function (cacheobj, content, hasRet, view, node, withData) {
+        bindContext: function (cacheobj, content, hasRet) {
 
-            var cacheName = [content, hasRet].join('_');
+            var cacheName = [content, hasRet].join('_'), cT;
             var contextCache = (cacheobj[_vm._cacheName] || (cacheobj[_vm._cacheName] = {}));
-            if (contextCache[cacheName]) return contextCache[cacheName];
+            if (contextCache[cacheName])
+                return contextCache[cacheName];
+            else {
+                cT = bingo.cache(_vm, cacheName);
+                if (cT) return cT;
+            }
 
             hasRet && (content = ['try { return ', content, ';} catch (e) {bingo.observe.error(e);}'].join(''));
             var fnDef = [
-                        'with ($view) {',
-                            //如果有withData, 影响性能
-                            withData ? 'with ($withData) {' : '',
-                                'return function (event) {',
-                                    content,
-                                '}.bind(_this_);',
-                            withData ? '}' : '',
-                        '}'].join('');
+                        'return function (_this_, $view, $withData, bingo, event) {',
+                            'with ($view) {',
+                                //如果有withData, 影响性能
+                                'with ($withData) {',
+                                        content,
+                                '}',
+                            '}',
+                        '};'].join('');
             try {
-                return contextCache[cacheName] = (new Function('_this_', '$view', '$withData', 'bingo', fnDef))(node || view, view, withData, bingo);//bingo(多版本共存)
+                cT = contextCache[cacheName] = (new Function(fnDef))();//bingo(多版本共存)
+                bingo.cache(_vm, cacheName, cT, 36);
+                return cT;
             } catch (e) {
                 bingo.trace(content);
                 //throw e;
@@ -311,7 +318,7 @@
                 }
             },
             $bindContext: function (contents, isRet) {
-                return _vm.bindContext(this, contents, isRet, this.$view, this.$node, _pri.withData);
+                return function (event) { return _vm.bindContext(this, contents, isRet)(this.$node || this.$view, this.$view, _pri.withData || {}, bingo, event); }.bind(this);
             },
             $hasProps: function () {
                 return _pri.valueObj(this)[0].bgTestProps(this.$contents);
@@ -360,6 +367,7 @@
                 (init !== false) && bd && bd.pushStep('CPInit', function () {
                     this.$view.bgToObserve(true);
                     return [obs.init()];
+                    //return [bingo.aFramePromise().then(function () { return obs.init(); })];
                 }.bind(this));
                 return obs;
             },
@@ -1559,7 +1567,6 @@
         //render-->cpctrl-->viewctrl-->cpevent-->dom编译-->cpinit-->viewinit--cpready-->viewready
         return cp._render(bd).then(function () {
             return _Promise.resolve().then(bd.doneStep('CPCtrl')).then(bd.doneStep('ViewCtrl')).then(bd.doneStep('CPEvent')).then(function () {
-
                 var node = p.context, opName = p.opName;
                 _traverseCP(node, cp, opName, bd);
 
@@ -1604,7 +1611,7 @@
             var domAttrs = {}, has = false, isV = false;
             var findR = find.replace(_domAttrReg, function (findAttr, name, contents, dot, dot1) {
 
-                if (isV || name == 'bg-virtual') { has = false; isV = true; return; }
+                if (isV || name == _domAttrVirName) { has = false; isV = true; return; }
                 dot = dot || dot1;
                 contents = contents.replace(_domAttrPotReg, '$1')
                     .replace(_domAttrOnlyReg, '$1')
@@ -1647,6 +1654,8 @@
     _virtualAttrs = function (vNode, node) {
         var attr = node.getAttribute(_domAttrVirName),
             context = JSON.parse(attr);
+
+        node.removeAttribute(_domAttrVirName);
 
         var list = [];
         bingo.eachProp(context, function (item, n) {
