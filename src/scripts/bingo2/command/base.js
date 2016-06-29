@@ -128,6 +128,8 @@
 
     defualtApp.command('for', function (cp) {
 
+        cp.$isAFrame = false;
+
         var contents = cp.$attrs.$contents;
         var withListName = '_bg_for_datas_' + bingo.makeAutoId();
 

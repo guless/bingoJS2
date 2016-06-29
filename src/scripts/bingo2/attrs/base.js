@@ -160,6 +160,10 @@
             _setNodeValue(val);
         });
 
+        vAttr.$ready(function () {
+            _setNodeValue(vAttr.$value());
+        });
+
     });
 
 

@@ -197,8 +197,8 @@
         }, _promisePushList = function (promises, list) {
             bingo.each(list, function (item) { _promisePush(promises, item); });
             return list;
-        }, _retPromiseAll = function (promises) {
-            return promises.length > 0 ? _Promise.always(promises) : undefined;
+        }, _retPromiseAll = function (promises, must) {
+            return must || promises.length > 0 ? _Promise.always(promises) : undefined;
         }, _promiseAlways = function (promises, then) {
             return promises.length > 0 ? _Promise.always(promises).then(then) : then();
         };
@@ -710,6 +710,7 @@
             $attrs: null,
             $nodes: null,
             $virtualNodes: [],
+            $isAFrame:true,
             $setNodes: function (nodes) {
                 _removeCPNodes(this.$nodes);
                 this.$nodes = nodes;
@@ -983,6 +984,7 @@
             return promises;
         }.bind(cp));
 
+        //用于cp事件与view的事件连接，如$view.$init('select', function(){});
         bd && bd.pushStep('CPEvent', function () {
             if (this.bgIsDispose) return;
             //处理$view.$init('cp', fn), $view.$ready('cp', fn)
@@ -1352,16 +1354,22 @@
         return _Promise.always(promises).then(function () {
             if (_renderPromise.length > 0) return _renderThread();
         });
-    }, _newBuild = function () {
+    }, _newBuild = function (isAFrame) {
         var _stepObj = {}, _doneStep = function (stepList, name) {
-            var promises = [];
-            bingo.each(stepList, function (fn) {
-                _promisePushList(promises, fn());
-            });
-            if (name.indexOf('Ready') > 0 || name.indexOf('Init') > 0)
-                return bingo.aFramePromise().then(function () { return (_retPromiseAll(promises) || _Promise.resolve()).then(bd.doneStep(name)); });
+            
+            var isFr = isAFrame !== false && (name.indexOf('Ready') > 0 || name.indexOf('Init') > 0),
+                fn = function () {
+                    var promises = [];
+                    bingo.each(stepList, function (fn) {
+                        _promisePushList(promises, fn());
+                    });
+                    return _retPromiseAll(promises, true).then(bd.doneStep(name));
+                };
+
+            if (isFr)
+                return bingo.aFramePromise().then(fn);
             else
-            return (_retPromiseAll(promises) || _Promise.resolve()).then(bd.doneStep(name));
+                return fn();
         }, end = false,bd;
         return bd = {
             pushStep: function (name, fn) {
@@ -1560,12 +1568,13 @@
     //_compile({cp:cp, context:node, opName:'insertBefore'});
     var _compile = function (p) {
         var view = p.view;
-        var bd = _newBuild();
+        var bd = _newBuild(!p.cp || p.cp.$isAFrame);
         var cp = p.cp || _newCP({
             $app: view.$app || bingo.defualtApp,
             $parent: p.parent || view.$ownerCP,
             $view: view, $contents: p.tmpl
         }, false, bd).$tmpl(p.tmpl);
+
 
         //render-->cpctrl-->viewctrl-->cpevent-->dom编译-->cpinit-->viewinit--cpready-->viewready
         return cp._render(bd).then(function () {
