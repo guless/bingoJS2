@@ -1353,14 +1353,17 @@
             if (_renderPromise.length > 0) return _renderThread();
         });
     }, _newBuild = function () {
-        var _stepObj = {}, _doneStep = function (stepList) {
+        var _stepObj = {}, _doneStep = function (stepList, name) {
             var promises = [];
             bingo.each(stepList, function (fn) {
                 _promisePushList(promises, fn());
             });
-            return _retPromiseAll(promises);
-        }, end = false;
-        return {
+            if (name.indexOf('Ready') > 0 || name.indexOf('Init') > 0)
+                return bingo.aFramePromise().then(function () { return (_retPromiseAll(promises) || _Promise.resolve()).then(bd.doneStep(name)); });
+            else
+            return (_retPromiseAll(promises) || _Promise.resolve()).then(bd.doneStep(name));
+        }, end = false,bd;
+        return bd = {
             pushStep: function (name, fn) {
                 if (_stepObj[name])
                     _stepObj[name].push(fn);
@@ -1373,7 +1376,7 @@
                 var stepList = _stepObj[name],
                   has = stepList && stepList.length > 0;
                 has && (_stepObj[name] = []);
-                return function () { return has ? _doneStep(stepList) : null };
+                return function () { return has ? _doneStep(stepList, name) : null };
             },
             end: function () {
                 end = true;
@@ -1569,7 +1572,6 @@
             return _Promise.resolve().then(bd.doneStep('CPCtrl')).then(bd.doneStep('ViewCtrl')).then(bd.doneStep('CPEvent')).then(function () {
                 var node = p.context, opName = p.opName;
                 _traverseCP(node, cp, opName, bd);
-
             }).then(bd.doneStep('CPInit')).then(bd.doneStep('ViewInit'))
             .then(bd.doneStep('CPReady')).then(bd.doneStep('ViewReady'));
 

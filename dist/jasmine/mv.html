@@ -65,6 +65,22 @@
                 {{/content}}
             </script>
         </div>
+
+        <div id="viewEvent">
+            <script type="text/html">
+                {{view controller="eventMain" app="test" /}}
+                <div>{{text isOk /}}</div>
+                {{include}}
+                    {{view controller="eventChild" /}}
+                    {{include}}
+                        {{view controller="eventChild2" /}}
+                    {{/include}}
+                {{/include}}
+                {{include}}
+                    {{view controller="eventChild3" /}}
+                {{/include}}
+            </script>
+        </div>
     </div>
 </body>
 </html>

@@ -29,7 +29,6 @@
             font-family: Courier New;
         }
     </style>
-    <script src="http://apps.bdimg.com/libs/jquery/1.9.0/jquery.min.js"></script>
 </head>
 <body>
     <div id="container">
@@ -44,7 +43,7 @@
             </div>
         </script>
     </div>
-    <script src="../scripts/bingo2/bingo.min.js"></script>
+    <script src="../scripts/bingo2/bingo.js"></script>
     <script src="route.js"></script>
     <script type="text/javascript">
 
@@ -53,16 +52,18 @@
                 //console.profile('boot');
                 console.time('boot');
                 bingo.compile(document.getElementById('container')).then(function () {
-                    //console.profileEnd('boot');
                     console.timeEnd('boot');
+                    //console.profileEnd('boot');
                 });
             });
 
             demoApp.controller('main', function ($view) {
                 
-                $view.rainList = [];
+                $view.rainList = [], list =[];
                 for (var i = 0; i < 50; i++)
-                    $view.rainList.push(i);
+                    list.push(i);
+
+                $view.rainList = list;
 
                 $view.$ready(function () {
 
@@ -100,12 +101,13 @@
 
 
                 var _start = false;
-                $view.$ready(function () {
+                $view.$init(function () {
                     _start = true;
-                    setTimeout(function(){
+                    //console.log('start rain');
+                    setTimeout(function () {
                         _height = $view.divNode.offsetHeight;
                         $view.bottom -= _moveHeight;
-                    }, _rand(0, 5000))
+                    }, _rand(0, 15000))
                 });
 
                 //观察top属性改变
