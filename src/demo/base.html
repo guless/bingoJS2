@@ -22,6 +22,9 @@
                         <option value="">请诜择</option>
                         <option value="1">1111</option>
                         <option value="2">2222</option>
+                        {{for item in [3, 4] }}
+                        <option value="[[item]]">{{text item /}}</option>
+                        {{/for}}
                     </select>
                 </div>
                 <div>selectM：
