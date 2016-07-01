@@ -2241,22 +2241,12 @@
             _self.wake();
         };
 
-        //_self.fps(fps);
-
         _self.start = function () {
             if (!_sleep) return;
             _self.fps(fps);
         };
 
         _ticker = _self;
-
-
-        //a bug in iOS 6 Safari occasionally prevents the requestAnimationFrame from working initially, so we use a 1.5-second timeout that automatically falls back to setTimeout() if it senses this condition.
-        //setTimeout(function () {
-        //    if (_useRAF === "auto" && _self.frame < 5 && document.visibilityState !== "hidden") {
-        //        _self.useRAF(true);
-        //    }
-        //}, 1500);
 
     })(60, true);
 
@@ -3115,7 +3105,7 @@
             cmdDef = app.command(cp.$cmd);
             var rfn = function () {
                 cmdDef && (cmdDef = cmdDef.fn);
-                _promisePush(_renderPromise, cmdDef && cmdDef(cp));
+                cmdDef && _promisePush(_renderPromise, cmdDef(cp));
                 _pri.render(cp, bd);
             };
 
@@ -3170,38 +3160,8 @@
             }, this);
         });
         return _attrs;
-    }, _newVirtualNode = function (cp, node, bd) {
-        //如果是新view, 读取$ownerView
-        var view = cp.$ownerView || cp.$view;
-        var vNode = _newBase({
-            $view: view,
-            $app: view.$app,
-            $cp: cp,
-            $node: node,
-            $attrs: _newBase({}),
-            _addAttr: function (name, contents) {
-                return this.$attrs[name] = _newVirtualAttr(this, name, contents, bd);
-            }
-        });
-        _virtualAttrs(vNode, node);
-        cp.$virtualNodes.push(vNode);
-        vNode.bgOnDispose(function () {
-            var attrs = this.$attrs;
-            bingo.eachProp(attrs, function (item) {
-                item.bgDispose();
-            });
-        });
-        return vNode;
-    }, _newVirtualAttr = function (vNode, name, contents, bd) {
-        var cp = vNode.$cp;
-        var vAttr = _newBindContext({
-            $cp: cp,
-            $vNode: vNode,
-            $node: vNode.$node,
-            $app: vNode.$app,
-            $view: vNode.$view,
-            $name: name,
-            $contents: contents,
+    }, _newDom = function (p) {
+        var dom = _newBase({
             $attr: function (name, val) {
                 var node = this.$node,
                     aLen = arguments.length;
@@ -3215,7 +3175,7 @@
                         var isSelect = node.tagName.toLowerCase() == 'select';
                         if (aLen == 1)
                             return (isSelect ? _valSel : _val)(node);
-                        else 
+                        else
                             (isSelect ? _valSel : _val)(node, val);
                         break;
                     default:
@@ -3260,17 +3220,64 @@
             },
             $off: function (name, fn, useCaptrue) {
                 _off.apply(this.$node, arguments);
+            },
+            $is: function (selector) {
+                return _isQuery(this.$node, selector);
+            },
+            $parent: function (selector) {
+                var node = _parentQuery(this.$node, selector);
+                return node ? _getVNode(node) : null;
             }
-        }, bd);
-
-        vAttr.$withData(cp.$withData());
-
+        }).$extend(p);
         var _eventList = [];
-        vAttr.bgOnDispose(function () {
+
+        dom.bgOnDispose(function () {
             bingo.each(_eventList, function (item) {
                 _off.apply(this.$node, item);
             }.bind(this));
         });
+        return dom;
+    }, _vNodeName = '_bgvn_', _setVNode = function (vn, node) {
+        node[_vNodeName] = vn;
+    }, _getVNode = function (node) {
+        return node[_vNodeName];
+    }, _newVirtualNode = function (cp, node, bd) {
+        //如果是新view, 读取$ownerView
+        var view = cp.$ownerView || cp.$view;
+        var vNode = _newDom({
+            $view: view,
+            $app: view.$app,
+            $cp: cp,
+            $node: node,
+            $attrs: _newBase({}),
+            _addAttr: function (name, contents) {
+                return this.$attrs[name] = _newVirtualAttr(this, name, contents, bd);
+            }
+        });
+        _setVNode(vNode, node);
+        _virtualAttrs(vNode, node);
+        cp.$virtualNodes.push(vNode);
+        vNode.bgOnDispose(function () {
+            node[_vNodeName] = null;
+            var attrs = this.$attrs;
+            bingo.eachProp(attrs, function (item) {
+                item.bgDispose();
+            });
+        });
+        return vNode;
+    }, _newVirtualAttr = function (vNode, name, contents, bd) {
+        var cp = vNode.$cp;
+        var vAttr = _newBindContext(_newDom({
+            $cp: cp,
+            $vNode: vNode,
+            $node: vNode.$node,
+            $app: vNode.$app,
+            $view: vNode.$view,
+            $name: name,
+            $contents: contents
+        }), bd);
+
+        vAttr.$withData(cp.$withData());
 
         var def = vAttr.$app.attr(name);
         //def && def(vAttr);
@@ -3892,6 +3899,18 @@
             });
         };
 
+    var _matches = _docEle.matchesSelector ||
+			_docEle.mozMatchesSelector ||
+			_docEle.webkitMatchesSelector ||
+			_docEle.oMatchesSelector ||
+			_docEle.msMatchesSelector,
+        _isQuery = function (node, selector) {
+            return _matches.call(node, selector);
+        }, _parentQuery = function (node, selector) {
+            node = node.parentNode;
+            return (!node || node == _docEle || node == _doc) ? null : (!selector || _isQuery(node, selector) ? node : _parentQuery(node, selector));
+        };
+
 
     bingo.app.extend({
         _view: [],
@@ -4103,7 +4122,7 @@
     defualtApp.command('service', function (cp) {
         var src = cp.$attrs.$getAttr('src'),
             name = cp.$attrs.$getAttr('name');
-        return src && name && cp.$inject(src);
+        return src && name && cp.$inject(src).then(function (srv) { cp.$view[name] = srv; });
     });
 
     var _forItemReg = /[ ]*([^ ]+)[ ]+in[ ]+(?:(.+)[ ]+tmpl[ ]*=[ ]*(.+)|(.+))/;
@@ -4376,6 +4395,11 @@
         }
 
         vAttr.$layoutResult(function (c) {
+            if (name == 'value' && vAttr.$is('option')) {
+                var vNode = vAttr.$parent('select');
+                if (vNode && vNode.$attrs.model)
+                    if (vNode.$attrs.model.$value() == c.value) vAttr.$prop('selected', true);
+            }
             vAttr.$attr(name, c.value);
         });
 
@@ -4498,9 +4522,9 @@
             _setNodeValue(val);
         });
 
-        vAttr.$ready(function () {
-            _setNodeValue(vAttr.$value());
-        });
+        //vAttr.$ready(function () {
+        //    _setNodeValue(vAttr.$value());
+        //});
 
     });
 

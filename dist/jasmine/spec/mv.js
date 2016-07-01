@@ -11,8 +11,6 @@ describe('mv --- bingoJS ' + bingo.version, function () {
         console.time('ddddd');
         bingo.ready(function () {
             var p = bingo.compile(document.getElementById(id)).then(function () {
-                console.log(aaaa);
-                bbbb && console.log(bbbb);
                 console.timeEnd('ddddd');
             });
             fn && p.then(fn);
@@ -161,61 +159,6 @@ describe('mv --- bingoJS ' + bingo.version, function () {
                 expect(list).toEqual(['childMain1', 'child3', 'child', 'child1', 'childMain init', 'child init', 'child1 init', 'child3 init', 'childMain ready', 'child ready', 'child1 ready', 'child3 ready']);
             });
             _complile('viewInitHtml');
-
-        });
-
-
-        it('view event', function () {
-            window.bbbb = [];
-
-            var list = [];
-            app.controller('eventMain', function ($view, $cache) {
-                list.push('childMain');
-
-
-                bbbb.push('eventMain');
-
-
-                $view.$init(function () {
-                    list.push('childMain init');
-                    bbbb.push('eventMain init');
-
-                });
-
-                $view.$ready(function () {
-                    list.push('childMain ready');
-                    bbbb.push('eventMain ready');
-
-                });
-            });
-
-            app.controller('eventChild', function ($view, testSrv) {
-                list.push('child');
-                bbbb.push('eventChild');
-
-                $view.$init(function () {
-                    list.push('child init');
-                    bbbb.push('eventChild init');
-
-                });
-
-                $view.$ready(function () {
-                    list.push('child ready');
-                    bbbb.push('eventChild ready');
-                    return bingo.Promise.timeout(300);
-
-                });
-            });
-
-            waitsFor(function () {
-                return list.length == 6;
-            });
-
-            runs(function () {
-//                expect(list).toEqual(['childMain', 'child', 'child1', 'child3', 'child3 init', 'child3 ready', 'child1 init', 'child1 ready', 'child init', 'child ready', 'childMain init', 'childMain ready']);
-            });
-
-            _complile('viewEvent');
 
         });
 

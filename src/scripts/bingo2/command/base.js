@@ -64,7 +64,7 @@
     defualtApp.command('service', function (cp) {
         var src = cp.$attrs.$getAttr('src'),
             name = cp.$attrs.$getAttr('name');
-        return src && name && cp.$inject(src);
+        return src && name && cp.$inject(src).then(function (srv) { cp.$view[name] = srv; });
     });
 
     var _forItemReg = /[ ]*([^ ]+)[ ]+in[ ]+(?:(.+)[ ]+tmpl[ ]*=[ ]*(.+)|(.+))/;

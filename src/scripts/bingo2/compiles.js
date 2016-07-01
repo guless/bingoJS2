@@ -994,7 +994,7 @@
             cmdDef = app.command(cp.$cmd);
             var rfn = function () {
                 cmdDef && (cmdDef = cmdDef.fn);
-                _promisePush(_renderPromise, cmdDef && cmdDef(cp));
+                cmdDef && _promisePush(_renderPromise, cmdDef(cp));
                 _pri.render(cp, bd);
             };
 
