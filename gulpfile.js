@@ -34,6 +34,8 @@ gulp.task('clean', function () {
 
 gulp.task('build:start', gulpSequence(['build:concat', 'build:copy'], 'build:uglify'));
 
+gulp.task('build:bingojs', gulpSequence('build:concat', 'build:uglify'));
+
 gulp.task('build:concat', function () {
     return gulp.src(srcList)
         .pipe(plumber())
@@ -60,7 +62,7 @@ gulp.task('build:copy', function () {
 
 gulp.task('watch', function () {
     gulp.watch(['src/**', '!src/scripts/bingo2/**'], ['build:copy']);
-    gulp.watch('src/scripts/bingo2/**', gulpSequence('build:concat', 'build:uglify'));
+    gulp.watch('src/scripts/bingo2/**', ['build:bingojs']);
 });
 
 gulp.task('server', function () {
