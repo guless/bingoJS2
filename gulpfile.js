@@ -34,7 +34,7 @@ gulp.task('clean', function () {
 
 gulp.task('build:start', gulpSequence(['build:concat', 'build:copy'], 'build:uglify'));
 
-gulp.task('build:bingojs', gulpSequence('build:concat', 'build:uglify'));
+gulp.task('build:bingojs', function (cp) { gulpSequence('build:concat', 'build:uglify')(cp); });
 
 gulp.task('build:concat', function () {
     return gulp.src(srcList)

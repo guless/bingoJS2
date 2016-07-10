@@ -71,6 +71,7 @@
 
 
     defualtApp.command('with', function (cp) {
+        cp.$isAFrame = false;
 
         var contents = cp.$attrs.$contents;
 

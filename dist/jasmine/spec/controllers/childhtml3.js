@@ -1,7 +1,7 @@
 
-bingo.app('test').controller('childhtml3', function ($view, $cache) {
+bingo.app('test').controller('childhtml3', function ($view, $cache, testSrv) {
     var list = $cache('childMainListHtml');
-    list.push('child3');
+    list.push('child3_a');
     $view.title = 'asdfasdfasdf';
 
     $view.$init(function () {
