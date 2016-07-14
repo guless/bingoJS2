@@ -505,11 +505,11 @@
             $queryAll: function (selector) {
                 return this.$ownerCP.$queryAll(selector);
             },
-            $insertBefore: function (p, ref) {
-                return this.$ownerCP.$insertBefore(p, ref);
+            $insertBefore: function (p, ref, ctrl) {
+                return this.$ownerCP.$insertBefore(p, ref, ctrl);
             },
-            $insertAfter: function (p, ref) {
-                return this.$ownerCP.$insertAfter(p, ref);
+            $insertAfter: function (p, ref, ctrl) {
+                return this.$ownerCP.$insertAfter(p, ref, ctrl);
             },
             $inject: function (p, injectObj, thisArg) {
                 return this.$app.inject(p, bingo.extend({
@@ -754,12 +754,12 @@
             $remove: function () {
                 this.bgDispose();
             },
-            $html: function (s) {
+            $html: function (s, ctrl) {
                 if (arguments.length > 0) {
                     _clearCP(this);
                     this.$tmpl(s);
 
-                    return _compile({ cp: this, context: _getCPRefNode(this), opName: 'insertBefore' });
+                    return _compile({ cp: this, context: _getCPRefNode(this), opName: 'insertBefore' }, ctrl);
                 } else {
                     var list = [];
                     bingo.each(this.$nodes, function (item) {
@@ -768,7 +768,7 @@
                     return list.join('');
                 }
             },
-            $insertBefore: function (p, ref) {
+            $insertBefore: function (p, ref, ctrl) {
                 /// <summary>
                 /// $insertBefore(html|cp|view) html|cp|view放到本cp的最前面<br />
                 /// $insertBefore(html|cp|view, cp|view) html|cp|view放到cp|view的前面<br />
@@ -786,7 +786,7 @@
                         parent: ref ? (ref.$ownerCP || ref).$parent : cp,
                         context: refNode,
                         opName: 'insertBefore'
-                    }).then(function (cpT) {
+                    }, ctrl).then(function (cpT) {
                         cpT.$parent.$children.unshift(cpT);
                         return cpT;
                     });
@@ -812,7 +812,7 @@
                     return _Promise.resolve(target);
                 }
             },
-            $insertAfter: function (p, ref) {
+            $insertAfter: function (p, ref, ctrl) {
                 /// <summary>
                 /// $insertBefore(html|cp|view) html|cp|view放到本cp的最后面<br />
                 /// $insertBefore(html|cp|view, cp|view) html|cp|view放到cp|view的后面<br />
