@@ -563,6 +563,10 @@
         view.bgDispose(_pri);
 
         if (bd) {
+            if (bd.ctrl) {
+                view.$controller(bd.ctrl);
+                bd.ctrl = null;
+            }
             bd.pushStep('ViewCtrl', function () {
                 if (this.bgIsDispose) return;
                 var ctrls = _pri.ctrls, promises = [];
@@ -1573,9 +1577,10 @@
 
     //_compile({view:view, tmpl:tmpl, context:node, opName:'appendTo', parent:cp});
     //_compile({cp:cp, context:node, opName:'insertBefore'});
-    var _compile = function (p) {
+    var _compile = function (p, ctrl) {
         var view = p.view;
         var bd = _newBuild(!p.cp || p.cp.$isAFrame);
+        bd.ctrl = ctrl;
         var cp = p.cp || _newCP({
             $app: view.$app || bingo.defualtApp,
             $parent: p.parent || view.$ownerCP,
@@ -1841,7 +1846,7 @@
     });
     _rootView.$ownerCP = _rootCP;
 
-    bingo.compile = function (node) {
+    bingo.compile = function (node, ctrl) {
         var cp = _getNodeCP(node) || _rootCP,
             app = cp.$app,
             view = cp.$view,
@@ -1856,7 +1861,7 @@
                     parent: view.$ownerCP || cp,
                     context: node,
                     opName: isScript ? 'insertBefore' : 'appendTo'
-                }).then(function (cpT) {
+                }, ctrl).then(function (cpT) {
                     isScript && _removeNode(node);
                     cpT.$parent.$children.push(cpT);
                     return cpT;
