@@ -3955,7 +3955,9 @@
     bingo.compile = function (node) {
         var cp = _getNodeCP(node) || _rootCP,
             app = cp.$app,
-            view = cp.$view;
+            view = cp.$view,
+            isScript = node.tagName.toLowerCase() == 'script';
+        
         return app.usingAll().then(function () {
             var r = app.tmpl(node).then(function (tmpl) {
                 node.innerHTML = '';
@@ -3964,8 +3966,9 @@
                     view: view,
                     parent: view.$ownerCP || cp,
                     context: node,
-                    opName: 'appendTo'
+                    opName: isScript ? 'insertBefore' : 'appendTo'
                 }).then(function (cpT) {
+                    isScript && _removeNode(node);
                     cpT.$parent.$children.push(cpT);
                     return cpT;
                 });
