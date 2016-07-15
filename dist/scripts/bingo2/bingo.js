@@ -2616,11 +2616,11 @@
             $queryAll: function (selector) {
                 return this.$ownerCP.$queryAll(selector);
             },
-            $insertBefore: function (p, ref) {
-                return this.$ownerCP.$insertBefore(p, ref);
+            $insertBefore: function (p, ref, ctrl) {
+                return this.$ownerCP.$insertBefore(p, ref, ctrl);
             },
-            $insertAfter: function (p, ref) {
-                return this.$ownerCP.$insertAfter(p, ref);
+            $insertAfter: function (p, ref, ctrl) {
+                return this.$ownerCP.$insertAfter(p, ref, ctrl);
             },
             $inject: function (p, injectObj, thisArg) {
                 return this.$app.inject(p, bingo.extend({
@@ -2674,6 +2674,10 @@
         view.bgDispose(_pri);
 
         if (bd) {
+            if (bd.ctrl) {
+                view.$controller(bd.ctrl);
+                bd.ctrl = null;
+            }
             bd.pushStep('ViewCtrl', function () {
                 if (this.bgIsDispose) return;
                 var ctrls = _pri.ctrls, promises = [];
@@ -2861,12 +2865,12 @@
             $remove: function () {
                 this.bgDispose();
             },
-            $html: function (s) {
+            $html: function (s, ctrl) {
                 if (arguments.length > 0) {
                     _clearCP(this);
                     this.$tmpl(s);
 
-                    return _compile({ cp: this, context: _getCPRefNode(this), opName: 'insertBefore' });
+                    return _compile({ cp: this, context: _getCPRefNode(this), opName: 'insertBefore' }, ctrl);
                 } else {
                     var list = [];
                     bingo.each(this.$nodes, function (item) {
@@ -2875,7 +2879,7 @@
                     return list.join('');
                 }
             },
-            $insertBefore: function (p, ref) {
+            $insertBefore: function (p, ref, ctrl) {
                 /// <summary>
                 /// $insertBefore(html|cp|view) html|cp|view放到本cp的最前面<br />
                 /// $insertBefore(html|cp|view, cp|view) html|cp|view放到cp|view的前面<br />
@@ -2893,7 +2897,7 @@
                         parent: ref ? (ref.$ownerCP || ref).$parent : cp,
                         context: refNode,
                         opName: 'insertBefore'
-                    }).then(function (cpT) {
+                    }, ctrl).then(function (cpT) {
                         cpT.$parent.$children.unshift(cpT);
                         return cpT;
                     });
@@ -2919,7 +2923,7 @@
                     return _Promise.resolve(target);
                 }
             },
-            $insertAfter: function (p, ref) {
+            $insertAfter: function (p, ref, ctrl) {
                 /// <summary>
                 /// $insertBefore(html|cp|view) html|cp|view放到本cp的最后面<br />
                 /// $insertBefore(html|cp|view, cp|view) html|cp|view放到cp|view的后面<br />
@@ -2937,7 +2941,7 @@
                         parent: ref ? (ref.$ownerCP || ref).$parent : cp,
                         context: refNode ? refNode : node.parentNode,
                         opName: refNode ? 'insertBefore' : 'appendTo'
-                    }).then(function (cpT) {
+                    }, ctrl).then(function (cpT) {
                         cpT.$parent.$children.push(cpT);
                         return cpT;
                     });
@@ -3684,9 +3688,10 @@
 
     //_compile({view:view, tmpl:tmpl, context:node, opName:'appendTo', parent:cp});
     //_compile({cp:cp, context:node, opName:'insertBefore'});
-    var _compile = function (p) {
+    var _compile = function (p, ctrl) {
         var view = p.view;
         var bd = _newBuild(!p.cp || p.cp.$isAFrame);
+        bd.ctrl = ctrl;
         var cp = p.cp || _newCP({
             $app: view.$app || bingo.defualtApp,
             $parent: p.parent || view.$ownerCP,
@@ -3952,7 +3957,7 @@
     });
     _rootView.$ownerCP = _rootCP;
 
-    bingo.compile = function (node) {
+    bingo.compile = function (node, ctrl) {
         var cp = _getNodeCP(node) || _rootCP,
             app = cp.$app,
             view = cp.$view,
@@ -3967,7 +3972,7 @@
                     parent: view.$ownerCP || cp,
                     context: node,
                     opName: isScript ? 'insertBefore' : 'appendTo'
-                }).then(function (cpT) {
+                }, ctrl).then(function (cpT) {
                     isScript && _removeNode(node);
                     cpT.$parent.$children.push(cpT);
                     return cpT;
