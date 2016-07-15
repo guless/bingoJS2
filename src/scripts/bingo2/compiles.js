@@ -830,7 +830,7 @@
                         parent: ref ? (ref.$ownerCP || ref).$parent : cp,
                         context: refNode ? refNode : node.parentNode,
                         opName: refNode ? 'insertBefore' : 'appendTo'
-                    }).then(function (cpT) {
+                    }, ctrl).then(function (cpT) {
                         cpT.$parent.$children.push(cpT);
                         return cpT;
                     });
