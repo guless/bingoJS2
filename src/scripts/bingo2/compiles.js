@@ -1347,7 +1347,7 @@
                     break;
             }
         }
-        if (lv <= 0) {
+        if (lv <= 0 && index > -1 && index < contents.length) {
             elseList.push(contents.substr(index));
         }
 
