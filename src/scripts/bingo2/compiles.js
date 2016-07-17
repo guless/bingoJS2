@@ -1609,19 +1609,19 @@
 
 
     //查找dom 节点 <div>
-    var _domNodeReg = /\<.*?\[\[.*?\]\][^>]*\>/gi,
+    var _domNodeReg = /\<(?:.|\n|\r)*?\[\[(?:.|\n|\r)*?\]\][^>]*\>/gi,
         //解释可绑定的节点属性: attr="fasdf[[user.name]]"
-        _domAttrReg = /\s*(\S+)\s*=\s*((\")(?:\\\"|[^"])*?\[\[.+?\]\](?:\\\"|[^"])*\"|(\')(?:\\\'|[^'])*?\[\[.+?\]\](?:\\\'|[^'])*\')/gi,
+        _domAttrReg = /\s*(\S+)\s*=\s*((\")(?:\\\"|[^"])*?\[\[(?:.|\n|\r)+?\]\](?:\\\"|[^"])*\"|(\')(?:\\\'|[^'])*?\[\[(?:.|\n|\r)+?\]\](?:\\\'|[^'])*\')/gi,
         //用于解释节点属性时， 将内容压成bg-virtual
         //如:<div value="[user.name]" style="[[user.style]]"></div>
         //解释成<div  bg-virtual="{value:'user.name', style:'user.style'}"></div>
         _domNodeRPReg = /\s*(\/?\>)$/,
         //如果绑定纯变量时去除"', 如valu="[[user.name]]", 解释后value=[[user.name]]
-        _domAttrPotReg = /^\s*['"](.*?)['"]\s*$/,
+        _domAttrPotReg = /^\s*['"]((?:.|\n|\r)*?)['"]\s*$/,
         //如果绑定纯变量时去除[], 如valu=[[user.name]], 解释后value=user.name
-        _domAttrOnlyReg = /^\s*\[\[(.*?)\]\]\s*$/,
+        _domAttrOnlyReg = /^\s*\[\[((?:.|\n|\r)*?)\]\]\s*$/,
         //转义多个绑定时， 如果style="[[ok]]asdf[[false]]sdf", 解释后 style="''+ ok + 'asdf' + false + 'sdf"
-        _domAttrMultReg = /\[\[(.*?)\]\]/g,
+        _domAttrMultReg = /\[\[((?:.|\n|\r)*?)\]\]/g,
         _domAttrVirName = 'bg-virtual',
         _domAttrVirSt = [' ', _domAttrVirName, '="'].join(''),
         _domAttrVirEn = '" $1',
@@ -1676,7 +1676,7 @@
     },
     _virtualAttrs = function (vNode, node) {
         var attr = node.getAttribute(_domAttrVirName),
-            context = JSON.parse(attr);
+            context = JSON.parse(bingo.attrDecode(attr));
 
         node.removeAttribute(_domAttrVirName);
 
