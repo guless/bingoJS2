@@ -3,14 +3,7 @@
     "use strict";
 
     var demoApp = window.demoApp = bingo.app('demo');
-
-    //app默认 route, 但priority最大（最后）
-    demoApp.route('**', {
-        priority: 99999,
-        url: '**',
-        toUrl: function (url, param) { return url; }
-    });
-
+    
     //设置controller资源路由
     demoApp.route('controller', {
         //优先级, 越小越前, 默认100

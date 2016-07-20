@@ -134,7 +134,7 @@
         };
 
     var _routeTypeReg = /^(.+)\:\:(.*)/,
-        _makeRoueTypeUrl = function (url) {
+        _makeRouteTypeUrl = function (url) {
             var type, s;
             if (_routeTypeReg.test(url)) {
                 type = RegExp.$1;
@@ -147,20 +147,17 @@
             return [type, url].join('::');
         }, _loadRouteType = function (app, type, url, bRoute, p) {
             if (bRoute !== false) {
-                var urlType = _makeRoueTypeUrl(url),
+                var urlType = _makeRouteTypeUrl(url),
                     types = urlType.type;
 
                 bingo.isNullEmpty(types) && (url = _mergeRouteUrlType(url, type));
 
                 var route = app.route(url), config = bingo.config();
-                if (route) {
-                    if (route.promise)
-                        return route.promise(p);
-                    else
-                        return config[type](route.toUrl, p);
-                } else {
-                    return config[type](urlType.url, p);
-                }
+                if (route.promise)
+                    return route.promise(p);
+                else
+                    return config[type](route.toUrl, p);
+
             } else
                 return config[type](url);
         };
@@ -590,7 +587,7 @@
     };
 
     var _checkRoute = function (app) {
-        return app._route || (app._route = _newRouter(app));
+        return app._route || _newRouter(app);
     };
 
     bingo.app.extend({
@@ -656,7 +653,7 @@
             getRouteByUrl: function (url) {
                 if (!url) return '';
 
-                var urlType = _makeRoueTypeUrl(url),
+                var urlType = _makeRouteTypeUrl(url),
                     types = urlType.type;
                 url = urlType.url;
 
@@ -702,6 +699,14 @@
             }
 
         };
+        app._route = route;
+        app.route('**', {
+            priority: 9999999,
+            url: '**',
+            toUrl: function (url, param) {
+                return url;
+            }
+        });
         return route;
     };
 
