@@ -143,23 +143,25 @@
                 s = url;
             }
             return { all: url, url: s, type: type || '' };
-        }, _mergeRouteUrlType = function (url, type) {
+        }, _mergeRouteUrlType = function (url, type, rm) {
+            if (!type) return url;
+            if (rm !== false) url = _makeRouteTypeUrl(url).url;
             return [type, url].join('::');
         }, _loadRouteType = function (app, type, url, bRoute, p) {
             if (bRoute !== false) {
                 var urlType = _makeRouteTypeUrl(url),
                     types = urlType.type;
 
-                bingo.isNullEmpty(types) && (url = _mergeRouteUrlType(url, type));
+                bingo.isNullEmpty(types) && (url = _mergeRouteUrlType(url, type, false));
 
                 var route = app.route(url), config = bingo.config();
-                if (route.promise)
+                if (route.promise != _rPromise)
                     return route.promise(p);
                 else
                     return config[type](route.toUrl, p);
 
             } else
-                return config[type](url);
+                return config[type](url, p);
         };
 
     bingo.app.extend({
@@ -538,10 +540,11 @@
     }, _makeRouteContext = function (routeContext, name, url, toUrl, params) {
         //生成 routeContext
         var promise = routeContext.promise,
-            pFn = promise && function (p) { return promise(this.toUrl, p); };
+            pFn = promise ? function (p) { return promise(this.toUrl, p); } : _rPromise;
 
         return { name: name, params: params, url: url, toUrl: toUrl, promise:pFn, context: _getRouteContext };
     },
+    _rPromise = function (p) { return bingo.config().ajax(this.toUrl, p); },
     _passParam = ',controller,service,app,queryParams,',
     _paramToUrl = function (url, params, paramType) {
         //_urlToParams反操作, paramType:为0转到普通url参数(?a=1&b=2), 为1转到route参数($a:1$b:2)， 默认为0
@@ -594,24 +597,26 @@
         route: function (p, context) {
             if (arguments.length == 1)
                 return this.routeContext(p);
-            else
+            else if (bingo.isObject(context))
                 p && context && _checkRoute(this).add(p, context);
+            else
+                return this.routeContext(_mergeRouteUrlType(p, context));
         },
         routeContext: function (url) {
             return _checkRoute(this).getRouteByUrl(url);
         },
-        routeLink: function (name, p) {
+        routeLink: function (name, p, type) {
             var r = _checkRoute(this).getRuote(name)
             if (!r && this != bingo.defualtApp)
                 r = _checkRoute(bingo.defualtApp).getRuote(name);
-            return r ? _paramToUrl(r.context.url, p, 1) : '';
+            return r ? _mergeRouteUrlType(_paramToUrl(r.context.toUrl, p, 1), type) : '';
         },
-        routeLinkQuery: function (url, p) {
+        routeLinkQuery: function (url, p, type) {
             url || (url = '');
             var urlPath = '';
             if (url.indexOf('$') >= 0 || url.indexOf('?') >= 0) {
                 var routeContext = this.routeContext(url);
-                p = bingo.extend({}, p, routeContext.params.queryParams);
+                p = bingo.extend({}, routeContext.params.queryParams, p);
                 var sp = url.indexOf('$') >= 0 ? '$' : '?';
                 url = url.split(sp)[0];
             }
@@ -620,10 +625,9 @@
                 //route参数形式, $aaa:1$bbb=2
                 urlPath = [urlPath, '$', n, ':', item].join('');
             });
-            return [url, urlPath].join('');
+            return _mergeRouteUrlType([url, urlPath].join(''), type);
         }
     });
-
 
     var _newRouter = function (app) {
         var route = {
