@@ -187,26 +187,14 @@
     var _tmplCacheObj = {};
 
     bingo.app.extend({
-        using: function () {
+        using: function (url, bRoute) {
             /// <returns value=''></returns>
             /// <summary>
             /// bingo.using('/js/file1.js').then <br />
             /// bingo.using('/js/file1.js', false).then <br />
-            /// bingo.using('file1.js', ['file2.js', 'file3.js'], 'file4.js').then <br />
-            /// bingo.using('file1.js', ['file2.js', 'file3.js'], 'file4.js', false).then <br />
             /// </summary>
             /// <param name="bRoute">是否经过route, 默认是</param>
-            var promise = _Promise.resolve(), app = this, bRoute = arguments[arguments.length - 1];
-            bRoute = bingo.isBoolean(bRoute) ? bRoute : true;
-            bingo.each(arguments, function (item) {
-                item && !bingo.isBoolean(item) && promise.then(function () {
-                    if (bingo.isArray(item)) {
-                        return _Promise.always(item, function (item) { return item && _loadRouteType(app, 'using', item, bRoute); });
-                    } else
-                        return _loadRouteType(app, 'using', item, bRoute);
-                });
-            });
-            return promise;
+            return _loadRouteType(this, 'using', url, bRoute);
         },
         usingAll: function (url, bRoute) {
             url && this.using(url, bRoute);
