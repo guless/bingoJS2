@@ -1,4 +1,4 @@
-#bingoJS2 - demo
+#bingoJS 2
 
 ## 文档
 
