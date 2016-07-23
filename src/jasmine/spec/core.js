@@ -1373,6 +1373,8 @@ describe('core --- bingoJS ' + bingo.version , function () {
             //app.routeLink, 生成route url
             expect(app.routeLink('my', { module: 'sys', action: 'user', id: '1' })).toEqual(routeUrl);
 
+            expect(app.routeLink('my', { module: 'sys', action: 'user', id: '1' }, 'tmpl')).toEqual('tmpl::'+routeUrl);
+
             //以下测试using一个route url
             window.testusingRoute = 0;
             var isOk = false;
@@ -1418,6 +1420,18 @@ describe('core --- bingoJS ' + bingo.version , function () {
             expect(tContext.params.id).toEqual('11111');
             expect(tContext.params.queryParams.id).toEqual('11111');
             expect(tContext.params.queryParams.md5).toEqual(undefined);
+
+            var rqUrl = 'user/list';
+            expect(app.routeQuerystring(rqUrl, null, 'test')).toEqual('test::' + rqUrl);
+
+            rqUrl = app.routeQuerystring(rqUrl, { a: 1 });
+            expect(rqUrl).toEqual('user/list$a:1');
+
+            rqUrl = app.routeQuerystring(rqUrl, { a: 'aa' });
+            expect(rqUrl).toEqual('user/list$a:aa');
+
+            rqUrl = 'test::user/list';
+            expect(app.routeQuerystring(rqUrl, null, 'tmpl')).toEqual('tmpl::user/list');
 
         });
 

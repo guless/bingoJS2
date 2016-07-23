@@ -198,23 +198,14 @@
             /// <param name="bRoute">是否经过route, 默认是</param>
             return _loadRouteType(this, 'using', url, bRoute);
         },
-        usingAll: function (url, lv) {
-            url && this.using(url);
-            bingo.isNumeric(lv) || (lv = bingo.using.Normal);
+        usingAll: function (url, bRoute) {
+            url && this.using(url, bRoute);
             return bingo.Promise(function (r) {
-                _addAll(r, lv);
+                _addAll(r, 5);
             });
         }
     });
 
-    bingo.using = {};
-    bingo.extend(bingo.using, {
-        First: 0,
-        NormalBefore: 45,
-        Normal: 50,
-        NormalAfter: 55,
-        Last: 100
-    });
     //end using===================================
 
     var _noop = bingo.noop, _htmlType = 'text/html',
@@ -638,14 +629,13 @@
         routeContext: function (url) {
             return _checkRoute(this).getRouteByUrl(url);
         },
-        makeRouteUrlType: _mergeRouteUrlType,
         routeLink: function (name, p, type) {
             var r = _checkRoute(this).getRuote(name)
             if (!r && this != bingo.defualtApp)
                 r = _checkRoute(bingo.defualtApp).getRuote(name);
-            return r ? _mergeRouteUrlType(_paramToUrl(r.context.toUrl, p, 1), type) : '';
+            return r ? _mergeRouteUrlType(_paramToUrl(r.context.url, p, 1), type) : '';
         },
-        routeLinkQuery: function (url, p, type) {
+        routeQuerystring: function (url, p, type) {
             url || (url = '');
             var urlPath = '';
             if (url.indexOf('$') >= 0 || url.indexOf('?') >= 0) {

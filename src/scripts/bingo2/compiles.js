@@ -24,20 +24,18 @@
                 }
             });
             list.length > 0 && (_aFrameList = list.concat(_aFrameList));
-            //!_aFrameList.length && _ticker.sleep();
-        }, _hasAFrame = function () { return !!_aFrameList.length; };
+        }, _hasAFrame = function () { return _aFrameList.length > 0; };
 
 
     var _ticker;
 
-    (function (fps, useRAF) {
+    (function (_fps, useRAF) {
 
         //本段代码参考于：https://github.com/greensock/GreenSock-JS/
 
         var _reqAnimFrame = window.requestAnimationFrame,
             _cancelAnimFrame = window.cancelAnimationFrame,
             _getTime = Date.now || function () { return new Date().getTime(); },
-            _lastUpdate = _getTime(),
             a = ["ms", "moz", "webkit", "o"],
             i = a.length;
             while (--i > -1 && !_reqAnimFrame) {
@@ -49,13 +47,12 @@
 
         var _self = {},
             _emptyFunc = function () { },
-            _startTime = _getTime(),
-            _lagThreshold = 500,
-            _adjustedLag = 33,
-            _tinyNum = 0.0000000001,
-            _sleep = true, _hasAF = false,
-            _fps, _req, _id, _gap, _nextTime,
-            _tick = function (manual) {
+            _lastUpdate, _startTime,
+            _lagThreshold, _adjustedLag,
+            _sleep, _pSleep = 0,
+            _req, _gap, _nextTime,
+            _tick = function () {
+                if (_req == _emptyFunc) return;
                 var elapsed = _getTime() - _lastUpdate,
                     overlap, dispatch;
                 if (elapsed > _lagThreshold) {
@@ -64,75 +61,55 @@
                 _lastUpdate += elapsed;
                 _self.time = (_lastUpdate - _startTime) / 1000;
                 overlap = _self.time - _nextTime;
-                if (!_fps || overlap > 0 || manual === true) {
-                    //_self.frame++;
+                if (!_fps || overlap > 0) {
                     _nextTime += overlap + (overlap >= _gap ? 0.004 : _gap - overlap);
                     dispatch = true;
                 }
-                if (manual !== true) {
-                    //make sure the request is made before we dispatch the "tick" event so that timing is maintained. Otherwise, if processing the "tick" requires a bunch of time (like 15ms) and we're using a setTimeout() that's based on 16.7ms, it'd technically take 31.7ms between frames otherwise.
-                    _id = _req(_tick);
-                }
+                _req(_tick);
                 if (dispatch) {
-                    if (!_hasAF && !_hasAFrame())
+                    if (_pSleep >= 2)
                         _self.sleep();
+                    if (_hasAFrame())
+                        _pSleep = 0;
+                    else {
+                        _pSleep++;
+                    }
                     _aFrameCK();
-                    _hasAF = _hasAFrame();
                 }
+            }, _reset = function () {
+                _req = _emptyFunc;
+                _lastUpdate = _getTime(),
+                _startTime = _getTime(),
+                _lagThreshold = 500,
+                _adjustedLag = 33,
+                _sleep = true;
+                _self.time = 0;
             };
-
-        _self.time = _self.frame = 0;
-        _self.tick = function () {
-            _tick(true);
-        };
-
-        _self.lagSmoothing = function (threshold, adjustedLag) {
-            _lagThreshold = threshold || (1 / _tinyNum); //zero should be interpreted as basically unlimited
-            _adjustedLag = Math.min(adjustedLag, _lagThreshold, 0);
-        };
+        _reset();
 
         _self.sleep = function () {
             if (_sleep) return;
-            _sleep = true;
-            if (_id == null) {
-                return;
-            }
-            if (!_isAFrame) {
-                clearTimeout(_id);
-            } else {
-                _cancelAnimFrame(_id);
-            }
-            _req = _emptyFunc;
-            _id = null;
+            _reset();
         };
 
-        _self.wake = function (seamless) {
-            if (_id !== null) {
-                _self.sleep();
-            } else if (seamless) {
-                _startTime += -_lastUpdate + (_lastUpdate = _getTime());
-            } else if (_self.frame > 10) {
-                //don't trigger lagSmoothing if we're just waking up, and make sure that at least 10 frames have elapsed because of the iOS bug that we work around below with the 1.5-second setTimout().
-                _lastUpdate = _getTime() - _lagThreshold + 5;
-            }
-            _req = (_fps === 0) ? _emptyFunc : (!_isAFrame) ? function (f) { return setTimeout(f, ((_nextTime - _self.time) * 1000 + 1) | 0); } : _reqAnimFrame;
-            _tick(2);
+        _self.wake = function () {
             _sleep = false;
-        };
-
-        _self.fps = function (value) {
-            if (!arguments.length) {
-                return _fps;
-            }
-            _fps = value;
-            _gap = 1 / (_fps || 60);
-            _nextTime = this.time + _gap;
-            _self.wake();
+            _req = (!_isAFrame) ? function (f) { setTimeout(f, ((_nextTime - _self.time) * 1000 + 1) | 0); }
+                : function (f) {
+                    var fnn = function () { if (f) { var af = f; f = null; af(); } };
+                    _reqAnimFrame(fnn);
+                    //超时
+                    setTimeout(fnn, ((_nextTime - _self.time) * 20 * 1000 + 1) | 0);
+                };
+            _tick();
         };
 
         _self.start = function () {
             if (!_sleep) return;
-            _self.fps(fps);
+            _pSleep = 0;
+            _gap = 1 / (_fps || 60);
+            _nextTime = this.time + _gap;
+            _self.wake();
         };
 
         _ticker = _self;
