@@ -83,18 +83,20 @@
             return index >= 0 ? _loading[index] : null;
         },
         _tid,
-        _loadFile = function (file, fn) {
-            if (_isLoaded(file)) {
-                fn && fn(file);
-            } else {
-                var lf = _getLoading(file);
-                if (lf) {
-                    lf.fns.push(fn);
+        _loadJS = function (file) {
+            return _Promise(function (fn) {
+                if (_isLoaded(file)) {
+                    fn && fn(file);
                 } else {
-                    _loading.push({ file: file, fns: [fn], status: 0 });
-                    _tid || (_tid = setTimeout(_done, 0));
+                    var lf = _getLoading(file);
+                    if (lf) {
+                        lf.fns.push(fn);
+                    } else {
+                        _loading.push({ file: file, fns: [fn], status: 0 });
+                        _tid || (_tid = setTimeout(_done, 0));
+                    }
                 }
-            }
+            });
         },
         _done = function () {
             _tid = null;
@@ -163,11 +165,7 @@
                 return _loadConfig[type](url, p);
         }, _loadConfig = {
             ajax: _ajax,
-            using: function (url) {
-                return bingo.Promise(function (r) {
-                    _loadFile(url, function (url) { r(url); });
-                });
-            },
+            using: _loadJS,
             tmpl: function (url, p) {
                 var key = url;
                 var cache = bingo.cache(_tmplCacheObj, key);
@@ -189,14 +187,26 @@
     var _tmplCacheObj = {};
 
     bingo.app.extend({
-        using: function (url, bRoute) {
+        using: function () {
             /// <returns value=''></returns>
             /// <summary>
             /// bingo.using('/js/file1.js').then <br />
+            /// bingo.using('/js/file1.js', false).then <br />
+            /// bingo.using('file1.js', ['file2.js', 'file3.js'], 'file4.js').then <br />
+            /// bingo.using('file1.js', ['file2.js', 'file3.js'], 'file4.js', false).then <br />
             /// </summary>
-            /// <param name="url"></param>
             /// <param name="bRoute">是否经过route, 默认是</param>
-            return _loadRouteType(this, 'using', url, bRoute);
+            var promise = _Promise.resolve(), app = this, bRoute = arguments[arguments.length - 1];
+            bRoute = bingo.isBoolean(bRoute) ? bRoute : true;
+            bingo.each(arguments, function (item) {
+                item && !bingo.isBoolean(item) && promise.then(function () {
+                    if (bingo.isArray(item)) {
+                        return _Promise.always(item, function (item) { return item && _loadRouteType(app, 'using', item, bRoute); });
+                    } else
+                        return _loadRouteType(app, 'using', item, bRoute);
+                });
+            });
+            return promise;
         },
         usingAll: function (url, bRoute) {
             url && this.using(url, bRoute);
@@ -263,10 +273,11 @@
             if (!settings.crossDomain) settings.crossDomain = /^([\w-]+:)?\/\/([^\/]+)/.test(url) &&
               RegExp.$2 != window.location.host;
 
+            var D = bingo.Deferred();
             var dataType = settings.dataType, hasPlaceholder = /=\?/.test(url);
             if (dataType == 'jsonp' || hasPlaceholder) {
                 if (!hasPlaceholder) url = _appendQuery(url, 'callback=?');
-                return _ajaxJSONP(url, settings);
+                return _ajaxJSONP(url, settings, D);
             }
 
             //if (!url) url = window.location.toString();
@@ -290,7 +301,6 @@
 
             var context = settings.context;
 
-            var D = bingo.Deferred();
             xhr.onreadystatechange = function () {
                 if (xhr.readyState == 4) {
                     clearTimeout(abortTimeout);
@@ -337,7 +347,7 @@
 
             xhr.send(settings.data ? settings.data : null);
             return D.promise;
-        }, _ajaxJSONP = function (url, options) {
+        }, _ajaxJSONP = function (url, options, D) {
             var callbackName = 'jsonp' + bingo.makeAutoId(),
               script = document.createElement('script'),
               abort = function () {
@@ -348,6 +358,7 @@
               xhr = { abort: abort }, abortTimeout;
 
             if (options.error) script.onerror = function () {
+                D.reject();
                 xhr.abort();
                 options.error();
             };
@@ -356,6 +367,7 @@
                 clearTimeout(abortTimeout);
                 head.removeChild(script);
                 delete window[callbackName];
+                D.resolve(data);
                 settings.success.call(options.context, data, 'success', xhr);
             };
 
@@ -367,7 +379,7 @@
                 xhr.abort();
             }, options.timeout);
 
-            return xhr;
+            return D.promise;
         };
 
     var _tagTestReg = /^\s*<(\w+|!)[^>]*>/;

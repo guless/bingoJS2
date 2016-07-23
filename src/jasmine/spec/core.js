@@ -1106,6 +1106,25 @@ describe('core --- bingoJS ' + bingo.version , function () {
 
         }); //end using
 
+        it('using queue', function () {
+            window.__usingAueue = "";
+
+            app.using('spec/using/queueA.js', ['spec/using/queueB.js', 'spec/using/queueC.js'], 'spec/using/queueD.js').then(function () {
+                console.log(window.__usingAueue);
+            });
+
+            var waitOk = false;
+            app.usingAll().then(function () {
+                waitOk = true;
+            });
+            waitsFor(function () { return waitOk; });
+
+            runs(function () {
+                console.log(window.__usingAueue);
+                expect(/A[BC]{2}D/i.test(window.__usingAueue)).toEqual(true);
+            });
+
+        }); //end using
 
     }); // end describe using
 
