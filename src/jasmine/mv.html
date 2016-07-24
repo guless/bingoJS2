@@ -1,0 +1,71 @@
+﻿<!DOCTYPE html>
+
+<html>
+<head>
+    <title>bingoJS 2 mv test</title>
+    <link rel="shortcut icon" type="image/png" href="lib/jasmine-1.3.1/jasmine_favicon.png">
+    <link rel="stylesheet" type="text/css" href="lib/jasmine-1.3.1/jasmine.css">
+
+    <style type="text/css">
+        .cmpDiv {
+            display:none;
+        }
+    </style>
+
+    <script src="../scripts/jquery/jquery-1.8.1.js"></script>
+    <script src="../scripts/bingo2/bingo.js"></script>
+
+    <script src="src/route.js"></script>
+
+
+    <script type="text/javascript" src="lib/jasmine-1.3.1/jasmine.js"></script>
+    <script type="text/javascript" src="lib/jasmine-1.3.1/jasmine-html.js"></script>
+
+    <script src="src/helper.js"></script>
+    <script type="text/javascript" src="spec/mv.js"></script>
+    <script type="text/javascript" src="src/startJasmine.js"></script>
+
+</head>
+<body>
+    <div class="cmpDiv">
+        <div id="viewTestContain">
+            <script type="text/html">
+                {{view controller="viewTest" name="viewTest1" app="test" /}}
+                <div>{{text isOk /}}</div>
+            </script>
+        </div>
+        <div id="viewInitNormal">
+            <script type="text/html">
+                {{view controller="childMain" name="childMain1" app="test" /}}
+                <div>{{text isOk /}}</div>
+                {{include}}
+                    {{view controller="child" name="child1" app="test" /}}
+                    {{include}}
+                        {{view controller="child1" name="child2" app="test" /}}
+                        {{include}}
+                        {{view controller="child3" /}}
+                          <div>{{text title /}}</div>
+                        {{/include}}
+                    {{/include}}
+                {{/include}}
+            </script>
+        </div>
+        <div id="viewInitHtml">
+            <script type="text/html">
+                {{view controller="childMain_html" name="childMain1" app="test" /}}
+                <div>{{text isOk /}}</div>
+                {{content}}
+                    {{view controller="child_html" name="child1" app="test" /}}
+                    {{content}}
+                        {{view controller="child1_html" name="child2" /}}
+                        {{content}}
+                        {{view controller="childhtml3" name="child4" /}}
+                        {{/content}}
+                    {{/content}}
+                {{/content}}
+            </script>
+        </div>
+
+    </div>
+</body>
+</html>

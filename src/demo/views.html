@@ -94,7 +94,9 @@
         bingo.ready(function () {
             //console.profile('boot');
             console.time('boot');
-            bingo.compile(document.getElementById('bingo_test')).then(function () {
+            bingo.compile(document.getElementById('bingo_test'), function ($view) {
+                console.log('complie view: '+ $view.$name);
+            }).then(function () {
                 //console.profileEnd('boot');
                 console.timeEnd('boot');
             });

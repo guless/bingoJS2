@@ -38,6 +38,11 @@
         }
 
         vAttr.$layoutResult(function (c) {
+            if (name == 'value' && vAttr.$is('option')) {
+                var vNode = vAttr.$parent('select');
+                if (vNode && vNode.$attrs.model)
+                    if (vNode.$attrs.model.$value() == c.value) vAttr.$prop('selected', true);
+            }
             vAttr.$attr(name, c.value);
         });
 
@@ -159,6 +164,10 @@
             var val = c.value;
             _setNodeValue(val);
         });
+
+        //vAttr.$ready(function () {
+        //    _setNodeValue(vAttr.$value());
+        //});
 
     });
 

@@ -4,7 +4,8 @@
 
     var defualtApp = bingo.defualtApp;
 
-    defualtApp.command('view', function (cp) {
+    var _addCtrl = function (cp) {
+
 
         var ctrlAttr = cp.$attrs.$getAttr('controller');
 
@@ -16,7 +17,7 @@
             else if (window.bgTestProps(ctrlAttr))
                 ctrl = window.bgDataValue(ctrlAttr);
 
-            if (ctrl) {
+            if (bingo.isFunction(ctrl) && bingo.isFunction(ctrl)) {
                 cp.$view.$controller(ctrl);
             } else {
                 var url = 'controller::' + ctrlAttr;
@@ -38,14 +39,20 @@
             }
 
         }
+    };
 
+    defualtApp.command('view', function (cp) {
+        return _addCtrl(cp);
     });
 
     defualtApp.command('controller', function (cp) {
 
-        cp.$view.$controller(function () {
+        var src = cp.$attrs.$getAttr('src');
+
+        if (!src) cp.$view.$controller(function () {
             cp.$eval();
         });
+        else return _addCtrl(src);
 
     });
 
@@ -57,13 +64,14 @@
     defualtApp.command('service', function (cp) {
         var src = cp.$attrs.$getAttr('src'),
             name = cp.$attrs.$getAttr('name');
-        return src && name && cp.$inject(src);
+        return src && name && cp.$inject(src).then(function (srv) { cp.$view[name] = srv; });
     });
 
     var _forItemReg = /[ ]*([^ ]+)[ ]+in[ ]+(?:(.+)[ ]+tmpl[ ]*=[ ]*(.+)|(.+))/;
 
 
     defualtApp.command('with', function (cp) {
+        cp.$isAFrame = false;
 
         var contents = cp.$attrs.$contents;
 
@@ -121,13 +129,24 @@
 
     defualtApp.command('for', function (cp) {
 
+        cp.$isAFrame = false;
+
         var contents = cp.$attrs.$contents;
         var withListName = '_bg_for_datas_' + bingo.makeAutoId();
 
         if (_forItemReg.test(contents)) {
-            var itemName = RegExp.$1, dataName = RegExp.$2 || RegExp.$4;
+            var itemName = RegExp.$1, dataName = RegExp.$2 || RegExp.$4, tmpl = bingo.trim(RegExp.$3);
             if (itemName && dataName) {
                 cp.$attrs.$contents = dataName;
+                var render = function (html, datas) {
+                    if (tmpl)
+                        return cp.$loadTmpl(tmpl).then(function (html) { return renHtml(html, datas); });
+                    else
+                        return renHtml(html, datas);
+                }, renHtml = function (html, datas) {
+                    html = _makeForTmpl(html, datas, itemName, cp.$withData(), withListName);
+                    return cp.$html(html);
+                };
                 cp.$layout(function () {
                     return cp.$attrs.$result();
                 }, function (c) {
@@ -136,8 +155,7 @@
                         datas = isL ? t : bingo.sliceArray(t);
                     (!isL) && datas.length == 0 && (datas = t ? [t] : []);
 
-                    var html = _makeForTmpl(cp.$contents, datas, itemName, cp.$withData(), withListName);
-                    return cp.$html(html);
+                    return render(cp.$contents, datas);
 
                 });
             }
@@ -191,9 +209,10 @@
     });
 
     defualtApp.command('include', function (cp) {
+        var src = cp.$attrs.$getAttr('src');
 
         cp.$init(function () {
-            return cp.$loadTmpl(cp.$attrs.$getAttr('src')).then(function (tmpl) { return cp.$html(tmpl); });
+            return !src ? cp.$html(cp.$contents) : cp.$loadTmpl(src).then(function (tmpl) { return cp.$html(tmpl); });
         });
 
     });

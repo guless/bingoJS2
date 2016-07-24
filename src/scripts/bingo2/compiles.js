@@ -24,20 +24,18 @@
                 }
             });
             list.length > 0 && (_aFrameList = list.concat(_aFrameList));
-            //!_aFrameList.length && _ticker.sleep();
-        }, _hasAFrame = function () { return !!_aFrameList.length; };
+        }, _hasAFrame = function () { return _aFrameList.length > 0; };
 
 
     var _ticker;
 
-    (function (fps, useRAF) {
+    (function (_fps, useRAF) {
 
         //本段代码参考于：https://github.com/greensock/GreenSock-JS/
 
         var _reqAnimFrame = window.requestAnimationFrame,
             _cancelAnimFrame = window.cancelAnimationFrame,
             _getTime = Date.now || function () { return new Date().getTime(); },
-            _lastUpdate = _getTime(),
             a = ["ms", "moz", "webkit", "o"],
             i = a.length;
             while (--i > -1 && !_reqAnimFrame) {
@@ -49,13 +47,12 @@
 
         var _self = {},
             _emptyFunc = function () { },
-            _startTime = _getTime(),
-            _lagThreshold = 500,
-            _adjustedLag = 33,
-            _tinyNum = 0.0000000001,
-            _sleep = true, _hasAF = false,
-            _fps, _req, _id, _gap, _nextTime,
-            _tick = function (manual) {
+            _lastUpdate, _startTime,
+            _lagThreshold, _adjustedLag,
+            _sleep, _pSleep = 0,
+            _req, _gap, _nextTime,
+            _tick = function () {
+                if (_req == _emptyFunc) return;
                 var elapsed = _getTime() - _lastUpdate,
                     overlap, dispatch;
                 if (elapsed > _lagThreshold) {
@@ -64,88 +61,58 @@
                 _lastUpdate += elapsed;
                 _self.time = (_lastUpdate - _startTime) / 1000;
                 overlap = _self.time - _nextTime;
-                if (!_fps || overlap > 0 || manual === true) {
-                    //_self.frame++;
+                if (!_fps || overlap > 0) {
                     _nextTime += overlap + (overlap >= _gap ? 0.004 : _gap - overlap);
                     dispatch = true;
                 }
-                if (manual !== true) {
-                    //make sure the request is made before we dispatch the "tick" event so that timing is maintained. Otherwise, if processing the "tick" requires a bunch of time (like 15ms) and we're using a setTimeout() that's based on 16.7ms, it'd technically take 31.7ms between frames otherwise.
-                    _id = _req(_tick);
-                }
+                _req(_tick);
                 if (dispatch) {
-                    if (!_hasAF && !_hasAFrame())
+                    if (_pSleep >= 2)
                         _self.sleep();
+                    if (_hasAFrame())
+                        _pSleep = 0;
+                    else {
+                        _pSleep++;
+                    }
                     _aFrameCK();
-                    _hasAF = _hasAFrame();
                 }
+            }, _reset = function () {
+                _req = _emptyFunc;
+                _lastUpdate = _getTime(),
+                _startTime = _getTime(),
+                _lagThreshold = 500,
+                _adjustedLag = 33,
+                _sleep = true;
+                _self.time = 0;
             };
-
-        _self.time = _self.frame = 0;
-        _self.tick = function () {
-            _tick(true);
-        };
-
-        _self.lagSmoothing = function (threshold, adjustedLag) {
-            _lagThreshold = threshold || (1 / _tinyNum); //zero should be interpreted as basically unlimited
-            _adjustedLag = Math.min(adjustedLag, _lagThreshold, 0);
-        };
+        _reset();
 
         _self.sleep = function () {
             if (_sleep) return;
-            _sleep = true;
-            if (_id == null) {
-                return;
-            }
-            if (!_isAFrame) {
-                clearTimeout(_id);
-            } else {
-                _cancelAnimFrame(_id);
-            }
-            _req = _emptyFunc;
-            _id = null;
+            _reset();
         };
 
-        _self.wake = function (seamless) {
-            if (_id !== null) {
-                _self.sleep();
-            } else if (seamless) {
-                _startTime += -_lastUpdate + (_lastUpdate = _getTime());
-            } else if (_self.frame > 10) {
-                //don't trigger lagSmoothing if we're just waking up, and make sure that at least 10 frames have elapsed because of the iOS bug that we work around below with the 1.5-second setTimout().
-                _lastUpdate = _getTime() - _lagThreshold + 5;
-            }
-            _req = (_fps === 0) ? _emptyFunc : (!_isAFrame) ? function (f) { return setTimeout(f, ((_nextTime - _self.time) * 1000 + 1) | 0); } : _reqAnimFrame;
-            _tick(2);
+        _self.wake = function () {
             _sleep = false;
+            _req = (!_isAFrame) ? function (f) { setTimeout(f, ((_nextTime - _self.time) * 1000 + 1) | 0); }
+                : function (f) {
+                    var fnn = function () { if (f) { var af = f; f = null; af(); } };
+                    _reqAnimFrame(fnn);
+                    //超时
+                    setTimeout(fnn, ((_nextTime - _self.time) * 20 * 1000 + 1) | 0);
+                };
+            _tick();
         };
 
-        _self.fps = function (value) {
-            if (!arguments.length) {
-                return _fps;
-            }
-            _fps = value;
+        _self.start = function () {
+            if (!_sleep) return;
+            _pSleep = 0;
             _gap = 1 / (_fps || 60);
             _nextTime = this.time + _gap;
             _self.wake();
         };
 
-        //_self.fps(fps);
-
-        _self.start = function () {
-            if (!_sleep) return;
-            _self.fps(fps);
-        };
-
         _ticker = _self;
-
-
-        //a bug in iOS 6 Safari occasionally prevents the requestAnimationFrame from working initially, so we use a 1.5-second timeout that automatically falls back to setTimeout() if it senses this condition.
-        //setTimeout(function () {
-        //    if (_useRAF === "auto" && _self.frame < 5 && document.visibilityState !== "hidden") {
-        //        _self.useRAF(true);
-        //    }
-        //}, 1500);
 
     })(60, true);
 
@@ -197,8 +164,8 @@
         }, _promisePushList = function (promises, list) {
             bingo.each(list, function (item) { _promisePush(promises, item); });
             return list;
-        }, _retPromiseAll = function (promises) {
-            return promises.length > 0 ? _Promise.always(promises) : undefined;
+        }, _retPromiseAll = function (promises, must) {
+            return must || promises.length > 0 ? _Promise.always(promises) : undefined;
         }, _promiseAlways = function (promises, then) {
             return promises.length > 0 ? _Promise.always(promises).then(then) : then();
         };
@@ -236,24 +203,31 @@
 
     var _vm = {
         _cacheName: '__contextFun__',
-        bindContext: function (cacheobj, content, hasRet, view, node, withData) {
+        bindContext: function (cacheobj, content, hasRet) {
 
-            var cacheName = [content, hasRet].join('_');
+            var cacheName = [content, hasRet].join('_'), cT;
             var contextCache = (cacheobj[_vm._cacheName] || (cacheobj[_vm._cacheName] = {}));
-            if (contextCache[cacheName]) return contextCache[cacheName];
+            if (contextCache[cacheName])
+                return contextCache[cacheName];
+            else {
+                cT = bingo.cache(_vm, cacheName);
+                if (cT) return cT;
+            }
 
             hasRet && (content = ['try { return ', content, ';} catch (e) {bingo.observe.error(e);}'].join(''));
             var fnDef = [
-                        'with ($view) {',
-                            //如果有withData, 影响性能
-                            withData ? 'with ($withData) {' : '',
-                                'return function (event) {',
-                                    content,
-                                '}.bind(_this_);',
-                            withData ? '}' : '',
-                        '}'].join('');
+                        'return function (_this_, $view, $withData, bingo, event) {',
+                            'with ($view) {',
+                                //如果有withData, 影响性能
+                                'with ($withData) {',
+                                        content,
+                                '}',
+                            '}',
+                        '};'].join('');
             try {
-                return contextCache[cacheName] = (new Function('_this_', '$view', '$withData', 'bingo', fnDef))(node || view, view, withData, bingo);//bingo(多版本共存)
+                cT = contextCache[cacheName] = (new Function(fnDef))();//bingo(多版本共存)
+                bingo.cache(_vm, cacheName, cT, 36);
+                return cT;
             } catch (e) {
                 bingo.trace(content);
                 //throw e;
@@ -311,7 +285,7 @@
                 }
             },
             $bindContext: function (contents, isRet) {
-                return _vm.bindContext(this, contents, isRet, this.$view, this.$node, _pri.withData);
+                return function (event) { return _vm.bindContext(this, contents, isRet)(this.$node || this.$view, this.$view, _pri.withData || {}, bingo, event); }.bind(this);
             },
             $hasProps: function () {
                 return _pri.valueObj(this)[0].bgTestProps(this.$contents);
@@ -360,6 +334,7 @@
                 (init !== false) && bd && bd.pushStep('CPInit', function () {
                     this.$view.bgToObserve(true);
                     return [obs.init()];
+                    //return [bingo.aFramePromise().then(function () { return obs.init(); })];
                 }.bind(this));
                 return obs;
             },
@@ -507,11 +482,11 @@
             $queryAll: function (selector) {
                 return this.$ownerCP.$queryAll(selector);
             },
-            $insertBefore: function (p, ref) {
-                return this.$ownerCP.$insertBefore(p, ref);
+            $insertBefore: function (p, ref, ctrl) {
+                return this.$ownerCP.$insertBefore(p, ref, ctrl);
             },
-            $insertAfter: function (p, ref) {
-                return this.$ownerCP.$insertAfter(p, ref);
+            $insertAfter: function (p, ref, ctrl) {
+                return this.$ownerCP.$insertAfter(p, ref, ctrl);
             },
             $inject: function (p, injectObj, thisArg) {
                 return this.$app.inject(p, bingo.extend({
@@ -565,6 +540,10 @@
         view.bgDispose(_pri);
 
         if (bd) {
+            if (bd.ctrl) {
+                view.$controller(bd.ctrl);
+                bd.ctrl = null;
+            }
             bd.pushStep('ViewCtrl', function () {
                 if (this.bgIsDispose) return;
                 var ctrls = _pri.ctrls, promises = [];
@@ -702,6 +681,7 @@
             $attrs: null,
             $nodes: null,
             $virtualNodes: [],
+            $isAFrame:true,
             $setNodes: function (nodes) {
                 _removeCPNodes(this.$nodes);
                 this.$nodes = nodes;
@@ -751,12 +731,12 @@
             $remove: function () {
                 this.bgDispose();
             },
-            $html: function (s) {
+            $html: function (s, ctrl) {
                 if (arguments.length > 0) {
                     _clearCP(this);
                     this.$tmpl(s);
 
-                    return _compile({ cp: this, context: _getCPRefNode(this), opName: 'insertBefore' });
+                    return _compile({ cp: this, context: _getCPRefNode(this), opName: 'insertBefore' }, ctrl);
                 } else {
                     var list = [];
                     bingo.each(this.$nodes, function (item) {
@@ -765,7 +745,7 @@
                     return list.join('');
                 }
             },
-            $insertBefore: function (p, ref) {
+            $insertBefore: function (p, ref, ctrl) {
                 /// <summary>
                 /// $insertBefore(html|cp|view) html|cp|view放到本cp的最前面<br />
                 /// $insertBefore(html|cp|view, cp|view) html|cp|view放到cp|view的前面<br />
@@ -783,7 +763,7 @@
                         parent: ref ? (ref.$ownerCP || ref).$parent : cp,
                         context: refNode,
                         opName: 'insertBefore'
-                    }).then(function (cpT) {
+                    }, ctrl).then(function (cpT) {
                         cpT.$parent.$children.unshift(cpT);
                         return cpT;
                     });
@@ -809,7 +789,7 @@
                     return _Promise.resolve(target);
                 }
             },
-            $insertAfter: function (p, ref) {
+            $insertAfter: function (p, ref, ctrl) {
                 /// <summary>
                 /// $insertBefore(html|cp|view) html|cp|view放到本cp的最后面<br />
                 /// $insertBefore(html|cp|view, cp|view) html|cp|view放到cp|view的后面<br />
@@ -827,7 +807,7 @@
                         parent: ref ? (ref.$ownerCP || ref).$parent : cp,
                         context: refNode ? refNode : node.parentNode,
                         opName: refNode ? 'insertBefore' : 'appendTo'
-                    }).then(function (cpT) {
+                    }, ctrl).then(function (cpT) {
                         cpT.$parent.$children.push(cpT);
                         return cpT;
                     });
@@ -975,6 +955,7 @@
             return promises;
         }.bind(cp));
 
+        //用于cp事件与view的事件连接，如$view.$init('select', function(){});
         bd && bd.pushStep('CPEvent', function () {
             if (this.bgIsDispose) return;
             //处理$view.$init('cp', fn), $view.$ready('cp', fn)
@@ -994,7 +975,7 @@
             cmdDef = app.command(cp.$cmd);
             var rfn = function () {
                 cmdDef && (cmdDef = cmdDef.fn);
-                _promisePush(_renderPromise, cmdDef && cmdDef(cp));
+                cmdDef && _promisePush(_renderPromise, cmdDef(cp));
                 _pri.render(cp, bd);
             };
 
@@ -1049,38 +1030,8 @@
             }, this);
         });
         return _attrs;
-    }, _newVirtualNode = function (cp, node, bd) {
-        //如果是新view, 读取$ownerView
-        var view = cp.$ownerView || cp.$view;
-        var vNode = _newBase({
-            $view: view,
-            $app: view.$app,
-            $cp: cp,
-            $node: node,
-            $attrs: _newBase({}),
-            _addAttr: function (name, contents) {
-                return this.$attrs[name] = _newVirtualAttr(this, name, contents, bd);
-            }
-        });
-        _virtualAttrs(vNode, node);
-        cp.$virtualNodes.push(vNode);
-        vNode.bgOnDispose(function () {
-            var attrs = this.$attrs;
-            bingo.eachProp(attrs, function (item) {
-                item.bgDispose();
-            });
-        });
-        return vNode;
-    }, _newVirtualAttr = function (vNode, name, contents, bd) {
-        var cp = vNode.$cp;
-        var vAttr = _newBindContext({
-            $cp: cp,
-            $vNode: vNode,
-            $node: vNode.$node,
-            $app: vNode.$app,
-            $view: vNode.$view,
-            $name: name,
-            $contents: contents,
+    }, _newDom = function (p) {
+        var dom = _newBase({
             $attr: function (name, val) {
                 var node = this.$node,
                     aLen = arguments.length;
@@ -1094,7 +1045,7 @@
                         var isSelect = node.tagName.toLowerCase() == 'select';
                         if (aLen == 1)
                             return (isSelect ? _valSel : _val)(node);
-                        else 
+                        else
                             (isSelect ? _valSel : _val)(node, val);
                         break;
                     default:
@@ -1139,17 +1090,64 @@
             },
             $off: function (name, fn, useCaptrue) {
                 _off.apply(this.$node, arguments);
+            },
+            $is: function (selector) {
+                return _isQuery(this.$node, selector);
+            },
+            $parent: function (selector) {
+                var node = _parentQuery(this.$node, selector);
+                return node ? _getVNode(node) : null;
             }
-        }, bd);
-
-        vAttr.$withData(cp.$withData());
-
+        }).$extend(p);
         var _eventList = [];
-        vAttr.bgOnDispose(function () {
+
+        dom.bgOnDispose(function () {
             bingo.each(_eventList, function (item) {
                 _off.apply(this.$node, item);
             }.bind(this));
         });
+        return dom;
+    }, _vNodeName = '_bgvn_', _setVNode = function (vn, node) {
+        node[_vNodeName] = vn;
+    }, _getVNode = function (node) {
+        return node[_vNodeName];
+    }, _newVirtualNode = function (cp, node, bd) {
+        //如果是新view, 读取$ownerView
+        var view = cp.$ownerView || cp.$view;
+        var vNode = _newDom({
+            $view: view,
+            $app: view.$app,
+            $cp: cp,
+            $node: node,
+            $attrs: _newBase({}),
+            _addAttr: function (name, contents) {
+                return this.$attrs[name] = _newVirtualAttr(this, name, contents, bd);
+            }
+        });
+        _setVNode(vNode, node);
+        _virtualAttrs(vNode, node);
+        cp.$virtualNodes.push(vNode);
+        vNode.bgOnDispose(function () {
+            node[_vNodeName] = null;
+            var attrs = this.$attrs;
+            bingo.eachProp(attrs, function (item) {
+                item.bgDispose();
+            });
+        });
+        return vNode;
+    }, _newVirtualAttr = function (vNode, name, contents, bd) {
+        var cp = vNode.$cp;
+        var vAttr = _newBindContext(_newDom({
+            $cp: cp,
+            $vNode: vNode,
+            $node: vNode.$node,
+            $app: vNode.$app,
+            $view: vNode.$view,
+            $name: name,
+            $contents: contents
+        }), bd);
+
+        vAttr.$withData(cp.$withData());
 
         var def = vAttr.$app.attr(name);
         //def && def(vAttr);
@@ -1326,7 +1324,7 @@
                     break;
             }
         }
-        if (lv <= 0) {
+        if (lv <= 0 && index > -1 && index < contents.length) {
             elseList.push(contents.substr(index));
         }
 
@@ -1344,15 +1342,24 @@
         return _Promise.always(promises).then(function () {
             if (_renderPromise.length > 0) return _renderThread();
         });
-    }, _newBuild = function () {
-        var _stepObj = {}, _doneStep = function (stepList) {
-            var promises = [];
-            bingo.each(stepList, function (fn) {
-                _promisePushList(promises, fn());
-            });
-            return _retPromiseAll(promises);
-        }, end = false;
-        return {
+    }, _newBuild = function (isAFrame) {
+        var _stepObj = {}, _doneStep = function (stepList, name) {
+            
+            var isFr = isAFrame !== false && (name.indexOf('Ready') > 0 || name.indexOf('Init') > 0),
+                fn = function () {
+                    var promises = [];
+                    bingo.each(stepList, function (fn) {
+                        _promisePushList(promises, fn());
+                    });
+                    return _retPromiseAll(promises, true).then(bd.doneStep(name));
+                };
+
+            if (isFr)
+                return bingo.aFramePromise().then(fn);
+            else
+                return fn();
+        }, end = false,bd;
+        return bd = {
             pushStep: function (name, fn) {
                 if (_stepObj[name])
                     _stepObj[name].push(fn);
@@ -1365,7 +1372,7 @@
                 var stepList = _stepObj[name],
                   has = stepList && stepList.length > 0;
                 has && (_stepObj[name] = []);
-                return function () { return has ? _doneStep(stepList) : null };
+                return function () { return has ? _doneStep(stepList, name) : null };
             },
             end: function () {
                 end = true;
@@ -1547,22 +1554,22 @@
 
     //_compile({view:view, tmpl:tmpl, context:node, opName:'appendTo', parent:cp});
     //_compile({cp:cp, context:node, opName:'insertBefore'});
-    var _compile = function (p) {
+    var _compile = function (p, ctrl) {
         var view = p.view;
-        var bd = _newBuild();
+        var bd = _newBuild(!p.cp || p.cp.$isAFrame);
+        bd.ctrl = ctrl;
         var cp = p.cp || _newCP({
             $app: view.$app || bingo.defualtApp,
             $parent: p.parent || view.$ownerCP,
             $view: view, $contents: p.tmpl
         }, false, bd).$tmpl(p.tmpl);
 
+
         //render-->cpctrl-->viewctrl-->cpevent-->dom编译-->cpinit-->viewinit--cpready-->viewready
         return cp._render(bd).then(function () {
             return _Promise.resolve().then(bd.doneStep('CPCtrl')).then(bd.doneStep('ViewCtrl')).then(bd.doneStep('CPEvent')).then(function () {
-
                 var node = p.context, opName = p.opName;
                 _traverseCP(node, cp, opName, bd);
-
             }).then(bd.doneStep('CPInit')).then(bd.doneStep('ViewInit'))
             .then(bd.doneStep('CPReady')).then(bd.doneStep('ViewReady'));
 
@@ -1579,19 +1586,19 @@
 
 
     //查找dom 节点 <div>
-    var _domNodeReg = /\<.*?\[\[.*?\]\][^>]*\>/gi,
+    var _domNodeReg = /\<(?:.|\n|\r)*?\[\[(?:.|\n|\r)*?\]\][^>]*\>/gi,
         //解释可绑定的节点属性: attr="fasdf[[user.name]]"
-        _domAttrReg = /\s*(\S+)\s*=\s*((\")(?:\\\"|[^"])*?\[\[.+?\]\](?:\\\"|[^"])*\"|(\')(?:\\\'|[^'])*?\[\[.+?\]\](?:\\\'|[^'])*\')/gi,
+        _domAttrReg = /\s*(\S+)\s*=\s*((\")(?:\\\"|[^"])*?\[\[(?:.|\n|\r)+?\]\](?:\\\"|[^"])*\"|(\')(?:\\\'|[^'])*?\[\[(?:.|\n|\r)+?\]\](?:\\\'|[^'])*\')/gi,
         //用于解释节点属性时， 将内容压成bg-virtual
         //如:<div value="[user.name]" style="[[user.style]]"></div>
         //解释成<div  bg-virtual="{value:'user.name', style:'user.style'}"></div>
         _domNodeRPReg = /\s*(\/?\>)$/,
         //如果绑定纯变量时去除"', 如valu="[[user.name]]", 解释后value=[[user.name]]
-        _domAttrPotReg = /^\s*['"](.*?)['"]\s*$/,
+        _domAttrPotReg = /^\s*['"]((?:.|\n|\r)*?)['"]\s*$/,
         //如果绑定纯变量时去除[], 如valu=[[user.name]], 解释后value=user.name
-        _domAttrOnlyReg = /^\s*\[\[(.*?)\]\]\s*$/,
+        _domAttrOnlyReg = /^\s*\[\[((?:.|\n|\r)*?)\]\]\s*$/,
         //转义多个绑定时， 如果style="[[ok]]asdf[[false]]sdf", 解释后 style="''+ ok + 'asdf' + false + 'sdf"
-        _domAttrMultReg = /\[\[(.*?)\]\]/g,
+        _domAttrMultReg = /\[\[((?:.|\n|\r)*?)\]\]/g,
         _domAttrVirName = 'bg-virtual',
         _domAttrVirSt = [' ', _domAttrVirName, '="'].join(''),
         _domAttrVirEn = '" $1',
@@ -1604,7 +1611,7 @@
             var domAttrs = {}, has = false, isV = false;
             var findR = find.replace(_domAttrReg, function (findAttr, name, contents, dot, dot1) {
 
-                if (isV || name == 'bg-virtual') { has = false; isV = true; return; }
+                if (isV || name == _domAttrVirName) { has = false; isV = true; return; }
                 dot = dot || dot1;
                 contents = contents.replace(_domAttrPotReg, '$1')
                     .replace(_domAttrOnlyReg, '$1')
@@ -1646,7 +1653,9 @@
     },
     _virtualAttrs = function (vNode, node) {
         var attr = node.getAttribute(_domAttrVirName),
-            context = JSON.parse(attr);
+            context = JSON.parse(bingo.attrDecode(attr));
+
+        node.removeAttribute(_domAttrVirName);
 
         var list = [];
         bingo.eachProp(context, function (item, n) {
@@ -1761,6 +1770,18 @@
             });
         };
 
+    var _matches = _docEle.matchesSelector ||
+			_docEle.mozMatchesSelector ||
+			_docEle.webkitMatchesSelector ||
+			_docEle.oMatchesSelector ||
+			_docEle.msMatchesSelector,
+        _isQuery = function (node, selector) {
+            return _matches.call(node, selector);
+        }, _parentQuery = function (node, selector) {
+            node = node.parentNode;
+            return (!node || node == _docEle || node == _doc) ? null : (!selector || _isQuery(node, selector) ? node : _parentQuery(node, selector));
+        };
+
 
     bingo.app.extend({
         _view: [],
@@ -1802,10 +1823,12 @@
     });
     _rootView.$ownerCP = _rootCP;
 
-    bingo.compile = function (node) {
+    bingo.compile = function (node, ctrl) {
         var cp = _getNodeCP(node) || _rootCP,
             app = cp.$app,
-            view = cp.$view;
+            view = cp.$view,
+            isScript = node.tagName.toLowerCase() == 'script';
+        
         return app.usingAll().then(function () {
             var r = app.tmpl(node).then(function (tmpl) {
                 node.innerHTML = '';
@@ -1814,8 +1837,9 @@
                     view: view,
                     parent: view.$ownerCP || cp,
                     context: node,
-                    opName: 'appendTo'
-                }).then(function (cpT) {
+                    opName: isScript ? 'insertBefore' : 'appendTo'
+                }, ctrl).then(function (cpT) {
+                    isScript && _removeNode(node);
                     cpT.$parent.$children.push(cpT);
                     return cpT;
                 });

@@ -5,7 +5,7 @@
     <meta http-equiv="pragma" content="no-cache" />
     <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
     <meta http-equiv="expires" content="Wed, 26 Feb 1997 08:21:57 GMT" />
-    <title>test</title>
+    <title>base</title>
     <link href="style.css" rel="stylesheet" />
 </head>
 <body>
@@ -22,6 +22,9 @@
                         <option value="">请诜择</option>
                         <option value="1">1111</option>
                         <option value="2">2222</option>
+                        {{for item in [3, 4] }}
+                        <option value="[[item]]">{{text item /}}</option>
+                        {{/for}}
                     </select>
                 </div>
                 <div>selectM：
@@ -33,8 +36,10 @@
                 </div>
                 <div>checkbox：<input type="checkbox" checked="[[model.checkbox]]" /></div>
                 <div>radio：
-                    <input type="radio" name="radio1" value="1" model="[[model.radio]]" />1111
-                    <input type="radio" name="radio1" value="2" model="[[model.radio]]" />2222
+                    <label><input type="radio" name="radio1" value="1" model="[[model.radio]]" />1111</label>
+                {{for item in [2,3]}}
+                   <label><input type="radio" name="radio1" value="[[item]]" model="[[model.radio]]" />{{text item /}}xxxx</label>
+                {{/for}}
                 </div>
                 <div>textarea：<textarea model="[[model.textarea]]"
                                    style="width:550px;"></textarea></div>
@@ -102,7 +107,7 @@
             <div class="content">
                 {{for item in list1}}
                 <div>
-                    {{text item.id /}}:{{html item.text /}}
+                    　{{text item.id /}}:{{html item.text /}}
                     <button onclick="[[rmList($index)]]">删除</button>
                     <button onclick="[[setList($index)]]">重设行</button>
                     <button onclick="[[setListText($index)]]">重设text</button>
@@ -111,6 +116,22 @@
                 <div>
                     <button onclick="[[addList]]">添加行</button>
                 </div>
+            </div>
+            <div class="splice">for tmpl id==============================</div>
+            <div class="content">
+                <!--定义tmpl111-->
+                {{tmpl id="tmpl111"}}
+                <div>
+                    {{text item.id /}}:{{html item.text /}} | id
+                </div>
+                {{/tmpl}}
+                <!--for 使用tmpl111-->
+                {{for item in list1 tmpl=#tmpl111 /}}
+            </div>
+            <div class="splice">for tmpl url==============================</div>
+            <div class="content">
+                <!--for 使用tmpls/forTmpl.html-->
+                {{for item in list1 tmpl=forTmpl /}}
             </div>
             <div class="splice">link==============================</div>
             <div class="content">
@@ -122,7 +143,7 @@
             </div>
        </script>
     </div>
-    <script src="../scripts/bingo2/bingo.min.js"></script>
+    <script src="../scripts/bingo2/bingo.js"></script>
     <script src="route.js"></script>
     <script type="text/javascript">
         demoApp.controller('view_test1', function ($view) {
@@ -132,7 +153,7 @@
                 select: '1',
                 selectM: '2',
                 checkbox: true,
-                radio: '1',
+                radio: '2',
                 textarea: '<span>hello text</span>'
             };
             $view.modelReport = function () {
