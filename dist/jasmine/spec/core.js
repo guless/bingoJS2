@@ -5,7 +5,7 @@ describe('core --- bingoJS ' + bingo.version , function () {
     var undefined;
     function fnTTTT() { };
 
-    var app = bingo.defualtApp;
+    var app = bingo.app('test');
 
     it('try catch', function () {
         //测试有些版本 try没有catch不执行finally问题
@@ -1105,8 +1105,7 @@ describe('core --- bingoJS ' + bingo.version , function () {
             });
 
         }); //end using
-
-
+        
     }); // end describe using
 
     //describe('linkNode', function () {
@@ -1373,6 +1372,8 @@ describe('core --- bingoJS ' + bingo.version , function () {
             //app.routeLink, 生成route url
             expect(app.routeLink('my', { module: 'sys', action: 'user', id: '1' })).toEqual(routeUrl);
 
+            expect(app.routeLink('my', { module: 'sys', action: 'user', id: '1' }, 'tmpl')).toEqual('tmpl::'+routeUrl);
+
             //以下测试using一个route url
             window.testusingRoute = 0;
             var isOk = false;
@@ -1406,18 +1407,30 @@ describe('core --- bingoJS ' + bingo.version , function () {
             app.route('test_all', {
                 //路由url, 如: view/system/user/list
                 priority: 90,
-                url: 'view/{app}/{controller*}_{md5}',
+                url: 'view/{controller*}_{md5}',
                 //路由到目标url, 生成:modules/system/views/user/list.html
-                toUrl: 'modules/{app}/{controller*}_{md5}.html'
+                toUrl: 'modules/{controller*}_{md5}.html'
             });
 
-            var tContext = app.routeContext('view/command/renderSync/ddddd/test_aasdf$id:11111');
-            expect(tContext.params.app).toEqual('command');
+            var tContext = app.routeContext('view/renderSync/ddddd/test_aasdf$id:11111');
+            expect(tContext.params.app).toEqual('test');
             expect(tContext.params.controller).toEqual('renderSync/ddddd/test');
             expect(tContext.params.md5).toEqual('aasdf');
             expect(tContext.params.id).toEqual('11111');
             expect(tContext.params.queryParams.id).toEqual('11111');
             expect(tContext.params.queryParams.md5).toEqual(undefined);
+
+            var rqUrl = 'user/list';
+            expect(app.routeQuerystring(rqUrl, null, 'test')).toEqual('test::' + rqUrl);
+
+            rqUrl = app.routeQuerystring(rqUrl, { a: 1 });
+            expect(rqUrl).toEqual('user/list$a:1');
+
+            rqUrl = app.routeQuerystring(rqUrl, { a: 'aa' });
+            expect(rqUrl).toEqual('user/list$a:aa');
+
+            rqUrl = 'test::user/list';
+            expect(app.routeQuerystring(rqUrl, null, 'tmpl')).toEqual('tmpl::user/list');
 
         });
 
