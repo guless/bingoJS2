@@ -135,9 +135,18 @@
         var withListName = '_bg_for_datas_' + bingo.makeAutoId();
 
         if (_forItemReg.test(contents)) {
-            var itemName = RegExp.$1, dataName = RegExp.$2 || RegExp.$4;
+            var itemName = RegExp.$1, dataName = RegExp.$2 || RegExp.$4, tmpl = bingo.trim(RegExp.$3);
             if (itemName && dataName) {
                 cp.$attrs.$contents = dataName;
+                var render = function (html, datas) {
+                    if (tmpl)
+                        return cp.$loadTmpl(tmpl).then(function (html) { return renHtml(html, datas); });
+                    else
+                        return renHtml(html, datas);
+                }, renHtml = function (html, datas) {
+                    html = _makeForTmpl(html, datas, itemName, cp.$withData(), withListName);
+                    return cp.$html(html);
+                };
                 cp.$layout(function () {
                     return cp.$attrs.$result();
                 }, function (c) {
@@ -146,8 +155,7 @@
                         datas = isL ? t : bingo.sliceArray(t);
                     (!isL) && datas.length == 0 && (datas = t ? [t] : []);
 
-                    var html = _makeForTmpl(cp.$contents, datas, itemName, cp.$withData(), withListName);
-                    return cp.$html(html);
+                    return render(cp.$contents, datas);
 
                 });
             }

@@ -117,6 +117,22 @@
                     <button onclick="[[addList]]">添加行</button>
                 </div>
             </div>
+            <div class="splice">for tmpl id==============================</div>
+            <div class="content">
+                <!--定义tmpl111-->
+                {{tmpl id="tmpl111"}}
+                <div>
+                    {{text item.id /}}:{{html item.text /}} | id
+                </div>
+                {{/tmpl}}
+                <!--for 使用tmpl111-->
+                {{for item in list1 tmpl=#tmpl111 /}}
+            </div>
+            <div class="splice">for tmpl url==============================</div>
+            <div class="content">
+                <!--for 使用tmpls/forTmpl.html-->
+                {{for item in list1 tmpl=forTmpl /}}
+            </div>
             <div class="splice">link==============================</div>
             <div class="content">
                 {{link link="{ desc: '@model.textarea' }" /}}
