@@ -163,26 +163,6 @@
 
             } else
                 return _loadConfig[type](url, p);
-        }, _loadConfig = {
-            ajax: _ajax,
-            using: _loadJS,
-            tmpl: function (url, p) {
-                var key = url;
-                var cache = bingo.cache(_tmplCacheObj, key);
-                if (bingo.isString(cache)) {
-                    return _Promise.resolve(cache);
-                } else {
-                    var tFn = function (html) {
-                        if (bingo.isString(html))
-                            bingo.cache(_tmplCacheObj, key, html, 200);
-                        return html;
-                    };
-
-                    return _ajax(url, bingo.extend({
-                        dataType: 'text'
-                    }, p)).then(tFn);
-                }
-            }
         };
     var _tmplCacheObj = {};
 
@@ -368,6 +348,26 @@
             }, options.timeout);
 
             return D.promise;
+        }, _loadConfig = {
+            ajax: _ajax,
+            using: _loadJS,
+            tmpl: function (url, p) {
+                var key = url;
+                var cache = bingo.cache(_tmplCacheObj, key);
+                if (bingo.isString(cache)) {
+                    return _Promise.resolve(cache);
+                } else {
+                    var tFn = function (html) {
+                        if (bingo.isString(html))
+                            bingo.cache(_tmplCacheObj, key, html, 200);
+                        return html;
+                    };
+
+                    return _ajax(url, bingo.extend({
+                        dataType: 'text'
+                    }, p)).then(tFn);
+                }
+            }
         };
 
     var _tagTestReg = /^\s*<(\w+|!)[^>]*>/;
