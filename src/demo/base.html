@@ -17,6 +17,7 @@
             <div class="splice">model==============================</div>
             <div class="content">
                 <div>input：<input  type="text" model="[[model.input]]" /></div>
+                <div>input1：<input  type="text" model="[[model.input1]]" /></div>
                 <div>select：
                     <select model="[[model.select]]">
                         <option value="">请诜择</option>
@@ -185,6 +186,12 @@
             $view.setListText = function (index) {
                 $view.list1[index].text = 'text_' + bingo.makeAutoId();
             }
+
+            $view.$ready(function () {
+                setTimeout(function () {
+                    $view.model.input1 = 'ddddd';
+                }, 1000);
+            });
 
             window.view1 = $view;
             console.log('view_test1');

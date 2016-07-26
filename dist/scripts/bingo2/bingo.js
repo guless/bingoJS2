@@ -1160,13 +1160,17 @@
             if (test && !_existProp(last, item)) { has = false; return false; }
             if (index <= end) {
                 if (!last[item]) {
-                    last = last[item] = (nreg.test(l[index + 1]) ? {} : []);
+                    last[item] = (nreg.test(l[index + 1]) ? {} : []);
+                    last.bgToObserve(item, true);
+                    last = last[item];
                 } else
                     last = last[item];
             } else {
                 name = item;
-                if (!(name in last))
+                if (!(name in last)) {
                     last[name] = null;
+                    last.bgToObserve(name, true);
+                }
             }
         });
         return [last, name, end == -1 ? _existProp(last, name) : has];
