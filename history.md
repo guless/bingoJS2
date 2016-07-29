@@ -1,11 +1,25 @@
-#### TODO
-- 重构编译方式， 采用{{component params}}+attr
-- component option自动绑定 {{select name="select1" option="{id:'=winpzs'}"}}, =为读写， -只读， @只写
-- bingo.route添加type, 解释时相应改bingo.route('type:routePath')  
+#### 2.0.0.160729
 
-#### 兼容
-- window.onhashchange IE8 Opera 10.6	Safari 5  
-- IE9 selete内容放注释标签， 但script标签
+1. 增强bingo.compile 
 
-#### 2.0.0
-开始
+```javascript
+  bingo.compile({ tmpl:'{{include src="inc1" /}}', node:document.body, ctrl:null}).then(....)
+```
+
+2. app.tmpl 与 cp.$loadTmpl 支持子模板
+
+```javascript
+  app.tmpl('user/tmpls', { tmplid:'userinof'}).then(....)
+  cp.$loadTmpl('user/tmpls', { tmplid:'userinof'}).then(....)
+```
+
+3. route promise 添加参数 context
+
+```javascript
+  app.route({
+	promise:function(url, p , context){
+	  //context 为route解释后的内容
+	  return bingo.Promise(....);
+	}
+  });
+```

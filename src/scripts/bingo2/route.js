@@ -380,7 +380,7 @@
         saveTmpl: function (id, tmpl) {
             this._tmpl[id] = tmpl;
         },
-        tmpl: function (p, bRoute, aP) {
+        tmpl: function (p, aP, bRoute) {
             /// <summary>
             /// bingo.tmpl('tmpl/aaaa/user').then(...;<br />
             /// bingo.tmpl('#userTmplId').then(...;<br />
@@ -392,6 +392,19 @@
                     if (!p || _tagTestReg.test(p)) {
                         return _Promise.resolve(p);
                     } else {
+                        var tmplid = aP && aP.tmplid;
+                        if (tmplid) {
+                            var app = this;
+                            return _Promise.resolve().then(function () {
+                                if (tmplid in app._tmpl)
+                                    return app._tmpl[tmplid];
+                                else
+                                    return bingo.compile({ tmpl: '{{view app="' + app.name + '" /}}{{include src="' + p + '" /}}', node: doc.body }).then(function (cp) {
+                                        cp.$remove();
+                                        return app.tmpl('#' + tmplid);
+                                    });
+                            });
+                        }
                         return _loadRouteType(this, 'tmpl', p, bRoute, aP);
                     }
                 } else {
@@ -564,12 +577,12 @@
     }, _makeRouteContext = function (routeContext, name, url, toUrl, params) {
         //生成 routeContext
         var promise = routeContext.promise,
-            pFn = promise ? function (p) { return promise(this.toUrl, p); } : _rPromise;
+            pFn = promise ? function (p) { return promise(this.toUrl, p, this); } : _rPromise;
 
         return { name: name, params: params, url: url, toUrl: toUrl, promise:pFn, context: _getRouteContext };
     },
     _rPromise = function (p) { return _ajax(this.toUrl, p); },
-    _passParam = ',controller,service,app,queryParams,',
+    _passParam = ',controller,service,app,queryParams,command',
     _paramToUrl = function (url, params, paramType) {
         //_urlToParams反操作, paramType:为0转到普通url参数(?a=1&b=2), 为1转到route参数($a:1$b:2)， 默认为0
         _tranAttrRex.lastIndex = 0;
@@ -728,17 +741,12 @@
 
         };
         app._route = route;
-        app.route('**', {
-            priority: 9999999,
-            url: '**',
-            toUrl: function (url, param) {
-                return url;
-            }
-        });
+        app.route('**', _defaultRoute);
         return route;
     };
 
     var _defaultRoute = {
+        priority: 9999999,
         url: '**',
         toUrl: function (url, param) { return url; }
     },

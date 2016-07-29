@@ -29,7 +29,7 @@
         toUrl: '{routes*}',
         promise: function (url, p) {
             var id = '#tpl_' + url;
-            return app.tmpl(id, false, p);
+            return app.tmpl(id, p, false);
         },
         defaultValue: { routes: '' }
     });
@@ -41,7 +41,7 @@
         toUrl: '{tmpl*}',
         promise: function (url, p) {
             var id = '#tpl_' + url;
-            return app.tmpl(id, false, p);
+            return app.tmpl(id, p, false);
         },
         defaultValue: { tmpl: '' }
     });

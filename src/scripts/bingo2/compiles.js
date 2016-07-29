@@ -868,7 +868,7 @@
                     cObj[id] = tmpl;
                 }
             },
-            $loadTmpl: function (p) {
+            $loadTmpl: function (p, aP, bRoute) {
 
                 if (bingo.isString(p) && p.indexOf('#') == 0) {
                     var id = p.substr(1);
@@ -876,7 +876,7 @@
                     var tmpl = cp.__tmpl && cp.__tmpl[id];
                     return bingo.isString(tmpl) ? _Promise.resolve(tmpl) : this.$app.tmpl(p);
                 } else
-                    return this.$app.tmpl(p);
+                    return this.$app.tmpl(p, aP, bRoute);
 
             },
             _render: function (bd) {
@@ -1824,14 +1824,20 @@
     _rootView.$ownerCP = _rootCP;
 
     bingo.compile = function (node, ctrl) {
+        var isP = bingo.isPlainObject(node), tmplP;
+        if (isP) {
+            ctrl = node.ctrl;
+            tmplP = node.tmpl;
+            node = node.node;
+        }
         var cp = _getNodeCP(node) || _rootCP,
             app = cp.$app,
             view = cp.$view,
             isScript = node.tagName.toLowerCase() == 'script';
         
         return app.usingAll().then(function () {
-            var r = app.tmpl(node).then(function (tmpl) {
-                node.innerHTML = '';
+            var r = (tmplP ? _Promise.resolve(tmplP) : app.tmpl(node)).then(function (tmpl) {
+                tmplP || (node.innerHTML = '');
                 return _compile({
                     tmpl: tmpl,
                     view: view,

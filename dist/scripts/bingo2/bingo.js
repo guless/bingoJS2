@@ -19,7 +19,7 @@
 
     var bingo = window.bingo = {
         //主版本号.子版本号.修正版本号.编译版本号(日期)
-        version: { major: 2, minor: 0, rev: 0, build: '0', toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
+        version: { major: 2, minor: 0, rev: 0, build: '160729', toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
         bgNoObserve: true,//防止observe
         isDebug: false,
         prdtVersion: '',
@@ -1720,7 +1720,7 @@
         saveTmpl: function (id, tmpl) {
             this._tmpl[id] = tmpl;
         },
-        tmpl: function (p, bRoute, aP) {
+        tmpl: function (p, aP, bRoute) {
             /// <summary>
             /// bingo.tmpl('tmpl/aaaa/user').then(...;<br />
             /// bingo.tmpl('#userTmplId').then(...;<br />
@@ -1732,6 +1732,19 @@
                     if (!p || _tagTestReg.test(p)) {
                         return _Promise.resolve(p);
                     } else {
+                        var tmplid = aP && aP.tmplid;
+                        if (tmplid) {
+                            var app = this;
+                            return _Promise.resolve().then(function () {
+                                if (tmplid in app._tmpl)
+                                    return app._tmpl[tmplid];
+                                else
+                                    return bingo.compile({ tmpl: '{{view app="' + app.name + '" /}}{{include src="' + p + '" /}}', node: doc.body }).then(function (cp) {
+                                        cp.$remove();
+                                        return app.tmpl('#' + tmplid);
+                                    });
+                            });
+                        }
                         return _loadRouteType(this, 'tmpl', p, bRoute, aP);
                     }
                 } else {
@@ -1904,12 +1917,12 @@
     }, _makeRouteContext = function (routeContext, name, url, toUrl, params) {
         //生成 routeContext
         var promise = routeContext.promise,
-            pFn = promise ? function (p) { return promise(this.toUrl, p); } : _rPromise;
+            pFn = promise ? function (p) { return promise(this.toUrl, p, this); } : _rPromise;
 
         return { name: name, params: params, url: url, toUrl: toUrl, promise:pFn, context: _getRouteContext };
     },
     _rPromise = function (p) { return _ajax(this.toUrl, p); },
-    _passParam = ',controller,service,app,queryParams,',
+    _passParam = ',controller,service,app,queryParams,command',
     _paramToUrl = function (url, params, paramType) {
         //_urlToParams反操作, paramType:为0转到普通url参数(?a=1&b=2), 为1转到route参数($a:1$b:2)， 默认为0
         _tranAttrRex.lastIndex = 0;
@@ -2068,17 +2081,12 @@
 
         };
         app._route = route;
-        app.route('**', {
-            priority: 9999999,
-            url: '**',
-            toUrl: function (url, param) {
-                return url;
-            }
-        });
+        app.route('**', _defaultRoute);
         return route;
     };
 
     var _defaultRoute = {
+        priority: 9999999,
         url: '**',
         toUrl: function (url, param) { return url; }
     },
@@ -2963,7 +2971,7 @@
                     cObj[id] = tmpl;
                 }
             },
-            $loadTmpl: function (p) {
+            $loadTmpl: function (p, aP, bRoute) {
 
                 if (bingo.isString(p) && p.indexOf('#') == 0) {
                     var id = p.substr(1);
@@ -2971,7 +2979,7 @@
                     var tmpl = cp.__tmpl && cp.__tmpl[id];
                     return bingo.isString(tmpl) ? _Promise.resolve(tmpl) : this.$app.tmpl(p);
                 } else
-                    return this.$app.tmpl(p);
+                    return this.$app.tmpl(p, aP, bRoute);
 
             },
             _render: function (bd) {
@@ -3919,14 +3927,20 @@
     _rootView.$ownerCP = _rootCP;
 
     bingo.compile = function (node, ctrl) {
+        var isP = bingo.isPlainObject(node), tmplP;
+        if (isP) {
+            ctrl = node.ctrl;
+            tmplP = node.tmpl;
+            node = node.node;
+        }
         var cp = _getNodeCP(node) || _rootCP,
             app = cp.$app,
             view = cp.$view,
             isScript = node.tagName.toLowerCase() == 'script';
         
         return app.usingAll().then(function () {
-            var r = app.tmpl(node).then(function (tmpl) {
-                node.innerHTML = '';
+            var r = (tmplP ? _Promise.resolve(tmplP) : app.tmpl(node)).then(function (tmpl) {
+                tmplP || (node.innerHTML = '');
                 return _compile({
                     tmpl: tmpl,
                     view: view,
