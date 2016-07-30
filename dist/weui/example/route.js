@@ -23,15 +23,15 @@
     });
 
     //设置route资源路由
-    app.route('route', {
-        type: 'route',
-        url: '{routes*}',
-        toUrl: '{routes*}',
+    app.route('view', {
+        type: 'view',
+        url: '{view*}',
+        toUrl: '{view*}',
         promise: function (url, p) {
             var id = '#tpl_' + url;
             return app.tmpl(id, p, false);
         },
-        defaultValue: { routes: '' }
+        defaultValue: { view: '' }
     });
 
     //设置tmpl资源路由

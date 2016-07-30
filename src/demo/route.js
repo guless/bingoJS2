@@ -18,11 +18,11 @@
     });
 
     //设置route资源路由
-    demoApp.route('route', {
-        type: 'route',
-        url: '{routes*}',
-        toUrl: 'routes/{routes*}.html',
-        defaultValue: { routes: '' }
+    demoApp.route('view', {
+        type: 'view',
+        url: '{view*}',
+        toUrl: 'routes/{view*}.html',
+        defaultValue: { view: '' }
     });
 
     //设置tmpl资源路由

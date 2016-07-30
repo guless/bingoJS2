@@ -255,7 +255,8 @@
     defualtApp.command('route', function (cp) {
 
         var src = cp.$attrs.$getAttr('src'),
-            app = cp.$app;
+            app = cp.$app,
+            rId = 0;
 
         src && cp.$init(function () {
             location.href(src);
@@ -266,8 +267,11 @@
             url: src,
             name: cp.$name,
             href: function (src) {
+                var id = (++rId);//加载最后一个src
                 this.url = src;
-                return cp.$loadTmpl('route::' + src).then(function (html) { return cp.$html(html); });
+                return cp.$loadTmpl('view::' + src).then(function (html) {
+                    return (id == rId) ? cp.$html(html) : '';
+                });
             },
             //路由query部分参数
             queryParams: function () {
@@ -286,8 +290,8 @@
                 return this.url;
             },
             close: function () {
-                cp.$remove();
                 this.bgDispose();
+                cp.$remove();
             }
         };
 

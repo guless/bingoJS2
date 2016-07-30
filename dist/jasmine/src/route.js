@@ -25,14 +25,14 @@
     });
 
     //设置tmpl资源路由
-    app.route('route', {
+    app.route('view', {
         //路由url, 如: view/system/user/list
-        type: 'route',
-        url: '{routes*}',
+        type: 'view',
+        url: '{view*}',
         //路由到目标url, 生成:modules/system/user/list.html
-        toUrl: 'routes/{routes*}.html',
+        toUrl: 'routes/{view*}.html',
         //变量默认值, 框架提供内部用的变量: app, controller, service
-        defaultValue: { controller: '' }
+        defaultValue: { view: '' }
     });
 
     //设置tmpl资源路由
