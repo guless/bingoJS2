@@ -266,11 +266,11 @@
             bgNoObserve: true,
             url: src,
             name: cp.$name,
-            href: function (src) {
+            href: function (src, ctrl) {
                 var id = (++rId);//加载最后一个src
                 this.url = src;
                 return cp.$loadTmpl('view::' + src).then(function (html) {
-                    return (id == rId) ? cp.$html(html) : '';
+                    return (id == rId) ? cp.$html(html, ctrl) : '';
                 });
             },
             //路由query部分参数
@@ -283,8 +283,8 @@
                 var routeContext = app.routeContext('route::' + url);
                 return routeContext.params;
             },
-            reload: function () {
-                return this.href(src);
+            reload: function (ctrl) {
+                return this.href(src, ctrl);
             },
             toString: function () {
                 return this.url;
