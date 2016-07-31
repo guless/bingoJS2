@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="pragma" content="no-cache" />
+    <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+    <meta http-equiv="expires" content="Wed, 26 Feb 1997 08:21:57 GMT" />
+    <title>test</title>
+    <link href="style.css" rel="stylesheet" />
+</head>
+<body>
+    <div id="bingo_test">
+        <script type="text/html" id="tmpl1">
+            {{view app="demo" /}}
+            {{block service user/lib}}
+                {{view controller="userview" name='userview' app="demo" /}}
+                <div class="splice">user/lib==============================</div>
+                <div class="content">
+                    <div>user/lib userName：{{text userName /}} </div>
+                    <div>role：{{text role /}} </div>
+                </div>
+            {{/block}}
+
+            {{block service base}}
+                {{view controller="base" name='base' app="demo" /}}
+                <div class="splice">内置服务测试==============================</div>
+                <div class="content">
+                    <div>rootviewOk：{{text rootviewOk /}} </div>
+                    <div>injectRole：{{text injectRole /}} </div>
+                    <div>tmpl：{{text tmpl /}} </div>
+                    <div>ajax：{{text ajax /}} </div>
+                    <div>observeOk：{{text observeOk /}} </div>
+                    <div>layoutOk：{{text layoutOk /}} </div>
+                    {{block child}}
+                        {{view controller="basechild" app="demo" /}}
+                        <div>cache：{{text title1 /}}</div>
+                        <div>param：{{text title2 /}}</div>
+                    {{/block}}
+                </div>
+            {{/block}}
+       </script>
+    </div>
+    <script src="../scripts/bingo2/bingo.js"></script>
+    <script src="route.js"></script>
+    <script type="text/javascript">
+        demoApp.command('block', function (cp) {
+
+            cp.$tmpl(cp.$contents);
+
+        });
+
+        demoApp.controller('userview', ['$view', 'user/lib', function ($view, userLib) {
+
+            $view.role = userLib.userRole;
+
+        }]);
+
+        demoApp.service('user/lib', function ($view) {
+
+            $view.userName = '小张';
+
+            return { userRole: '测试员' };
+
+        });
+
+        demoApp.controller('base', function ($view, $rootView, $cache, $param, $inject, $tmpl, $ajax, $observe, $layout) {
+
+            $view.rootviewOk = bingo.rootView() === $rootView;
+
+
+            $cache('key1', 'cacheOK');
+            $param('key1', 'paramOK');
+
+
+            $view.injectRole = '';
+
+            $inject('user/lib').then(function (r) {
+                $view.injectRole = r.userRole;
+            });
+
+            $view.tmpl = '';
+
+            $tmpl('tmpl1').then(function (r) { $view.tmpl = r; });
+
+            $view.ajax = '';
+
+            $ajax('tmpls/ajax.json', { type: 'GET', dataType: 'json' }).then(function (r) {
+                $view.ajax = r.text;
+            });
+
+            $view.name = '';
+            $view.observeOk = false;
+            $view.layoutOk = false;
+            $observe('name', function (c) {
+                $view.observeOk = ($view.name == c.value);
+            });
+            $layout('name', function (c) {
+                $view.layoutOk = ($view.name == c.value);
+            });
+
+            $view.name = '测试观察';
+
+        });
+
+        demoApp.controller('basechild', ['$view', '$cache', '$param', function ($view, $cache, $param) {
+
+            $view.title1 = $cache('key1');
+            $view.title2 = $param('key1');
+
+
+        }]);
+        
+        bingo.ready(function () {
+            //console.profile('boot');
+            console.time('boot');
+            bingo.compile(document.getElementById('bingo_test')).then(function () {
+                //console.profileEnd('boot');
+                console.timeEnd('boot');
+            });
+        });
+    </script>
+</body>
+</html>

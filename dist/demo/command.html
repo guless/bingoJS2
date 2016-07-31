@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>指令(command)</title>
+    <link href="style.css" rel="stylesheet" />
+</head>
+<body>
+    <div id="demo">
+        <script type="text/html">
+            {{view controller="main" name="main" app="demo" /}}
+            {{header /}}
+
+            {{splice title="command" /}}
+            {{content attr1="title + '_A'" name="content1"}}
+
+                content内容
+                <div>select：{{select link="{id:'model.id', list:'model.list'}" name="select1" /}}</div>
+
+                <div>{{print printText /}}</div>
+                <div>{{ex/html printText /}}</div>
+            {{/content}}
+
+            {{content}}
+                {{view /}}
+                {{splice title="test app" /}}
+            {{/content}}
+        </script>
+    </div>
+    <script src="../scripts/bingo2/bingo.min.js"></script>
+    <script src="route.js"></script>
+    <script type="text/javascript">
+        (function () {
+            var app = bingo.app('demo');
+
+            app.controller('main', function ($view) {
+
+                //设置header里的title
+                $view.title = '我的标题';
+
+                $view.model = {
+                    id: 2,
+                    list: [{ id: 1, text: '1111' }, { id: 2, text: '2222' }]
+                };
+
+                $view.$ready(function () {
+                    console.log('main view ready');
+
+                    $view.$observe('model.id', function (c) {
+                        console.log('model.id', c.value, $view.select1.id);
+                    });
+
+                    setTimeout(function () {
+                        $view.model.id = 1;
+                    }, 1000);
+                });
+
+                $view.$init('select1', function () {
+                    console.log('select cp init in main view');
+                });
+
+                $view.$ready('select1', function () {
+                    console.log('select cp ready in main view');
+                });
+
+                $view.printText = '打印成功！<br />';
+
+            });
+
+            app.command('header', function (cp) {
+                //没有使用{{view}}
+                cp.$tmpl('<div class="content">{{text title /}}</div>');
+                cp.$controller(function ($view) {
+                    //设置默认值
+                    $view.title = '标题'
+                });
+
+            });
+
+            app.command('splice', function (cp) {
+                cp.$tmpl(function () {
+                    return '<div class="splice">' + cp.$attrs.$getAttr('title') + '==============================</div>';
+                });
+                console.log(cp.$app.name);
+            });
+
+            app.command('content', function (cp) {
+                cp.$tmpl('<div class="content">' + cp.$contents + '</div>');
+            });
+
+            //定义指令select
+            app.command('select', function (cp) {
+
+                //使用{{view}}指令指明一个新view
+                cp.$tmpl('{{view /}}<select model="[[id]]">{{for item in list}}<option value="[[item.id]]">{{text item.text /}}</option>{{/for}}</select>');
+
+                //用controller关联
+                cp.$controller(function ($view) {
+                    //定义id
+                    $view.id = '';
+                    //定义list内容
+                    $view.list = [];
+                });
+
+                //cp init
+                cp.$init(function () {
+                    console.log('select cp init');
+                    //处理link内容
+                    var link = cp.$attrs.link && cp.$attrs.link.$result();
+                    //所父节点属性关联起来
+                    link && cp.$link(link);
+                });
+
+                //测试cp ready
+                cp.$ready(function () {
+                    console.log('select cp ready');
+                });
+            });
+
+        })();
+        
+        bingo.ready(function () {
+            console.time('boot');
+            bingo.compile(document.getElementById('demo')).then(function () {
+                //console.profileEnd('boot');
+                console.timeEnd('boot');
+            });
+        });
+    </script>
+</body>
+</html>

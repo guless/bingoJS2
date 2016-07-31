@@ -1,0 +1,106 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="pragma" content="no-cache" />
+    <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+    <meta http-equiv="expires" content="Wed, 26 Feb 1997 08:21:57 GMT" />
+    <title>test</title>
+    <link href="style.css" rel="stylesheet" />
+</head>
+<body>
+    <div id="bingo_test">
+        <script type="text/html" id="tmpl1">
+            {{view controller="mainView" name='main' app="demo" /}}
+            <div class="splice">model==============================</div>
+            <div class="content">
+                <div>main：{{html contents /}} </div>
+                {{include src="#inc1" name="childEx" /}}
+                {{tmpl id="inc1"}}
+                    {{view controller="child1" name='child1' app="demo" /}}
+                     <div>child1：{{html contents /}} </div>
+                {{/tmpl}}
+                {{if true}}
+                    {{view controller="child2" name='child2' app="demo" /}}
+                     <div>child2：{{html contents /}} </div>
+                    {{if true}}
+                        {{view controller="child3" name='child3' app="demo" /}}
+                         <div>child2：{{html contents /}} </div>
+                    {{/if}}
+                {{/if}}
+            </div>
+       </script>
+    </div>
+    <script src="../scripts/bingo2/bingo.js"></script>
+    <script src="route.js"></script>
+    <script type="text/javascript">
+        demoApp.controller('mainView', function ($view) {
+            console.log('mainView');
+            window.viewMain = $view;
+
+            $view.contents = 'test main';
+
+            $view.$init(function () {
+                console.log('mainView init');
+            });
+
+            $view.$ready(function () {
+                console.log('mainView ready');
+            });
+
+            $view.bgOnDispose(function () {
+                console.log('mainView dispose');
+            });
+
+            $view.child1 = demoApp.controller(function ($view) {
+                console.log('child1');
+
+                $view.contents = 'test child1';
+
+                $view.$init(function () {
+                    console.log('child1 init');
+                });
+
+                $view.$ready(function () {
+                    console.log('child1 ready');
+                });
+
+                $view.bgOnDispose(function () {
+                    console.log('child1 dispose');
+                });
+            });
+
+        });
+
+        demoApp.controller('child2', function ($view, service1) {
+            console.log('child2');
+
+            $view.contents = 'test child2';
+
+            $view.$init(function () {
+                console.log('child2 init');
+            });
+
+            $view.$ready(function () {
+                console.log('child2 ready');
+            });
+
+            $view.bgOnDispose(function () {
+                console.log('child2 dispose');
+            });
+
+        });
+
+        bingo.ready(function () {
+            //console.profile('boot');
+            console.time('boot');
+            bingo.compile(document.getElementById('bingo_test'), function ($view) {
+                console.log('complie view: '+ $view.$name);
+            }).then(function () {
+                //console.profileEnd('boot');
+                console.timeEnd('boot');
+            });
+        });
+    </script>
+</body>
+</html>
