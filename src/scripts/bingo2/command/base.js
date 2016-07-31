@@ -190,7 +190,7 @@
             }, _tid, _html = function (c, index) {
                 if (_tid) return;
                 _tid = true;
-                return bingo.Promise.timeout(1).then(function () { _tid = false; return cp.$html(_getContent(index, c.value)); });
+                return bingo.Promise.timeout(1).then(function () { _tid = false; return cp.$html && cp.$html(_getContent(index, c.value)); });
             };
         cp.$layout(function () {
             return cp.$attrs.$result();

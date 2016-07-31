@@ -129,7 +129,7 @@
             return _injectIn(fn, name, injectObj, thisArg);
         });
     }, _preUsing = function ($injects, injectObj) {
-            var app = injectObj.$view.$app,
+            var app = injectObj.$app,
             promises = [];
         bingo.each($injects, function (item) {
             if ((item in injectObj) || app.service(item))
@@ -138,7 +138,7 @@
         });
         return _Promise.always(promises);
     }, _getSrvByName = function (name, injectObj) {
-        var srv = injectObj.$view.$app.service(name);
+        var srv = injectObj.$app.service(name);
        return srv ? srv.fn : null;
     };
 

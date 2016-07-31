@@ -338,14 +338,27 @@
                 }.bind(this));
                 return obs;
             },
-            $layoutResult: function (fn, num, init) {
+            //$layoutResult(function(c)), this.$result
+            //$layoutResult('', function(c)), this.$attrs.$result
+            //$layoutResult('datas', function(c)), this.$attrs.datas.$result
+            $layoutResult: function () {
+                var args= arguments, len = args.length,
+                    prop = args[0],
+                    fn = args[len > 1 ? 1 : 0],
+                    ow = len > 1 ? (prop ? this.$attrs[prop] : this.$attrs) : this;
+
                 return this.$layout(function () {
-                    return this.$result();
-                }.bind(this), fn, num, init);
+                    return this.$result && this.$result();
+                }.bind(ow || {}), fn);
             },
-            $layoutValue: function (fn, num, init) {
-                this.$hasProps() || this.$value(undefined);
-                return this.$layout(function () { return this.$value(); }.bind(this), fn, num, init);
+            $layoutValue: function () {
+                var args= arguments, len = args.length,
+                    prop = args[0],
+                    fn = args[len > 1 ? 1 : 0],
+                    ow = len > 1 ? (prop ? this.$attrs[prop] : this.$attrs) : this;
+
+                ow && (ow.$hasProps() || ow.$value(undefined));
+                return this.$layout(function () { return this.$value && this.$value(); }.bind(ow || {}), fn);
             },
             $init: function (fn) {
                 _addCPEvent(this, bd, 'CPInit', fn);
@@ -417,13 +430,13 @@
                 var fn1 = function () {
                     //这里会重新检查非法绑定
                     //所以尽量先定义变量到$view, 再绑定
-                    if (this.bgIsDispose) return;
+                    if (this.bgIsDispose || (dispoer && dispoer.bgIsDispose)) return;
                     //this.$updateAsync();
                     return fn.apply(this, arguments);
                 }.bind(this);
                 fn1.orgFn = fn.orgFn;//保存原来observe fn
                 var obs = !bingo.isFunction(p) ? bingo.observe(this, p, fn1, autoInit)
-                    : bingo.observe(p, fn1, autoInit);
+                    : bingo.observe(function(){ return (this.bgIsDispose || (dispoer && dispoer.bgIsDispose)) || p.apply(this, arguments);}.bind(this), fn1, autoInit);
                 //check是否检查, 如果不检查直接添加到obsList
                 if (!check || !obs.isObs)
                     (obs.isObs ? _pri.obsList : _pri.obsListUn).push([obs, dispoer, check]);
