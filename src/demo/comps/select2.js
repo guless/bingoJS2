@@ -1,14 +1,14 @@
 ﻿
 bingo.component('select2', {
     $tmpl: '<select style="visibility:visible" bg-for="item in datas" bg-model="id"><option value="{{item[idName]}}">{{bingo.htmlEncode(item[textName])}}</option></select>',
-    $init: function () {
+    $init:  ['$compCfg',function (p) {
         //$(this.$getNode()).css('visibility', 'visible');
-        console.log('comp select2 init');
+        console.log('comp select2 init', p);
         this.$observe('id', function (c) {
             console.log(c);
             this.bgTrigger('onChange', [c]);
         });
-    },
+    }],
     idName: 'id', textName: 'text',
     id: '2',
     datas: [{ id: '2', text: 'text2' }],
@@ -16,3 +16,6 @@ bingo.component('select2', {
         return this.bgOn('onChange', fn);
     }
 });
+
+
+

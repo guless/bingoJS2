@@ -1,29 +1,41 @@
-#bingoJS2 - demo
+#bingoJS 2
 
-## °²×°/Ê¹ÓÃ:
+## æ–‡æ¡£
 
-×ñÑ­ÒÔÏÂ4¸ö¼òµ¥µÄ²½Öè, ¾ÍÄÜÊ¹ÓÃdemo
+[http://bingojs2.mydoc.io/](http://bingojs2.mydoc.io/)
 
-**²½Öè 1**: Clone ÄÚÈİ
+## demo
+
+[https://guless.github.io/bingoJS2/dist/index.html](https://guless.github.io/bingoJS2/dist/index.html)
+
+[AmazeUI + bingoJS 2.x æ¼”ç¤ºPCç«¯çš„æ­å»º](https://github.com/guless/AmazeUI-bjs) 
+
+[sandal + bingoJS 2.x æ¼”ç¤ºç§»åŠ¨ç«¯çš„æ­å»º](https://github.com/guless/sandal-bjs) 
+
+## å®‰è£…/ä½¿ç”¨:
+
+éµå¾ªä»¥ä¸‹4ä¸ªç®€å•çš„æ­¥éª¤, å°±èƒ½ä½¿ç”¨demo
+
+**æ­¥éª¤ 1**: Clone å†…å®¹
 ```bash
 $ git clone https://github.com/guless/bingoJS2.git bingoJS2
 ```
 
-**²½Öè 2**: ½øÈëbingoJS2Ä¿Â¼
+**æ­¥éª¤ 2**: è¿›å…¥bingoJS2ç›®å½•
 ```bash
 $ cd bingoJS2
 ```
 
-**²½Öè 3**: Install dependencies
+**æ­¥éª¤ 3**: Install dependencies
 ```bash
 $ npm install
 ```
 
-**²½Öè 4**: Æô¶¯demo
+**æ­¥éª¤ 4**: å¯åŠ¨demo
 ```bash
 $ npm start
 ```
-### ÆäËü:
-**srcÄ¿Â¼**£º´úÂë¿ª·¢Ä¿Â¼, Èç¹û´úÂë±ä»¯×Ô¶¯Éú³Éµ½distÄ¿Â¼
+### å…¶å®ƒ:
+**srcç›®å½•**ï¼šä»£ç å¼€å‘ç›®å½•, å¦‚æœä»£ç å˜åŒ–è‡ªåŠ¨ç”Ÿæˆåˆ°distç›®å½•
 
-**distÄ¿Â¼**£º×îÖÕÉú³ÉÄ¿Â¼
+**distç›®å½•**ï¼šæœ€ç»ˆç”Ÿæˆç›®å½•

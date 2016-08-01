@@ -1,6 +1,11 @@
 /// <reference path="lib.js" />
 
 (function (bingo, app) {
+    bingo.ready(function () {
+        bingo.compile(document.getElementById('context')).then(function (cp) {
+
+        });
+    });
 
     app.controller('main', ['$view', '$ui', function ($view, $ui) {
 
@@ -46,14 +51,14 @@
         $view.showDialog1 = false;
 
         $view.showDialog2 = function () {
-            $ui.$dialog('dialog1', {title:'aaaa'}).receive(function (s) {
+            $ui.$dialog('dialogTest', { title: 'aaaa' }).receive(function (s) {
                 $ui.showComplete(s);
             });
         };
     }]);//end dialog
 
-    app.controller('dialog1', ['$view', '$ui', function ($view, $ui) {
-        $view.params = $ui.$params();
+    app.controller('dialogTest', ['$view', '$ui', function ($view, $ui) {
+        //$view.params = $ui.$params();
 
         $view.close = function () {
             $ui.$dialog().close('关闭成功!');
@@ -65,11 +70,9 @@
         var progress = 0;
         $view.progress = 0;
         $view.$layout('progress', function (c) {
-            setTimeout(function () {
-                progress = ++progress % 100;
-                $view.progress = progress + '%';
-            }, 10);
-        });
+            progress = ++progress % 100;
+            $view.progress = progress + '%';
+        },2);
         $view.start = function () {
             if ($(this).hasClass('weui_btn_disabled')) {
                 return;
@@ -167,4 +170,4 @@
     }]);//end searchbar
 
 
-})(bingoV2, demoApp);
+})(bingoV2, bingo.app('weiui'));

@@ -7,6 +7,8 @@
 
     var Promise = function (fn) {
         return new Promise.fn._init(fn);
+    }, _isPromise = function (p) {
+        return p && !!p.then;
     };
     Promise.fn = Promise.prototype = {
         constructor: Promise,
@@ -40,11 +42,17 @@
         },
         _doNext: function (res, type) {
             if (res && bingo.isFunction(res.then)) {
+                if (res.state == _rejected && !res._thenH) {
+                    this.state = type;
+                    this._result = null;
+                    this._end();
+                    return;
+                }
                 this.state = _pending;
                 this._result = undefined;
                 res.then(function (res) {
                     this._doNext(res, _fulfilled);
-                }.bind(this), function (res) {
+                }.bind(this)).catch(function (res) {
                     this._doNext(res, _rejected);
                 }.bind(this));
                 return;
@@ -65,9 +73,10 @@
                     } catch (e) {
                         res = e;
                     }
-                    if (res instanceof Error)
+                    if (res instanceof Error) {
                         this._doNext(res, _rejected);
-                    else
+                        bingo.trace(res);
+                    } else
                         this._doNext(res, _fulfilled);
                     break;
                 case _rejected:
@@ -95,6 +104,9 @@
         reject: function (arg) {
             return Promise(function (resolve, reject) { reject(arg); });
         },
+        timeout: function (time, arg) {
+            return Promise(function (resolve) { setTimeout(function () { resolve(arg); }, time); });
+        },
         //所有resolve才返回resolve, 否则返回reject
         //all([1, 2,...], function(p){ return bingo.Promise.resolve(p);}).then
         //all([promise1, promise1,...]).then
@@ -104,15 +116,15 @@
                 var resList = [], len = list.length;
                 if (list.length > 0) {
                     bingo.each(list, function (item, index) {
-                        if (!item || !item.then) {
-                            resList[index] = item;
-                            (--len) || resolve(resList);
-                        } else {
+                        if (_isPromise(item)) {
                             var tFn = function (res) {
                                 resList[index] = res;
                                 (--len) || resolve(resList);
                             };
                             item.then(tFn, alway ? tFn : reject);
+                        } else {
+                            resList[index] = item;
+                            (--len) || resolve(resList);
                         }
                     });
                 } else
@@ -127,10 +139,10 @@
                 var list = _makeArgs(args, fn);
                 if (list.length > 0)
                     bingo.each(list, function (item, index) {
-                        if (!item || !item.then)
-                            resolve(item);
-                        else
+                        if (_isPromise(item))
                             item.then(resolve, reject);
+                        else
+                            resolve(item);
                     });
                 else
                     resolve();
@@ -153,6 +165,28 @@
     };
     Promise.when = Promise.all;
 
+    Promise.isPromise = _isPromise;
     bingo.Promise = Promise;
+
+    bingo.Deferred = function () {
+        var deferred = {};
+
+        deferred.promise = Promise(function (resolve, reject) {
+            deferred.resolve = function (p) {
+                /// <summary>
+                /// 解决
+                /// </summary>
+                resolve(p);
+            };
+            deferred.reject = function (p) {
+                /// <summary>
+                /// 拒绝
+                /// </summary>
+                reject(p);
+            };
+        })
+
+        return deferred;
+    };
 
 })(bingo);

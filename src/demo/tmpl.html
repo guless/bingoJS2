@@ -1,0 +1,69 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="pragma" content="no-cache" />
+    <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+    <meta http-equiv="expires" content="Wed, 26 Feb 1997 08:21:57 GMT" />
+    <title>tmpl</title>
+    <link href="style.css" rel="stylesheet" />
+</head>
+<body>
+    <div id="demo">
+        <script type="text/html">
+            <!--创建一个新view, controller为tmpl, app为demo-->
+            {{view controller="tmpl" name='view1' app="demo" /}}
+            <div class="splice">tmpl==============================</div>
+            <div class="content">
+                <!--输出文本text-->
+                <div>{{text text /}}</div>
+                <div>{{text new Date() /}}</div>
+                {{if isOk}}
+
+                    {{view controller="tmplChild" name="childView" app="demo" /}}
+                    <div>{{html text /}}</div>
+
+                {{/if}}
+            </div>
+            <div class="splice">attr==============================</div>
+            <div class="content">
+                <!--输出文本text-->
+                <input value="[[input]]" />
+                <div style="width:100px;height:[[height]]px;background-color:red;"></div>
+                <button onclick="[[click]]">点击</button>
+            </div>
+        </script>
+    </div>
+    <script src="../scripts/bingo2/bingo.min.js"></script>
+    <script src="route.js"></script>
+    <script type="text/javascript">
+        //demo app
+        var app = bingo.app('demo');
+
+        //定义controller tmpl
+        app.controller('tmpl', function ($view) {
+            $view.text = 'hello world';
+            $view.isOk = true;
+
+            $view.input = 'text';
+            $view.height = 100;
+
+            $view.click = function () { alert('click ok'); };
+        });
+
+        //定义controller tmplChild
+        app.controller('tmplChild', function ($view) {
+            $view.text = 'tmplChild hello world';
+        });
+
+        //ready
+        bingo.ready(function () {
+            console.time('boot');
+            //使用bingo.compile编译#demo节点
+            bingo.compile(document.getElementById('demo')).then(function () {
+                console.timeEnd('boot');
+            });
+        });
+    </script>
+</body>
+</html>

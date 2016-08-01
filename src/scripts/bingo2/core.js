@@ -19,8 +19,8 @@
 
     var bingo = window.bingo = {
         //主版本号.子版本号.修正版本号.编译版本号(日期)
-        version: { major: 2, minor: 0, rev: 0, build: 'beta', toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
-        _no_observe:true,//防止observe
+        version: { major: 2, minor: 0, rev: 0, build: '160731', toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
+        bgNoObserve: true,//防止observe
         isDebug: false,
         prdtVersion: '',
         supportWorkspace: false,
@@ -125,7 +125,8 @@
             return index;
         },
         removeArrayItem: function (ele, list) {
-            return list.filter(function (item) { return item != ele; });
+            var isF = bingo.isFunction(ele);
+            return list.filter(function (item) { return isF ? !ele.apply(this, arguments) : item != ele; });
         },
         makeAutoId: function () {
             var time = new Date().valueOf();
@@ -229,6 +230,66 @@
             return bingo.isString(eventName)
                 ? (bingo.isNullEmpty(eventName) ? null : bingo.trim(eventName).split(/\s+/g).map(function (item) { return bingo.trim(item); }))
                 : eventName;
+        },
+        isArgs: function (args, p) {
+            /// <summary>
+            /// isArgs(arguments, 'str', 'fun|bool') <br />
+            /// isArgs(arguments, '@@title', null, 1)
+            /// 注意如果arguments超出部分不判断
+            /// </summary>
+            /// <param name="args"></param>
+            /// <param name="p">obj, str, array, bool, num, null, empty, undef, fun, *, regex, window, element</param>
+            var types = bingo.sliceArray(arguments, 1), isOk = true,val;
+            bingo.each(types, function (item, index) {
+                val = args[index];
+                if (bingo.isString(item)) {
+                    if (item.indexOf('@@') == 0)
+                        isOk = (item.substr(2) === val);
+                    else {
+                        bingo.each(item.split('|'), function (sItem) {
+                            isOk = _isType(sItem, val);
+                            if (!isOk) return false;
+                        });
+                    }
+                } else
+                    isOk = _isType(item, val);
+                    
+                if (!isOk) return false;
+            });
+            return isOk;
+        }
+    };
+
+    var _isType = function (type, p) {
+        switch (type) {
+            case 'obj':
+                return bingo.isObject(p);
+            case 'str':
+                return bingo.isString(p);
+            case 'array':
+                return bingo.isArray(p);
+            case 'bool':
+                return bingo.isBoolean(p);
+            case 'num':
+                return bingo.isNumeric(p);
+            case 'null':
+                return bingo.isNull(p);
+            case 'empty':
+                return bingo.isNullEmpty(p);
+            case 'undef':
+                return bingo.isUndefined(p);
+            case 'fun':
+                return bingo.isFunction(p);
+            case 'regex':
+                return !bingo.isNull(p) && (p instanceof RegExp);
+            case 'window':
+                return bingo.isWindow(p);
+            case 'element':
+                return bingo.isElement(p);
+            case '*':
+                return true;
+            default:
+                return type === p;
         }
     };
 

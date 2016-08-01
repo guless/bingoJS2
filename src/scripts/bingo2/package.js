@@ -3,13 +3,12 @@
     "use strict";
 
     var _newApp = function (name) {
-        return {
-            name: name, _no_observe: true,
+        return bingo.extend({
+            name: name, bgNoObserve: true,
             controller: _controllerFn, _controller: {},
             service: _serviceFn, _service: {},
-            component: _componentFn, _component: {},
             command: _commandFn, _command: {}
-        };
+        }, bingo.app._bg_appEx);
     }, _getApp = function () {
         return bingo.app(this.app);
     }, _appMType = function (app, type, name, fn, isF) {
@@ -22,42 +21,21 @@
                 fn = function () { return o; };
             }
             bingo.isObject(fn) || (fn = _makeInjectAttrs(fn));
-            mType[name] = { name: name, fn: fn, app: app.name, getApp: _getApp, _no_observe: true };
+            mType[name] = { name: name, fn: fn, app: app.name, getApp: _getApp, bgNoObserve: true };
         }
     }, _controllerFn = function (name, fn) {
+        if (bingo.isFunction(name) || bingo.isArray(name)) {
+            return name;
+        };
         var args = [this, '_controller'].concat(bingo.sliceArray(arguments));
         return _appMType.apply(this, args);
     }, _serviceFn = function (name, fn) {
         var args = [this, '_service'].concat(bingo.sliceArray(arguments));
         return _appMType.apply(this, args);
-    }, _componentFn = function (name, fn) {
-        var args = [this, '_component'].concat(bingo.sliceArray(arguments));
-        return _appMType.apply(this, args);
     }, _commandFn = function (name, fn) {
         var args = [this, '_command'].concat(bingo.sliceArray(arguments));
-        var def = args[3];
-        if (def) {
-            var opt = {
-                priority: 50,
-                tmpl: '',
-                tmplUrl: '',
-                replace: false,
-                include: false,
-                view: false,
-                compileChild: true
-            };
-            def = def();
-            if (bingo.isFunction(def) || bingo.isArray(def)) {
-                opt.link = _makeInjectAttrs(def);
-            } else
-                opt = bingo.extend(opt, def);
-            args[3] = opt;
-            args[4] = false;
-        }
         return _appMType.apply(this, args);
     }
-
-    var _app = {}, _defualtApp = _newApp('defualtApp'), _lastApp = null
 
     bingo.extend({
         app: function (name, fn) {
@@ -70,30 +48,15 @@
             } finally {
                 _lastApp = null;
             }
-        },
-        controller: function (name, fn) {
-            if (bingo.isFunction(name) || bingo.isArray(name)) {
-                return name;
-            } else {
-                var app = (_lastApp || _defualtApp);
-                return app.controller.apply(app, arguments);
-            }
-        },
-        component: function (name, fn) {
-            if (bingo.isFunction(name) || bingo.isObject(name)) {
-                return name;
-            } else {
-                var app = (_lastApp || _defualtApp);
-                return app.component.apply(app, arguments);
-            }
-        },
-        command: function (name, fn) {
-            var app = (_lastApp || _defualtApp);
-            return app.command.apply(app, arguments);
-        },
-        service: function (name, fn) {
-            var app = (_lastApp || _defualtApp);
-            return app.service.apply(app, arguments);
+        }
+    });
+
+    var _app = {}, _defualtApp = bingo.defualtApp = _newApp('$$defualtApp$$'), _lastApp = null;
+    bingo.extend(bingo.app, {
+        _bg_appEx: {},
+        extend: function (p) {
+            bingo.extend(_defualtApp, p);
+            return bingo.extend(this._bg_appEx, p);
         }
     });
 
@@ -127,29 +90,31 @@
         return fn;
     };
 
-    var _injectIn = function (fn, name, injectObj, thisArg) {
+    var _Promise = bingo.Promise, _injectIn = function (fn, name, injectObj, thisArg) {
         if (!fn) throw new Error('not find inject: ' + name);
         var $injects = fn.$injects;
-        var injectParams = [];
+        var injectParams = [], promises = [];
         if ($injects && $injects.length > 0) {
             var pTemp = null;
             bingo.each($injects, function (item) {
                 if (item in injectObj) {
-                    pTemp = injectObj[item];
+                    injectParams.push(injectObj[item]);
                 } else {
                     //注意, 有循环引用问题
-                    pTemp = injectObj[item] = _inject(item, injectObj, thisArg);
+                    promises.push(_inject(item, injectObj, thisArg).then(function (ret) {
+                        injectParams.push(injectObj[item] = ret);
+                    }));
                 }
-                injectParams.push(pTemp);
             });
         }
 
-        var ret = fn.apply(thisArg|| window, injectParams);
-        if (bingo.isString(name)) {
-            injectObj[name] = ret;
-        }
-
-        return ret;
+        return _Promise.always(promises).then(function () {
+            var ret = fn.apply(thisArg || window, injectParams);
+            if (bingo.isString(name)) {
+                injectObj[name] = ret;
+            }
+            return ret;
+        });
     }, _inject = function (p, injectObj, thisArg) {
         var fn = null, name = '';
         if (bingo.isFunction(p) || bingo.isArray(p)) {
@@ -157,22 +122,36 @@
         }
         else {
             name = p;
-            var srv = injectObj.$view.$getApp().service(name);
-            fn = srv ? srv.fn : null;
+            fn = _getSrvByName(name, injectObj);
         }
-        return _injectIn(fn, name, injectObj, thisArg);
+        return _preUsing(fn ? fn.$injects : [name], injectObj).then(function () {
+            if (!fn) fn = _getSrvByName(name, injectObj);
+            return _injectIn(fn, name, injectObj, thisArg);
+        });
+    }, _preUsing = function ($injects, injectObj) {
+            var app = injectObj.$app,
+            promises = [];
+        bingo.each($injects, function (item) {
+            if ((item in injectObj) || app.service(item))
+                return;
+            promises.push(app.usingAll('service::' + item));
+        });
+        return _Promise.always(promises);
+    }, _getSrvByName = function (name, injectObj) {
+        var srv = injectObj.$app.service(name);
+       return srv ? srv.fn : null;
     };
 
-    bingo.inject = function (p, view, injectObj, thisArg) {
-        view || (view = bingo.rootView());
-        injectObj = bingo.extend({
-            $view: view,
-            node: view.$getNode()[0],
-            $viewnode: view.$getViewnode(),
-            $attr: null,
-            $withData: null
-        }, injectObj);
-        return _inject(p, injectObj, thisArg || view);
-    };
+    bingo.app.extend({
+        inject: function (p, injectObj, thisArg) {
+            var view = bingo.rootView();
+            injectObj = bingo.extend({
+                $view: view,
+                $cp: view.$ownerCP,
+                $app: this
+            }, injectObj);
+            return _inject(p, injectObj, thisArg || view);
+        }
+    });
 
 })(bingo);

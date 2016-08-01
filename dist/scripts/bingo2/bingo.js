@@ -19,8 +19,8 @@
 
     var bingo = window.bingo = {
         //主版本号.子版本号.修正版本号.编译版本号(日期)
-        version: { major: 2, minor: 0, rev: 0, build: 'beta', toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
-        _no_observe:true,//防止observe
+        version: { major: 2, minor: 0, rev: 0, build: '160731', toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
+        bgNoObserve: true,//防止observe
         isDebug: false,
         prdtVersion: '',
         supportWorkspace: false,
@@ -125,7 +125,8 @@
             return index;
         },
         removeArrayItem: function (ele, list) {
-            return list.filter(function (item) { return item != ele; });
+            var isF = bingo.isFunction(ele);
+            return list.filter(function (item) { return isF ? !ele.apply(this, arguments) : item != ele; });
         },
         makeAutoId: function () {
             var time = new Date().valueOf();
@@ -229,6 +230,66 @@
             return bingo.isString(eventName)
                 ? (bingo.isNullEmpty(eventName) ? null : bingo.trim(eventName).split(/\s+/g).map(function (item) { return bingo.trim(item); }))
                 : eventName;
+        },
+        isArgs: function (args, p) {
+            /// <summary>
+            /// isArgs(arguments, 'str', 'fun|bool') <br />
+            /// isArgs(arguments, '@@title', null, 1)
+            /// 注意如果arguments超出部分不判断
+            /// </summary>
+            /// <param name="args"></param>
+            /// <param name="p">obj, str, array, bool, num, null, empty, undef, fun, *, regex, window, element</param>
+            var types = bingo.sliceArray(arguments, 1), isOk = true,val;
+            bingo.each(types, function (item, index) {
+                val = args[index];
+                if (bingo.isString(item)) {
+                    if (item.indexOf('@@') == 0)
+                        isOk = (item.substr(2) === val);
+                    else {
+                        bingo.each(item.split('|'), function (sItem) {
+                            isOk = _isType(sItem, val);
+                            if (!isOk) return false;
+                        });
+                    }
+                } else
+                    isOk = _isType(item, val);
+                    
+                if (!isOk) return false;
+            });
+            return isOk;
+        }
+    };
+
+    var _isType = function (type, p) {
+        switch (type) {
+            case 'obj':
+                return bingo.isObject(p);
+            case 'str':
+                return bingo.isString(p);
+            case 'array':
+                return bingo.isArray(p);
+            case 'bool':
+                return bingo.isBoolean(p);
+            case 'num':
+                return bingo.isNumeric(p);
+            case 'null':
+                return bingo.isNull(p);
+            case 'empty':
+                return bingo.isNullEmpty(p);
+            case 'undef':
+                return bingo.isUndefined(p);
+            case 'fun':
+                return bingo.isFunction(p);
+            case 'regex':
+                return !bingo.isNull(p) && (p instanceof RegExp);
+            case 'window':
+                return bingo.isWindow(p);
+            case 'element':
+                return bingo.isElement(p);
+            case '*':
+                return true;
+            default:
+                return type === p;
         }
     };
 
@@ -271,6 +332,8 @@
 
     var Promise = function (fn) {
         return new Promise.fn._init(fn);
+    }, _isPromise = function (p) {
+        return p && !!p.then;
     };
     Promise.fn = Promise.prototype = {
         constructor: Promise,
@@ -304,11 +367,17 @@
         },
         _doNext: function (res, type) {
             if (res && bingo.isFunction(res.then)) {
+                if (res.state == _rejected && !res._thenH) {
+                    this.state = type;
+                    this._result = null;
+                    this._end();
+                    return;
+                }
                 this.state = _pending;
                 this._result = undefined;
                 res.then(function (res) {
                     this._doNext(res, _fulfilled);
-                }.bind(this), function (res) {
+                }.bind(this)).catch(function (res) {
                     this._doNext(res, _rejected);
                 }.bind(this));
                 return;
@@ -329,9 +398,10 @@
                     } catch (e) {
                         res = e;
                     }
-                    if (res instanceof Error)
+                    if (res instanceof Error) {
                         this._doNext(res, _rejected);
-                    else
+                        bingo.trace(res);
+                    } else
                         this._doNext(res, _fulfilled);
                     break;
                 case _rejected:
@@ -359,6 +429,9 @@
         reject: function (arg) {
             return Promise(function (resolve, reject) { reject(arg); });
         },
+        timeout: function (time, arg) {
+            return Promise(function (resolve) { setTimeout(function () { resolve(arg); }, time); });
+        },
         //所有resolve才返回resolve, 否则返回reject
         //all([1, 2,...], function(p){ return bingo.Promise.resolve(p);}).then
         //all([promise1, promise1,...]).then
@@ -368,15 +441,15 @@
                 var resList = [], len = list.length;
                 if (list.length > 0) {
                     bingo.each(list, function (item, index) {
-                        if (!item || !item.then) {
-                            resList[index] = item;
-                            (--len) || resolve(resList);
-                        } else {
+                        if (_isPromise(item)) {
                             var tFn = function (res) {
                                 resList[index] = res;
                                 (--len) || resolve(resList);
                             };
                             item.then(tFn, alway ? tFn : reject);
+                        } else {
+                            resList[index] = item;
+                            (--len) || resolve(resList);
                         }
                     });
                 } else
@@ -391,10 +464,10 @@
                 var list = _makeArgs(args, fn);
                 if (list.length > 0)
                     bingo.each(list, function (item, index) {
-                        if (!item || !item.then)
-                            resolve(item);
-                        else
+                        if (_isPromise(item))
                             item.then(resolve, reject);
+                        else
+                            resolve(item);
                     });
                 else
                     resolve();
@@ -417,7 +490,29 @@
     };
     Promise.when = Promise.all;
 
+    Promise.isPromise = _isPromise;
     bingo.Promise = Promise;
+
+    bingo.Deferred = function () {
+        var deferred = {};
+
+        deferred.promise = Promise(function (resolve, reject) {
+            deferred.resolve = function (p) {
+                /// <summary>
+                /// 解决
+                /// </summary>
+                resolve(p);
+            };
+            deferred.reject = function (p) {
+                /// <summary>
+                /// 拒绝
+                /// </summary>
+                reject(p);
+            };
+        })
+
+        return deferred;
+    };
 
 })(bingo);
 
@@ -570,8 +665,10 @@
                 bingo.eachProp(this, function (item, n) {
                     if (item && item.bgAutoDispose === true)
                         item.bgDispose();
-                    n != 'bgIsDispose' && (this[n] = null);
+                    this[n] = null;
                 }, this);
+                this.bgDispose = bingo.noop;
+                this.bgIsDispose = true;
                 this.bgDisposeStatus = 2;
             }
         },
@@ -749,7 +846,7 @@
             /// bgToObserve('prop', true)
             /// </summary>
             /// <param name="deep">是否自动深toObserve</param>
-            if (this._no_observe === true) return this;
+            if (this.bgNoObserve) return this;
             if (bingo.isBoolean(prop)) { deep = prop; prop = null; }
             _defObserve(this, prop ? [prop] : Object.keys(this), deep);
             return this;
@@ -759,7 +856,7 @@
             /// bgObServe(function(change){})<br/>
             /// bgObServe('prop', function(change){})
             /// </summary>
-            if (this._no_observe === true) return this;
+            if (this.bgNoObserve) return this;
             if (bingo.isNull(prop) || bingo.isFunction(prop)) {
                 this.bgToObserve();
                 _addObs(this, null, prop || fn);
@@ -775,7 +872,7 @@
             /// bgUnObServe(fn)<br/>
             /// bgUnObServe('prop', fn)
             /// </summary>
-            if (this._no_observe === true) return this;
+            if (this.bgNoObserve) return this;
             if (bingo.isNull(prop) || bingo.isFunction(prop)) {
                 _delObs(this, null, prop || fn);
             } else {
@@ -804,7 +901,9 @@
             /// bgBuildProps('aaaa.bbb')  ==> [this, 'aaaa', false]
             /// </summary>
             return _splitProp(this, prop, true)[2];
-        }
+        },
+        //防止observe
+        bgNoObserve:false
     });
 
     //数组观察方法， length不能观察有些浏览器会报错
@@ -868,14 +967,19 @@
 
     //observe fn时不能观观察root层
     bingo.extend({
-        observe: function (obj, prop, fn) {
-            if (bingo.isFunction(obj)) {
-                var colFn = obj;
+        observe: function (obj, prop, fn, autoInit) {
+            /// <summary>
+            /// observe(obj, 'title', function(c){}) <br />
+            /// observe(function(){return value;}, function(c){}) <br />
+            /// </summary>
+
+            if (bingo.isArgs(arguments, 'fun', 'fun')) {
+                var colFn = obj, isAutoInit = arguments[2] !== false;
                 fn = prop;
-                var obs, tid, cList = [], old, publish = function (isPub, org) {
+                var obs, tid, cList = [], old, publish = function (isPub, org, orgVal) {
                     var val;
                     try {
-                        val = colFn();
+                        val = arguments.length == 3 ? orgVal : colFn();
                         if (isPub || (bingo.isArray(old) ? !_ArrayEquals(old, val) : (bingo.isObject(old) ? !_ObjectEquals(old, val) : old != val))) {
                             //如果只是单个属性的情况, 如bingo.observe(obj, 'aaa.bbb', fn)
                             var cLTemp = cList.length == 1 ? cList[0] : null,
@@ -916,7 +1020,11 @@
                             item.object.bgObServe(item.name, ftw);
                         });
                     }
-                    if (refs !== true)
+                    if (!isAutoInit) {
+                        ret.value = old = obs.val;
+                        publish(true, true, old);
+                        isAutoInit = true;
+                    } else if (refs !== true)
                         ret.value = old = obs.val;
                     else
                         ret.check();
@@ -948,19 +1056,29 @@
                     refresh: function () {
                         _unObserve();
                         done(true);
+                    },
+                    init: function () {
+                        ret.init = bingo.noop;
+                        done();
                     }
                 };
-                done();
+                isAutoInit && ret.init();
                 return ret;
             } else if (obj) {
                 var bo = _splitProp(obj, prop, false),
-                    obj = bo[0],pname = bo[1],
+                    obj = bo[0], pname = bo[1],
                     sFn = function () {
                         return obj[pname];
                     };
-                return bingo.observe(sFn, fn);
-
+                return bingo.observe(sFn, fn, autoInit);
             }
+
+            //if (bingo.isFunction(obj)) {
+                
+            //} else if (obj) {
+                
+
+            //}
         },
         isObserve: function (obj, prop) {
             return _isObserve(obj, prop);
@@ -1042,13 +1160,17 @@
             if (test && !_existProp(last, item)) { has = false; return false; }
             if (index <= end) {
                 if (!last[item]) {
-                    last = last[item] = (nreg.test(l[index + 1]) ? {} : []);
+                    last[item] = (nreg.test(l[index + 1]) ? {} : []);
+                    last.bgToObserve(item, true);
+                    last = last[item];
                 } else
                     last = last[item];
             } else {
                 name = item;
-                if (!(name in last))
+                if (!(name in last)) {
                     last[name] = null;
+                    last.bgToObserve(name, true);
+                }
             }
         });
         return [last, name, end == -1 ? _existProp(last, name) : has];
@@ -1064,13 +1186,12 @@
     "use strict";
 
     var _newApp = function (name) {
-        return {
-            name: name, _no_observe: true,
+        return bingo.extend({
+            name: name, bgNoObserve: true,
             controller: _controllerFn, _controller: {},
             service: _serviceFn, _service: {},
-            component: _componentFn, _component: {},
             command: _commandFn, _command: {}
-        };
+        }, bingo.app._bg_appEx);
     }, _getApp = function () {
         return bingo.app(this.app);
     }, _appMType = function (app, type, name, fn, isF) {
@@ -1083,42 +1204,21 @@
                 fn = function () { return o; };
             }
             bingo.isObject(fn) || (fn = _makeInjectAttrs(fn));
-            mType[name] = { name: name, fn: fn, app: app.name, getApp: _getApp, _no_observe: true };
+            mType[name] = { name: name, fn: fn, app: app.name, getApp: _getApp, bgNoObserve: true };
         }
     }, _controllerFn = function (name, fn) {
+        if (bingo.isFunction(name) || bingo.isArray(name)) {
+            return name;
+        };
         var args = [this, '_controller'].concat(bingo.sliceArray(arguments));
         return _appMType.apply(this, args);
     }, _serviceFn = function (name, fn) {
         var args = [this, '_service'].concat(bingo.sliceArray(arguments));
         return _appMType.apply(this, args);
-    }, _componentFn = function (name, fn) {
-        var args = [this, '_component'].concat(bingo.sliceArray(arguments));
-        return _appMType.apply(this, args);
     }, _commandFn = function (name, fn) {
         var args = [this, '_command'].concat(bingo.sliceArray(arguments));
-        var def = args[3];
-        if (def) {
-            var opt = {
-                priority: 50,
-                tmpl: '',
-                tmplUrl: '',
-                replace: false,
-                include: false,
-                view: false,
-                compileChild: true
-            };
-            def = def();
-            if (bingo.isFunction(def) || bingo.isArray(def)) {
-                opt.link = _makeInjectAttrs(def);
-            } else
-                opt = bingo.extend(opt, def);
-            args[3] = opt;
-            args[4] = false;
-        }
         return _appMType.apply(this, args);
     }
-
-    var _app = {}, _defualtApp = _newApp('defualtApp'), _lastApp = null
 
     bingo.extend({
         app: function (name, fn) {
@@ -1131,30 +1231,15 @@
             } finally {
                 _lastApp = null;
             }
-        },
-        controller: function (name, fn) {
-            if (bingo.isFunction(name) || bingo.isArray(name)) {
-                return name;
-            } else {
-                var app = (_lastApp || _defualtApp);
-                return app.controller.apply(app, arguments);
-            }
-        },
-        component: function (name, fn) {
-            if (bingo.isFunction(name) || bingo.isObject(name)) {
-                return name;
-            } else {
-                var app = (_lastApp || _defualtApp);
-                return app.component.apply(app, arguments);
-            }
-        },
-        command: function (name, fn) {
-            var app = (_lastApp || _defualtApp);
-            return app.command.apply(app, arguments);
-        },
-        service: function (name, fn) {
-            var app = (_lastApp || _defualtApp);
-            return app.service.apply(app, arguments);
+        }
+    });
+
+    var _app = {}, _defualtApp = bingo.defualtApp = _newApp('$$defualtApp$$'), _lastApp = null;
+    bingo.extend(bingo.app, {
+        _bg_appEx: {},
+        extend: function (p) {
+            bingo.extend(_defualtApp, p);
+            return bingo.extend(this._bg_appEx, p);
         }
     });
 
@@ -1188,29 +1273,31 @@
         return fn;
     };
 
-    var _injectIn = function (fn, name, injectObj, thisArg) {
+    var _Promise = bingo.Promise, _injectIn = function (fn, name, injectObj, thisArg) {
         if (!fn) throw new Error('not find inject: ' + name);
         var $injects = fn.$injects;
-        var injectParams = [];
+        var injectParams = [], promises = [];
         if ($injects && $injects.length > 0) {
             var pTemp = null;
             bingo.each($injects, function (item) {
                 if (item in injectObj) {
-                    pTemp = injectObj[item];
+                    injectParams.push(injectObj[item]);
                 } else {
                     //注意, 有循环引用问题
-                    pTemp = injectObj[item] = _inject(item, injectObj, thisArg);
+                    promises.push(_inject(item, injectObj, thisArg).then(function (ret) {
+                        injectParams.push(injectObj[item] = ret);
+                    }));
                 }
-                injectParams.push(pTemp);
             });
         }
 
-        var ret = fn.apply(thisArg|| window, injectParams);
-        if (bingo.isString(name)) {
-            injectObj[name] = ret;
-        }
-
-        return ret;
+        return _Promise.always(promises).then(function () {
+            var ret = fn.apply(thisArg || window, injectParams);
+            if (bingo.isString(name)) {
+                injectObj[name] = ret;
+            }
+            return ret;
+        });
     }, _inject = function (p, injectObj, thisArg) {
         var fn = null, name = '';
         if (bingo.isFunction(p) || bingo.isArray(p)) {
@@ -1218,97 +1305,39 @@
         }
         else {
             name = p;
-            var srv = injectObj.$view.$getApp().service(name);
-            fn = srv ? srv.fn : null;
+            fn = _getSrvByName(name, injectObj);
         }
-        return _injectIn(fn, name, injectObj, thisArg);
+        return _preUsing(fn ? fn.$injects : [name], injectObj).then(function () {
+            if (!fn) fn = _getSrvByName(name, injectObj);
+            return _injectIn(fn, name, injectObj, thisArg);
+        });
+    }, _preUsing = function ($injects, injectObj) {
+            var app = injectObj.$app,
+            promises = [];
+        bingo.each($injects, function (item) {
+            if ((item in injectObj) || app.service(item))
+                return;
+            promises.push(app.usingAll('service::' + item));
+        });
+        return _Promise.always(promises);
+    }, _getSrvByName = function (name, injectObj) {
+        var srv = injectObj.$app.service(name);
+       return srv ? srv.fn : null;
     };
 
-    bingo.inject = function (p, view, injectObj, thisArg) {
-        view || (view = bingo.rootView());
-        injectObj = bingo.extend({
-            $view: view,
-            node: view.$getNode()[0],
-            $viewnode: view.$getViewnode(),
-            $attr: null,
-            $withData: null
-        }, injectObj);
-        return _inject(p, injectObj, thisArg || view);
-    };
-
-})(bingo);
-
-; (function (bingo) {
-    "use strict";
-
-    //IE必须先添加到document才生效
-    var _ev = 'DOMNodeRemoved', _aT;
-    document.documentElement.addEventListener(_ev, function (e) {
-        var target = e.target;
-        setTimeout(function () {
-            var parentNode = target ? target.parentNode : null;
-            if (!parentNode) {
-                target.bgTrigger(_ev, [e]);
-                _aT || (_aT = setTimeout(function () { _aT = null; _linkAll.bgTrigger('onLinkNodeAll'); }, 0));
-                target.hasChildNodes() && bingo.each(target.querySelectorAll('*'), (function () {
-                    this.bgTrigger(_ev, [e]);
-                }));
-            }
-        }, 0);
-    }, false);
-
-    bingo.linkNode = function (node, callback) {
-        if (callback) {
-            if (!node) { callback(); return; }
-            node.bgOne(_ev, callback);
-        }
-    };
-
-    bingo.unLinkNode = function (node, callback) {
-        if (node) {
-            if (callback)
-                node.bgOff(_ev, callback);
-            else
-                node.bgOff();
-        }
-    };
-
-    Object.prototype.bgDefProps({
-        bgLinkNode: function (node) {
-            var fn = bingo.proxy(this, function () {
-                this.bgDispose();
-            });
-            bingo.linkNode(node, fn);
-            (this._linkNodeFn || (this._linkNodeFn = [])).push(fn);
-            this.bgOnDispose(function () { this.bgUnLinkNode(node); });
-            return this;
-        },
-        bgUnLinkNode: function (node) {
-            var fnL = this._linkNodeFn;
-            fnL && fnL.length > 0 && fnL.forEach(function (item) {
-                bingo.unLinkNode(this, item);
-            }, node);
-            this._linkNodeFn = [];
-            return this;
-        },
-        bgLinkNodeAll: function (fn) {
-            if (fn) {
-                var $this = this, fn1 = function () {
-                    fn.apply($this, arguments);
-                    $this.bgIsDispose && _linkAll.bgUnLinkNodeAll(fn1);
-                };
-                fn._bglfall_ = fn1;
-                _linkAll.bgOn('onLinkNodeAll', fn1);
-            }
-        },
-        bgUnLinkNodeAll: function (fn) {
-            fn && _linkAll.bgOff('onLinkNodeAll', fn._bglfall_);
+    bingo.app.extend({
+        inject: function (p, injectObj, thisArg) {
+            var view = bingo.rootView();
+            injectObj = bingo.extend({
+                $view: view,
+                $cp: view.$ownerCP,
+                $app: this
+            }, injectObj);
+            return _inject(p, injectObj, thisArg || view);
         }
     });
-    var _linkAll = {};
 
 })(bingo);
-
 
 (function (bingo) {
     "use strict";
@@ -1394,18 +1423,20 @@
             return index >= 0 ? _loading[index] : null;
         },
         _tid,
-        _loadFile = function (file, fn) {
-            if (_isLoaded(file)) {
-                fn && fn(file);
-            } else {
-                var lf = _getLoading(file);
-                if (lf) {
-                    lf.fns.push(fn);
+        _loadJS = function (file) {
+            return _Promise(function (fn) {
+                if (_isLoaded(file)) {
+                    fn && fn(file);
                 } else {
-                    _loading.push({ file: file, fns: [fn], status: 0 });
-                    _tid || (_tid = setTimeout(_done, 0));
+                    var lf = _getLoading(file);
+                    if (lf) {
+                        lf.fns.push(fn);
+                    } else {
+                        _loading.push({ file: file, fns: [fn], status: 0 });
+                        _tid || (_tid = setTimeout(_done, 0));
+                    }
                 }
-            }
+            });
         },
         _done = function () {
             _tid = null;
@@ -1444,215 +1475,296 @@
                 _done();
         };
 
-    bingo.extend({
-        using: function (url) {
+    var _routeTypeReg = /^(.+)\:\:(.*)/,
+        _makeRouteTypeUrl = function (url) {
+            var type, s;
+            if (_routeTypeReg.test(url)) {
+                type = RegExp.$1;
+                s = RegExp.$2;
+            } else {
+                s = url;
+            }
+            return { all: url, url: s, type: type || '' };
+        }, _mergeRouteUrlType = function (url, type, rep) {
+            //合并type与url, tmpl::user/list, rep是否替换原来类型
+            if (!type) return url;
+            var urlEx = _makeRouteTypeUrl(url);
+            rep = rep != false || !urlEx.type;
+            return rep ? [type, urlEx.url].join('::') : url;
+        }, _loadRouteType = function (app, type, url, bRoute, p) {
+            if (bRoute !== false) {
+                url = _mergeRouteUrlType(url, type, false);
+
+                var route = app.route(url), config = bingo.config();
+                if (route.promise != _rPromise)
+                    return route.promise(p);
+                else
+                    return _loadConfig[type](route.toUrl, p);
+
+            } else
+                return _loadConfig[type](url, p);
+        };
+    var _tmplCacheObj = {};
+
+    bingo.app.extend({
+        using: function (url, bRoute) {
+            /// <returns value=''></returns>
             /// <summary>
             /// bingo.using('/js/file1.js').then <br />
+            /// bingo.using('/js/file1.js', false).then <br />
             /// </summary>
-            /// <param name="p">url</param>
-
-            return bingo.route(url).usingPromise();
+            /// <param name="bRoute">是否经过route, 默认是</param>
+            return _loadRouteType(this, 'using', url, bRoute);
         },
-        usingAll: function (lv) {
-            bingo.isNumeric(lv) || (lv = bingo.using.Normal);
+        usingAll: function (url, bRoute) {
+            url && this.using(url, bRoute);
             return bingo.Promise(function (r) {
-                _addAll(r, lv);
+                _addAll(r, 5);
             });
         }
     });
 
-    bingo.extend(bingo.using, {
-        First: 0,
-        NormalBefore: 45,
-        Normal: 50,
-        NormalAfter: 55,
-        Last: 100
-    });
     //end using===================================
 
     var _noop = bingo.noop, _htmlType = 'text/html',
         _textType = 'text/plain', _jsonType = 'application/json',
+        _r20 = /%20/g,
+        _noContent = /^(?:GET|HEAD)$/i,
+        _hasQ = /\?/,
         _mimeToDataType = function (mime) {
         return mime && (mime == _htmlType ? 'html' :
           mime == _jsonType ? 'json' :
           /^(?:text|application)\/javascript/i.test(mime) ? 'script' :
           /^(?:text|application)\/xml/i.test(mime) && 'xml') || 'text';
-    }, _appendQuery = function (url, query) {
-        return (url + '&' + query).replace(/[&?]{1,2}/, '?');
-    }, _serializeData = function (options) {
-        if (!options.data) return;
-        var p = [];
-        if (bingo.isObject(options.data)){
-            bingo.eachProp(options.data, function (item, name) {
-                p.push(encodeURIComponent(name) + '=' + encodeURIComponent(bingo.isObject(item) || bingo.isArray(item) ? JSON.stringify(item): item));
-            });
-            options.data = p.join('&').replace('%20', '+');
-        }
-        if (!options.type || options.type.toUpperCase() == 'GET')
-            options.url = _appendQuery(options.url, options.data);
-    }, _ajaxOpt = {
-        type: 'GET',
-        beforeSend: _noop,
-        success: _noop,
-        error: _noop,
-        complete: _noop,
-        context: null,
-        xhr: function () {
-            return new window.XMLHttpRequest();
-        },
-        accepts: {
-            script: 'text/javascript, application/javascript',
-            json: _jsonType,
-            xml: 'application/xml, text/xml',
-            html: _htmlType,
-            text: _textType
-        },
-        crossDomain: false,
-        timeout: 0
-    }, _ajax = function (options) {
-        var settings = bingo.extend({}, options);
-        for (var key in _ajaxOpt) if (settings[key] === undefined) settings[key] = _ajaxOpt[key];
+        }, _appendQuery = function (url, query) {
+            return url += (_hasQ.test(url) ? "&" : "?") + query;
+        }, _serializeData = function (url, options) {
+            options.url = url;
+            if (!options.data) return;
+            var p = [];
+            if (bingo.isObject(options.data)) {
+                bingo.eachProp(options.data, function (item, name) {
+                    p.push(encodeURIComponent(name) + '=' + encodeURIComponent(bingo.isObject(item) || bingo.isArray(item) ? JSON.stringify(item) : item));
+                });
+                options.data = p.join('&').replace(_r20, '+');
+            }
+            if (_noContent.test(options.type)) {
+                options.url = _appendQuery(url, options.data);
+                delete options.data;
+            }
 
-        if (!settings.crossDomain) settings.crossDomain = /^([\w-]+:)?\/\/([^\/]+)/.test(settings.url) &&
-          RegExp.$2 != window.location.host;
+        }, _ajaxOpt = {
+            //dataType: 'json',
+            type: "GET",
+            contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+            async: true,
+            beforeSend: _noop,
+            success: _noop,
+            error: _noop,
+            complete: _noop,
+            context: null,
+            xhr: function () {
+                return new window.XMLHttpRequest();
+            },
+            accepts: {
+                script: 'text/javascript, application/javascript',
+                json: _jsonType,
+                xml: 'application/xml, text/xml',
+                html: _htmlType,
+                text: _textType
+            },
+            crossDomain: false,
+            timeout: 0
+        }, _ajax = function (url, options) {
+            var settings = bingo.extend({}, _ajaxOpt, options);
 
-        var dataType = settings.dataType, hasPlaceholder = /=\?/.test(settings.url);
-        if (dataType == 'jsonp' || hasPlaceholder) {
-            if (!hasPlaceholder) settings.url = _appendQuery(settings.url, 'callback=?');
-            return _ajaxJSONP(settings);
-        }
+            if (!settings.crossDomain) settings.crossDomain = /^([\w-]+:)?\/\/([^\/]+)/.test(url) &&
+              RegExp.$2 != window.location.host;
 
-        if (!settings.url) settings.url = window.location.toString();
-        _serializeData(settings);
+            var D = bingo.Deferred();
+            var dataType = settings.dataType, hasPlaceholder = /=\?/.test(url);
+            if (dataType == 'jsonp' || hasPlaceholder) {
+                if (!hasPlaceholder) url = _appendQuery(url, 'callback=?');
+                return _ajaxJSONP(url, settings, D);
+            }
 
-        var mime = settings.accepts[dataType],
-            baseHeaders = {},
-            protocol = /^([\w-]+:)\/\//.test(settings.url) ? RegExp.$1 : window.location.protocol,
-            xhr = _ajaxOpt.xhr(), abortTimeout;
+            //if (!url) url = window.location.toString();
+            _serializeData(url, settings);
+            url = settings.url;
 
-        if (!settings.crossDomain) baseHeaders['X-Requested-With'] = 'XMLHttpRequest';
-        if (mime) {
-            mime += ', */*; q=0.01';
-            baseHeaders['Accept'] = mime;
-            xhr.overrideMimeType && xhr.overrideMimeType(mime);
-        }
-        if (settings.contentType || (settings.data && settings.type.toUpperCase() != 'GET'))
-            baseHeaders['Content-Type'] = (settings.contentType || 'application/x-www-form-urlencoded; charset=UTF-8');
-        settings.headers = bingo.extend(baseHeaders, settings.headers);
+            var mime = settings.accepts[dataType],
+                baseHeaders = {},
+                protocol = /^([\w-]+:)\/\//.test(url) ? RegExp.$1 : window.location.protocol,
+                xhr = _ajaxOpt.xhr(), abortTimeout;
 
-        var context = settings.context;
+            if (!settings.crossDomain) baseHeaders['X-Requested-With'] = 'XMLHttpRequest';
+            if (mime) {
+                mime += ', */*; q=0.01';
+                baseHeaders['Accept'] = mime;
+                xhr.overrideMimeType && xhr.overrideMimeType(mime);
+            }
+            var hasContent = !_noContent.test(settings.type);
+            baseHeaders['Content-Type'] = settings.contentType;
+            settings.headers = bingo.extend(baseHeaders, settings.headers);
 
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState == 4) {
-                clearTimeout(abortTimeout);
-                var result, error = false, cpType = '';;
-                if ((xhr.status >= 200 && xhr.status < 300) || xhr.status == 304 || (xhr.status == 0 && protocol == 'file:')) {
-                    dataType = dataType || _mimeToDataType(xhr.getResponseHeader('content-type'));
-                    result = xhr.responseText;
+            var context = settings.context;
 
-                    try {
-                        if (dataType == 'script') (1, eval)(result);
-                        else if (dataType == 'xml') result = xhr.responseXML;
-                        else if (dataType == 'json') result = /^\s*$/.test(result) ? null : JSON.parse(result);
-                    } catch (e) { error = e; }
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState == 4) {
+                    clearTimeout(abortTimeout);
+                    var result, cpType = '';;
+                    if ((xhr.status >= 200 && xhr.status < 300) || xhr.status == 304 || (xhr.status == 0 && protocol == 'file:')) {
+                        dataType = dataType || _mimeToDataType(xhr.getResponseHeader('content-type'));
+                        result = xhr.responseText;
 
-                    if (error) {
-                        cpType = 'parsererror';
-                        settings.error.call(context, xhr, cpType, error);
+                        try {
+                            if (dataType == 'script') (1, eval)(result);
+                            else if (dataType == 'xml') result = xhr.responseXML;
+                            else if (dataType == 'json') result = /^\s*$/.test(result) ? null : JSON.parse(result);
+                            cpType = 'success';
+                            D.resolve(result);
+                            settings.success.call(context, result, cpType, xhr);
+                        } catch (e) {
+                            cpType = 'parsererror';
+                            D.reject(xhr);
+                            settings.error.call(context, xhr, cpType, e);
+                        }
                     } else {
-                        cpType = 'success';
-                        settings.success.call(context, result, cpType, xhr);
+                        cpType = 'error';
+                        D.reject(xhr);
+                        settings.error.call(context, xhr, cpType, xhr);
                     }
-                } else {
-                    cpType = 'error';
-                    settings.error.call(context, xhr, cpType, xhr);
+                    settings.complete.call(context, xhr, cpType)
                 }
-                settings.complete.call(context, xhr, cpType)
+            };
+
+            xhr.open(settings.type, url, settings.async);
+
+            for (name in settings.headers) xhr.setRequestHeader(name, settings.headers[name]);
+
+            if (settings.beforeSend.call(context, xhr, settings) === false) {
+                xhr.abort();
+                return false;
+            }
+
+            if (settings.timeout > 0) abortTimeout = setTimeout(function () {
+                xhr.onreadystatechange = _noop;
+                xhr.abort();
+                settings.complete.call(context, xhr, 'timeout')
+            }, settings.timeout);
+
+            xhr.send(settings.data ? settings.data : null);
+            return D.promise;
+        }, _ajaxJSONP = function (url, options, D) {
+            var callbackName = 'jsonp' + bingo.makeAutoId(),
+              script = document.createElement('script'),
+              abort = function () {
+                  head.removeChild(script);
+                  if (callbackName in window) window[callbackName] = _noop
+                  options.complete.call(options.context, xhr, 'abort')
+              },
+              xhr = { abort: abort }, abortTimeout;
+
+            if (options.error) script.onerror = function () {
+                D.reject();
+                xhr.abort();
+                options.error();
+            };
+
+            window[callbackName] = function (data) {
+                clearTimeout(abortTimeout);
+                head.removeChild(script);
+                delete window[callbackName];
+                D.resolve(data);
+                settings.success.call(options.context, data, 'success', xhr);
+            };
+
+            _serializeData(url, options);
+            script.src = options.url.replace(/=\?/, '=' + callbackName);
+            head.appendChild(script);
+
+            if (options.timeout > 0) abortTimeout = setTimeout(function () {
+                xhr.abort();
+            }, options.timeout);
+
+            return D.promise;
+        }, _loadConfig = {
+            ajax: _ajax,
+            using: _loadJS,
+            tmpl: function (url, p) {
+                var key = url;
+                var cache = bingo.cache(_tmplCacheObj, key);
+                if (bingo.isString(cache)) {
+                    return _Promise.resolve(cache);
+                } else {
+                    var tFn = function (html) {
+                        if (bingo.isString(html))
+                            bingo.cache(_tmplCacheObj, key, html, 200);
+                        return html;
+                    };
+
+                    return _ajax(url, bingo.extend({
+                        dataType: 'text'
+                    }, p)).then(tFn);
+                }
             }
         };
 
-        var async = 'async' in settings ? settings.async : true;
-        xhr.open(settings.type, settings.url, async);
-
-        for (name in settings.headers) xhr.setRequestHeader(name, settings.headers[name]);
-
-        if (settings.beforeSend.call(context, xhr, settings) === false) {
-            xhr.abort();
-            return false;
-        }
-
-        if (settings.timeout > 0) abortTimeout = setTimeout(function () {
-            xhr.onreadystatechange = _noop;
-            xhr.abort();
-            settings.complete.call(context, xhr, 'timeout')
-        }, settings.timeout);
-
-        xhr.send(settings.data ? settings.data : null);
-        return xhr;
-    }, _ajaxJSONP = function (options) {
-        var callbackName = 'jsonp' + bingo.makeAutoId(),
-          script = document.createElement('script'),
-          abort = function () {
-              head.removeChild(script);
-              if (callbackName in window) window[callbackName] = _noop
-              options.complete.call(options.context, xhr, 'abort')
-          },
-          xhr = { abort: abort }, abortTimeout;
-
-        if (options.error) script.onerror = function () {
-            xhr.abort();
-            options.error();
-        };
-
-        window[callbackName] = function (data) {
-            clearTimeout(abortTimeout);
-            head.removeChild(script);
-            delete window[callbackName];
-            settings.success.call(options.context, data, 'success', xhr);
-        };
-
-        _serializeData(options);
-        script.src = options.url.replace(/=\?/, '=' + callbackName);
-        head.appendChild(script);
-
-        if (options.timeout > 0) abortTimeout = setTimeout(function () {
-            xhr.abort();
-        }, options.timeout);
-
-        return xhr;
-    };
-
-    bingo.ajax = function (url, p) {
-        return bingo.route(url).ajaxPromise(p);
-    };
-
     var _tagTestReg = /^\s*<(\w+|!)[^>]*>/;
-    bingo.tmpl = function (p, aP) {
-        /// <summary>
-        /// bingo.tmpl('tmpl/aaaa/user').then(...;<br />
-        /// bingo.tmpl('#userTmplId').then(...;<br />
-        /// bingo.tmpl(node).then(...;<br />
-        /// </summary>
-        var html = '', node = p;
-        if (bingo.isString(p)) {
-            if (p.indexOf('#') < 0) {
-                if (!p || _tagTestReg.test(p)) {
-                    return _Promise.resolve(p);
+
+    bingo.app.extend({
+        ajax: function (url, p, bRoute) {
+            return _loadRouteType(this, 'ajax', url, bRoute, p);
+        },
+        _tmpl: {},
+        saveTmpl: function (id, tmpl) {
+            this._tmpl[id] = tmpl;
+        },
+        tmpl: function (p, aP, bRoute) {
+            /// <summary>
+            /// bingo.tmpl('tmpl/aaaa/user').then(...;<br />
+            /// bingo.tmpl('#userTmplId').then(...;<br />
+            /// bingo.tmpl(node).then(...;<br />
+            /// </summary>
+            var html = '', node = p;
+            if (bingo.isString(p)) {
+                if (p.indexOf('#') < 0) {
+                    if (!p || _tagTestReg.test(p)) {
+                        return _Promise.resolve(p);
+                    } else {
+                        var tmplid = aP && aP.tmplid;
+                        if (tmplid) {
+                            var app = this;
+                            return _Promise.resolve().then(function () {
+                                if (tmplid in app._tmpl)
+                                    return app._tmpl[tmplid];
+                                else
+                                    return bingo.compile({ tmpl: '{{view app="' + app.name + '" /}}{{include src="' + p + '" /}}', node: doc.body }).then(function (cp) {
+                                        cp.$remove();
+                                        return app.tmpl('#' + tmplid);
+                                    });
+                            });
+                        }
+                        return _loadRouteType(this, 'tmpl', p, bRoute, aP);
+                    }
                 } else {
-                    return bingo.route(p).tmplPromise(aP);
+                    var id = p.substr(1);
+                    if (this._tmpl[id])
+                        return _Promise.resolve(this._tmpl[id]);
+                    else
+                        node = document.getElementById(p.substr(1));
                 }
-            } else
-                node = document.getElementById(p.substr(1));
+            }
+            if (node) {
+                var cLen = node.children.length, first = node.firstElementChild;
+                if (cLen == 1 && first.tagName.toLowerCase() == 'script')
+                    html = first.innerHTML;
+                else
+                    html = node.innerHTML;
+            }
+            return _Promise.resolve(html);
         }
-        if (node) {
-            var cLen = node.children.length, first = node.firstElementChild;
-            if (cLen == 1 && first.tagName.toLowerCase() == 'script')
-                html = first.innerHTML;
-            else
-                html = node.innerHTML;
-        }
-        return _Promise.resolve(html);
-    };
+    });
 
     var _cacheName = '_bg_cache2_';
     bingo.cache = function (owner, key, p, max) {
@@ -1698,25 +1810,10 @@
             //路由地址
             url: 'view/{controller*}',
             //路由转发到地址（可以function(url, params)）
-            to: 'modules/{controller*}.html',
-            //第二种配置
-            to: {
-                //（可以function(url, params)）
-                ajax:'modules/{controller*}.html',
-                tmpl:'modules/{controller*}.html',
-                using:''modules/{controller*}.html'
-            },
-            //默认
-            promise:{
-                ajax:function(p){
-                    return bingo.config().tmpl(this.tmpl, p);
-                },
-                tmpl:function(p){
-                    return bingo.config().ajax(this.ajax, p);
-                },
-                usin:function(p){
-                    return _usingIn(this.using);
-                }
+            toUrl: 'modules/{controller*}.html',
+            //或者
+            promise: function(url, p){
+                    return bingo.Promise(funcion(resole){ $.ajax(url, p).then(resole);})
             }
             //默认值
             defaultValue: { app: '', controller: 'user/list' }
@@ -1726,60 +1823,6 @@
             var url = bingo.route('view/user/list');
                 返回结果==>{tmpl:'modules/user/list.html'}
     */
-    //路由
-    bingo.route = function (p, context) {
-        if (arguments.length == 1)
-            return bingo.routeContext(p).to;
-        else
-            p && context && _routes.add(p, context);
-    };
-
-    /*
-        //根据url生成routeContext;
-        var routeContext = bingo.routeContext('view/user/list');
-            返回结果==>{
-                url:'view/user/list',
-                toUrl:'modules/user/list.html',
-                params:{ app: '', controller: 'user/list' }
-            }
-    */
-    //
-    bingo.routeContext = function (url) {
-        return _routes.getRouteByUrl(url);
-    };
-
-    /*
-        //生成路由地址
-        bingo.routeLink('view', { app: '', controller: 'user/list' });
-            返回结果==>'view/user/list'
-    */
-    bingo.routeLink = function (name, p) {
-        var r = _routes.getRuote(name);
-        return r ? _paramToUrl(r.context.url, p, 1) : '';
-    };
-
-    /*
-        //生成路由地址query
-        bingo.routeLinkQuery('view/user/list', { id: '1111' });
-            返回结果==>'view/user/list$id:1111'
-    */
-    bingo.routeLinkQuery = function (url, p) {
-        url || (url = '');
-        var urlPath = '';
-        if (url.indexOf('$') >= 0 || url.indexOf('?') >= 0) {
-            var routeContext = bingo.routeContext(url);
-            p = bingo.extend({}, p, routeContext.params.queryParams);
-            var sp = url.indexOf('$') >= 0 ? '$' : '?';
-            url = url.split(sp)[0];
-        }
-        bingo.eachProp(p, function (item, n) {
-            item = encodeURIComponent(item || '');
-            //route参数形式, $aaa:1$bbb=2
-            urlPath = [urlPath, '$', n, ':', item].join('');
-        });
-        return [url, urlPath].join('');
-    };
-
 
     var _makeRegexPath = /(\W)/g,
         //查找query部分, ?aaa=111&b=222
@@ -1860,7 +1903,7 @@
 
         return obj;
     }, _getRouteContext = function () {
-        var context = { app: null, controller: null, component: null };
+        var context = { app: null, controller: null };
         var params = this.params;
         if (params) {
             var appName = params.app;
@@ -1869,15 +1912,17 @@
             params.controller && (context.controller = app.controller(params.controller));
             context.controller && (context.controller = context.controller.fn);
 
-            params.component && (context.component = app.component(params.component));
-            context.component && (context.component = context.component.fn);
         }
         return context;
-    }, _makeRouteContext = function (name, url, to, params) {
+    }, _makeRouteContext = function (routeContext, name, url, toUrl, params) {
         //生成 routeContext
-        return { name: name, params: params, url: url, to: to, context: _getRouteContext };
+        var promise = routeContext.promise,
+            pFn = promise ? function (p) { return promise(this.toUrl, p, this); } : _rPromise;
+
+        return { name: name, params: params, url: url, toUrl: toUrl, promise:pFn, context: _getRouteContext };
     },
-    _passParam = ',component,controller,service,app,queryParams,',
+    _rPromise = function (p) { return _ajax(this.toUrl, p); },
+    _passParam = ',controller,service,app,queryParams,command',
     _paramToUrl = function (url, params, paramType) {
         //_urlToParams反操作, paramType:为0转到普通url参数(?a=1&b=2), 为1转到route参数($a:1$b:2)， 默认为0
         _tranAttrRex.lastIndex = 0;
@@ -1921,337 +1966,138 @@
         return url;
     };
 
-    var _routes = {
-        datas: [],
-        defaultRoute: {
-            url: '**',
-            to: function (url, param) { return url; }
-        },
-        add: function (name, context) {
-            var route = this.getRuote(name);
-            if (bingo.isUndefined(context.priority))
-                context.priority = 100;
-            if (route) {
-                route.context = context;
-            } else {
-                this.datas.push({
-                    name: name,
-                    context: context
-                });
-            }
-            this.datas.sort(function (item1, item2) { return item1.context.priority - item2.context.priority; });
-        },
-        getRuote: function (name) {
-            var item = null;
-            bingo.each(this.datas, function () {
-                if (this.name == name) { item = this; return false; }
-            });
-            return item;
-        },
-        getRouteByUrl: function (url) {
-            if (!url) return '';
-
-
-            var querys = url.split('?');
-            if (querys.length > 1) url = querys[0];
-            var routeContext = null, name='';
-            var params = null;
-            bingo.each(this.datas, function () {
-                routeContext = this.context;
-                params = _urlToParams(url, routeContext);
-                //如果params不为null, 认为是要查找的url
-                if (params) { name = this.name; return false; }
-            });
-
-            //再找组装参数
-            if (!params){
-                routeContext = _routes.defaultRoute;
-                name = 'defaultRoute';
-            }
-            if (params || routeContext.defaultValue)
-                params = bingo.extend({}, routeContext.defaultValue, params);
-
-            //var toUrl = bingo.isFunction(routeContext.toUrl) ?
-            //    routeContext.toUrl.call(routeContext, url, params)
-            //    : routeContext.toUrl;
-
-            if (querys.length > 1) {
-                params || (params = {});
-                querys[1].replace(/([^=&]+)\=([^=&]*)/g, function (find, name, value) {
-                    (name in params) || (params[name] = value);
-                });
-            }
-
-            var to = routeContext.to || '';
-
-            if (!bingo.isObject(to)) {
-                to = _routes.makeTo(to, routeContext, url, params);
-                to = {
-                    using: to,
-                    ajax: to,
-                    tmpl: to
-                };
-            } else {
-                to = bingo.extend({}, routeContext.to);
-                bingo.eachProp(to, function (item, n) {
-                    to[n] = _routes.makeTo(item, routeContext, url, params);
-                });
-            }
-            var promise = routeContext.promise || {};
-            bingo.extend(to, {
-                tmplPromise: promise.tmpl || _tmplPromise,
-                ajaxPromise: promise.ajax || _ajaxPromise,
-                usingPromise: promise.using || _usingPromise
-            });
-            //console.log(to);
-
-            //var toUrl = _paramToUrl(toUrl, params);
-
-            return _makeRouteContext(name, url, to, params);
-        },
-        makeTo: function (to, routeContext, url, params) {
-            bingo.isFunction(to) && (to = to.call(routeContext, url, params));
-            return _paramToUrl(to, params);
-        }
+    var _checkRoute = function (app) {
+        return app._route || _newRouter(app);
     };
 
-    var _tmplPromise = function (p) {
-        return bingo.config().tmpl(this.tmpl, p);
-    }, _ajaxPromise = function (p) {
-        return bingo.config().ajax(this.ajax, p);
-    }, _usingPromise = function (p) {
-        return bingo.config().using(this.using);
-    };
-
-    //route=====================================================
-
-
-    //bingo.config=====================================================
-    bingo.config({
-        using: function (url) {
-            return bingo.Promise(function (r) {
-                _loadFile(url, function (url) { r(url); });
-            });
+    bingo.app.extend({
+        route: function (p, context) {
+            if (arguments.length == 1)
+                return this.routeContext(p);
+            else if (bingo.isObject(context))
+                p && context && _checkRoute(this).add(p, context);
+            else
+                return this.routeContext(_mergeRouteUrlType(p, context));
         },
-        ajax: function (url, p) {
-            return _Promise(function (resolve, reject) {
-                _ajax(bingo.extend({ type: 'post', dataType: 'json' }, p, {
-                    url: url,
-                    success: function (res) {
-                        try {
-                            p && p.success && p.success.apply(this, arguments);
-                            resolve(res);
-                        } catch (e) {
-                            reject(e);
-                        }
-                    },
-                    error: function () {
-                        try {
-                            p && p.error && p.error.apply(this, arguments);
-                            reject(arguments[2]);
-                        } catch (e) {
-                            reject(e);
-                        }
-                    }
-                }));
-            });
+        routeContext: function (url) {
+            return _checkRoute(this).getRouteByUrl(url);
         },
-        tmpl: function (url, p) {
-            var key = url;
-            var cache = bingo.cache(_tmplCacheObj, key);
-            if (bingo.isString(cache)) {
-                return _Promise.resolve(cache);
-            } else {
-                var tFn = function (html) {
-                    if (bingo.isString(html))
-                        bingo.cache(_tmplCacheObj, key, html, 200);
-                    return html;
-                };
-
-                return bingo.config().ajax(url, bingo.extend({
-                    dataType: 'text', type: 'get'
-                }, p)).then(tFn);
+        routeLink: function (name, p, type) {
+            var r = _checkRoute(this).getRuote(name)
+            if (!r && this != bingo.defualtApp)
+                r = _checkRoute(bingo.defualtApp).getRuote(name);
+            return r ? _mergeRouteUrlType(_paramToUrl(r.context.url, p, 1), type) : '';
+        },
+        routeQuerystring: function (url, p, type) {
+            url || (url = '');
+            var urlPath = '';
+            if (url.indexOf('$') >= 0 || url.indexOf('?') >= 0) {
+                var routeContext = this.routeContext(url);
+                p = bingo.extend({}, routeContext.params.queryParams, p);
+                var sp = url.indexOf('$') >= 0 ? '$' : '?';
+                url = url.split(sp)[0];
             }
-        }
-    });
-    var _tmplCacheObj = {};
-    //end bingo.config=====================================================
-
-})(bingo);
-
-
-(function (bingo) {
-
-    /*
-        与bg-route同用, 取bg-route的url等相关
-        $location.href('view/system/user/list');
-        var href = $location.href();
-        var params = $location.params();
-    
-    */
-    var _routeCmdName = 'bg-route',
-        _dataKey = '_bg_location_',
-        _documentElement = document.documentElement;
-
-    //bingo.location('main') 或 bingo.location($('#id')) 或 bingo.location(docuemnt.body)
-
-    bingo.location = function (p) {
-        /// <summary>
-        /// location 没有给删除如果dom在一直共用一个
-        /// </summary>
-        /// <param name="p">可选，可以是字串、jquery和dom node, 默认document.documentElement</param>
-        /// <returns value='_locationClass.NewObject()'></returns>
-        bingo.isString(p) && (p = '[bg-name="' + p + '"]');
-        var node = null;
-        if (bingo.isString(p))
-            node = document.querySelectorAll(p)[0];
-        else if (p)
-            node = p;
-
-        var isRoute = node ? true : false;
-        if (!isRoute)
-            node = _documentElement;
-
-        var o = node[_dataKey];
-        if (!o) {
-            o = new _locationClass().ownerNode(node).isRoute(isRoute).name(node.getAttribute('bg-name') || '');
-            o.bgLinkNode(node);
-            o.bgOnDispose(function () {
-                node[_dataKey] = null;
-                this.bgTrigger('onClosed');
-
+            bingo.eachProp(p, function (item, n) {
+                item = encodeURIComponent(item || '');
+                //route参数形式, $aaa:1$bbb=2
+                urlPath = [urlPath, '$', n, ':', item].join('');
             });
-            node[_dataKey] = o;
-        }
-        return o;
-    };
-
-    bingo.location.bgEventDef('onHref onHrefBefore onLoadBefore onLoaded');
-
-    var _hashReg = /#([^#]*)$/,
-        _hash = function (url) {
-            return _hashReg.test(url) ? RegExp.$1 : '';
-        };
-    bingo.extend(bingo.location, {
-        href: function (url, target) {
-            var loc = target instanceof _locationClass ? target : bingo.location(target);
-            if (loc.isRoute()) {
-                loc.ownerNode().setAttribute(_routeCmdName, url);
-                loc.bgTrigger('onHref', [url]);
-            }
-        },
-        hash: function (url) {
-            return _hash(url);
+            return _mergeRouteUrlType([url, urlPath].join(''), type);
         }
     });
 
-    var _locationClass = bingo.location.Class = bingo.Class(function () {
-
-        this.Prop({
-            ownerNode: null,
-            //是否路由出来的, 否则为window
-            isRoute: false,
-            name:''
-        });
-
-        this.Define({
-            //路由query部分参数
-            queryParams: function () {
-                return this.routeParams().queryParams
-            },
-            //路由参数
-            routeParams: function () {
-                var url = this.url();
-                var routeContext = bingo.routeContext(url);
-                return routeContext.params;
-            },
-            href: function (url, target) {
-                bingo.location.href(url, bingo.isNullEmpty(target) ? this : target);
-            },
-            reload: function (target) {
-                return this.href(this.url(), target);
-            },
-            onLoaded: function(callback){
-                return this.on('onLoaded', callback);
-            },
-            url: function () {
-                if (this.isRoute())
-                    return this.ownerNode().getAttribute(_routeCmdName);
-                else
-                    return window.location + '';
-            },
-            hash: function () {
-                return bingo.location.hash(this.url());
-            },
-            toString: function () {
-                return this.url();
-            },
-            views: function () {
-                return bingo.view(this.ownerNode())._bgpri_.children;
-            },
-            close: function () {
-                if (!this.isRoute()) return;
-                if (this.bgTrigger('onCloseBefore') === false) return;
-                var node = this.ownerNode();
-                node.parentNode.removeChild(node);
-            }
-        });
-
-        this.Event('onHref onCloseBefore onClosed');
-
-    });
-
-    //$location.href('view/demo/userlist')
-    //$location.href('view/demo/userlist', 'main')
-    bingo.service('$location', ['node', function (node) {
-        return function (targer) { return bingo.location(targer || node); };
-    }]);
-
-    /*
-        使用方法:
-        bg-route="system/user/list"
-    
-        连接到system/user/list, 目标:main
-        <a href="#system/user/list" bg-target="main">在main加载连接</a>
-        设置frame:'main'
-        <div bg-route="" bg-name="main"></div>
-    */
-    var _tagRoute = 'bg-route', _tagCtrl = 'bg-controller';
-    bingo.command(_tagRoute, function () {
-        return {
-            priority: 1000,
-            replace: false,
-            view: true,
-            compileChild: false,
-            compilePre: ['node', function (node) {
-                this.tmpl = node.getAttribute(_tagRoute);
-                node.setAttribute(_tagCtrl, this.tmpl);
-            }],
-            compile: ['$compile', 'node', '$attr', '$location', function ($compile, node, $attr, $location) {
-
-                //只要最后一次，防止连续点击链接
-                var _node = node.cloneNode(false), _last = null, _href = function (url, type) {
-                    if (bingo.location.bgTrigger('onLoadBefore', [url, $location]) === false) return;
-                    _last && !_last.bgIsDispose && _last.stop();
-                    _last = type == 0 ? $compile(url).htmlTo(node) : $compile(_node.outerHTML).replaceTo(node);
-                    return _last.compile().then(function () {
-                        _last = null;
-                        if ($attr.bgIsDispose) return;
-                        $location.bgTrigger('onLoaded', [$location, url]);
-                        bingo.location.bgTrigger('onLoaded', [$location]);
+    var _newRouter = function (app) {
+        var route = {
+            bgNoObserve: true,
+            datas: [],
+            add: function (name, context) {
+                var route = this.getRuote(name);
+                if (bingo.isUndefined(context.priority))
+                    context.priority = 100;
+                if (route) {
+                    route.context = context;
+                } else {
+                    this.datas.push({
+                        name: name,
+                        context: context
                     });
-                };
-
-                $location().onHref(function (url) {
-                    _node.setAttribute(_tagCtrl, url);
-                    _node.setAttribute(_tagRoute, url);
-                    _href(url, 1);
+                }
+                this.datas.sort(function (item1, item2) { return item1.context.priority - item2.context.priority; });
+            },
+            getRuote: function (name) {
+                var item = null;
+                bingo.each(this.datas, function () {
+                    if (this.name == name) { item = this; return false; }
                 });
-                
-                return _href($attr.content, 0);
-            }]
+                return item;
+            },
+            getRouteByUrl: function (url) {
+                if (!url) return '';
+
+                var urlType = _makeRouteTypeUrl(url),
+                    types = urlType.type;
+                url = urlType.url;
+
+                var querys = url.split('?'), urlOld = url;
+                if (querys.length > 1) url = querys[0];
+                var routeContext = null, name = '',tt;
+                var params = null;
+                bingo.each(this.datas, function () {
+                    routeContext = this.context;
+                    tt = routeContext.type;
+                    if (!tt || tt == types) {
+                        params = _urlToParams(url, routeContext);
+                        //如果params不为null, 认为是要查找的url
+                        if (params) { name = this.name; return false; }
+                    }
+                });
+
+                if (!params && app != bingo.defualtApp) {
+                    return _checkRoute(bingo.defualtApp).getRouteByUrl(urlOld);
+                }
+
+                //再找组装参数
+                if (!params) {
+                    routeContext = _defaultRoute;
+                    name = 'defaultRoute';
+                    params = {};
+                }
+                if (params || routeContext.defaultValue)
+                    params = bingo.extend({}, routeContext.defaultValue, params);
+
+                params.app = app.name;
+
+                if (querys.length > 1) {
+                    params || (params = {});
+                    querys[1].replace(/([^=&]+)\=([^=&]*)/g, function (find, name, value) {
+                        (name in params) || (params[name] = decodeURIComponent(value));
+                    });
+                }
+
+                var toUrl = _makeTo(routeContext.toUrl, routeContext, url, params);
+
+                return _makeRouteContext(routeContext, name, url, toUrl, params);
+            }
+
         };
-    }); //end bg-route
+        app._route = route;
+        app.route('**', _defaultRoute);
+        return route;
+    };
+
+    var _defaultRoute = {
+        priority: 9999999,
+        url: '**',
+        toUrl: function (url, param) { return url; }
+    },
+    _makeTo = function (toUrl, routeContext, url, params) {
+        bingo.isFunction(toUrl) && (toUrl = toUrl.call(routeContext, url, params));
+        return _paramToUrl(toUrl || '', params);
+    };
+
+    //end route=====================================================
+
+
 
 })(bingo);
 
@@ -2259,167 +2105,458 @@
 (function (bingo, undefined) {
     "use strict";
 
-    var doc = document, _docEle = doc.documentElement;
+    //CP: Content Provider(内容提供者)
 
-    bingo.view = function (p) {
-        /// <summary>
-        /// 获取view<br />
-        /// bingo.view(document.body)<br />
-        /// bingo.view('main')
-        /// </summary>
-        bingo.isString(p) && (p = doc.querySelector('[bg-name="' + p + '"]'));
-        return _getVNode(p).view;
-    };
+    //aFrame====================================
 
-    var _rootView = null;
-    bingo.rootView = function () { return _rootView; };
-
-    var _Promise = bingo.Promise, _promisePush = function (promises, p) {
-        p && promises.push(p);
-        return p;
-    }, _retPromiseAll = function (promises) {
-        return promises.length > 0 ? _Promise.always(promises) : undefined;
-    };
-
-    //view==提供视图==================
-    var _viewClass = bingo.viewClass = bingo.Class(function () {
-
-        var _eDef = ['$readyAll'];// ['$initData','$initDataSrv', '$ready','$readyAll'];
-        this.Event(_eDef.join(''));
-
-        this.Private({
-            setParent: function (view) {
-                if (view) {
-                    this.pView = view;
-                    view._bgpri_.children.push(this.ow);
+    var _aFrameList = [],
+        _aFrame = function (obj) {
+            /// <param name="fn" value="fn.call(obj, obj)"></param>
+            _aFrameList.push(obj);
+             _ticker.start();
+        }, _aFrameCK = function () {
+            var list = [], orgs = _aFrameList;
+            _aFrameList = [];
+            bingo.each(orgs, function (item) {
+                if (!item._stop) {
+                    item.n--;
+                    if (item.n < 0)
+                        item.fn(item);
+                    else
+                        list.push(item);
                 }
-            },
-            removeChild: function (view) {
-                this.children = bingo.removeArrayItem(view, this.children);
-            },
-            //compile: function () {
-            //    this.vNode.bgIsDispose || this.vNode._compile();
-            //},
-            controller: function () {
-                if (this.bgIsDispose) return;
-                var ctrls = this.ctrls, pms = [],
-                    ow = this.ow;
-                if (ctrls.length > 0) {
-                    var p = { node: this.node };
-                    bingo.each(ctrls, function (item) {
-                        _promisePush(pms, bingo.inject(item, this, p, this));
-                    }, ow);
-                    this.ctrls = [];
-                    //controller之后检查一次, 暂定只有先在$view里先定义
-                    //如$view.title = ''; 先定义
-                }
-                ow.bgToObserve(true);
-                return _retPromiseAll(pms);
-            },
-            sendReady: function (build) {
-                this.sendReady = bingo.noop;
-                var ow = this.ow;
-                var pView = this.pView;
+            });
+            list.length > 0 && (_aFrameList = list.concat(_aFrameList));
+        }, _hasAFrame = function () { return _aFrameList.length > 0; };
 
-                ow.bgSync().done(function () {
-                    this.bgEnd('$readyAll');
-                });
 
-                var step = function (name) {
-                    var list = this[name], $this = this;
-                    return function () {
-                        var pm = list.length > 0 ? _Promise.always(list, function (fn) {
-                            return fn.call(ow);
-                        }) : undefined;
-                        $this[name] = null;
-                        return pm;
-                    };
-                }.bind(this);
+    var _ticker;
 
-                var pm = _Promise.resolve()
-                    .then(step('initPmSrv'))
-                    .then(step('initPm'))
-                    .then(step('readyPm'))
-                    .then(function () {
-                        ow.$isReady = true;
-                        ow.$update();
-                        ow.bgSyncDec();
-                        pView && pView.bgSyncDec();
-                    }).catch(function (e) {
-                        bingo.trace(e);
-                    });
-                build && build.push(pm);
-                return pm;
+    (function (_fps, useRAF) {
+
+        //本段代码参考于：https://github.com/greensock/GreenSock-JS/
+
+        var _reqAnimFrame = window.requestAnimationFrame,
+            _cancelAnimFrame = window.cancelAnimationFrame,
+            _getTime = Date.now || function () { return new Date().getTime(); },
+            a = ["ms", "moz", "webkit", "o"],
+            i = a.length;
+            while (--i > -1 && !_reqAnimFrame) {
+                _reqAnimFrame = window[a[i] + "RequestAnimationFrame"];
+                _cancelAnimFrame = window[a[i] + "CancelAnimationFrame"] || window[a[i] + "CancelRequestAnimationFrame"];
             }
-        });
 
-        //这里只定义view方法， 并用于defcomp, 不要放属性
-        var _def = {
-            $parentView: function () { return this._bgpri_.pView },
-            $setApp: function (app) {
-                this._bgpri_.app = app;
+            var _isAFrame = bingo.isAFrame = (useRAF !== false && _reqAnimFrame);
+
+        var _self = {},
+            _emptyFunc = function () { },
+            _lastUpdate, _startTime,
+            _lagThreshold, _adjustedLag,
+            _sleep, _pSleep = 0,
+            _req, _gap, _nextTime,
+            _tick = function () {
+                if (_req == _emptyFunc) return;
+                var elapsed = _getTime() - _lastUpdate,
+                    overlap, dispatch;
+                if (elapsed > _lagThreshold) {
+                    _startTime += elapsed - _adjustedLag;
+                }
+                _lastUpdate += elapsed;
+                _self.time = (_lastUpdate - _startTime) / 1000;
+                overlap = _self.time - _nextTime;
+                if (!_fps || overlap > 0) {
+                    _nextTime += overlap + (overlap >= _gap ? 0.004 : _gap - overlap);
+                    dispatch = true;
+                }
+                _req(_tick);
+                if (dispatch) {
+                    if (_pSleep >= 2)
+                        _self.sleep();
+                    if (_hasAFrame())
+                        _pSleep = 0;
+                    else {
+                        _pSleep++;
+                    }
+                    _aFrameCK();
+                }
+            }, _reset = function () {
+                _req = _emptyFunc;
+                _lastUpdate = _getTime(),
+                _startTime = _getTime(),
+                _lagThreshold = 500,
+                _adjustedLag = 33,
+                _sleep = true;
+                _self.time = 0;
+            };
+        _reset();
+
+        _self.sleep = function () {
+            if (_sleep) return;
+            _reset();
+        };
+
+        _self.wake = function () {
+            _sleep = false;
+            _req = (!_isAFrame) ? function (f) { setTimeout(f, ((_nextTime - _self.time) * 1000 + 1) | 0); }
+                : function (f) {
+                    var fnn = function () { if (f) { var af = f; f = null; af(); } };
+                    _reqAnimFrame(fnn);
+                    //超时
+                    setTimeout(fnn, ((_nextTime - _self.time) * 20 * 1000 + 1) | 0);
+                };
+            _tick();
+        };
+
+        _self.start = function () {
+            if (!_sleep) return;
+            _pSleep = 0;
+            _gap = 1 / (_fps || 60);
+            _nextTime = this.time + _gap;
+            _self.wake();
+        };
+
+        _ticker = _self;
+
+    })(60, true);
+
+    bingo.aFrame = function (fn, frN) {
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="fn"></param>
+        /// <param name="frN">第几帧， 默认0</param>
+        (!bingo.isNumeric(frN) || frN < 0) && (frN = 0);
+        var obj = {
+            fn:fn,
+            n: frN,
+            _stop:false,
+            stop: function () { this._stop = true; },
+            next: function (fn) { return bingo.aFrame(fn, this.n + 1); },
+            frame: bingo.aFrame
+        };
+        _aFrame(obj);
+        return obj;
+    };
+    bingo.aFramePromise = function (frN) {
+        return _Promise(function (r) {
+            bingo.aFrame(r, frN);
+        });
+    };
+    bingo.aFrameProxy = function (fn, frN, dispoer) {
+        var doing = false;
+        var fFn = function () {
+            if (doing) return;
+            doing = true;
+            var args = arguments;
+            bingo.aFrame(function () {
+                if (dispoer && dispoer.bgIsDispose) return;
+                doing = false; fn.apply(this, args);
+            }.bind(this), frN);
+        };
+        //保存原来observe fn
+        fFn.orgFn = fn;
+        return fFn;
+    };
+    //end _rAFrame
+
+
+    var _Promise = bingo.Promise,
+        _isPromise = _Promise.isPromise, _promisePush = function (promises, p) {
+            _isPromise(p) && promises.push(p);
+            return p;
+        }, _promisePushList = function (promises, list) {
+            bingo.each(list, function (item) { _promisePush(promises, item); });
+            return list;
+        }, _retPromiseAll = function (promises, must) {
+            return must || promises.length > 0 ? _Promise.always(promises) : undefined;
+        }, _promiseAlways = function (promises, then) {
+            return promises.length > 0 ? _Promise.always(promises).then(then) : then();
+        };
+
+    //var _isLinkNodeType = function (type) {
+    //    return type == 1 || type == 8;
+    //},
+    //_isRemoveAll = function (nodes) {
+    //    return bingo.inArray(function (item, i) {
+    //        return _isLinkNodeType(item.nodeType) ? !!item.parentNode : false;
+    //    }, nodes) < 0;
+    //},
+    //_linkNodes = function (cacheName, nodes, callback) {
+    //    bingo.each(nodes, function (item) {
+    //        if (_isLinkNodeType(item.nodeType)) {
+    //            var fn = function () {
+    //                //删除没用的node
+    //                nodes = bingo.removeArrayItem(function (item) {
+    //                    return item == this || !item.parentNode;
+    //                }.bind(this), nodes);
+    //                if (callback && _isRemoveAll(nodes)) callback();
+    //            };
+    //            (item[cacheName] || (item[cacheName] = [])).push(fn);
+    //            bingo.linkNode(item, fn);
+    //        }
+    //    });
+    //},
+    //_unLinkNodes = function (cacheName, nodes) {
+    //    bingo.each(nodes, function (item) {
+    //        item[cacheName] && bingo.each(item[cacheName], function (fn) {
+    //            bingo.unLinkNode(item, fn);
+    //        });
+    //    });
+    //};
+
+    var _vm = {
+        _cacheName: '__contextFun__',
+        bindContext: function (cacheobj, content, hasRet) {
+
+            var cacheName = [content, hasRet].join('_'), cT;
+            var contextCache = (cacheobj[_vm._cacheName] || (cacheobj[_vm._cacheName] = {}));
+            if (contextCache[cacheName])
+                return contextCache[cacheName];
+            else {
+                cT = bingo.cache(_vm, cacheName);
+                if (cT) return cT;
+            }
+
+            hasRet && (content = ['try { return ', content, ';} catch (e) {bingo.observe.error(e);}'].join(''));
+            var fnDef = [
+                        'return function (_this_, $view, $withData, bingo, event) {',
+                            'with ($view) {',
+                                //如果有withData, 影响性能
+                                'with ($withData) {',
+                                        content,
+                                '}',
+                            '}',
+                        '};'].join('');
+            try {
+                cT = contextCache[cacheName] = (new Function(fnDef))();//bingo(多版本共存)
+                bingo.cache(_vm, cacheName, cT, 36);
+                return cT;
+            } catch (e) {
+                bingo.trace(content);
+                //throw e;
+            }
+        },
+        reset: function (cacheObj) {
+            cacheObj[_vm._cacheName] = {};
+        }
+    }; //end _vm
+
+    //bingo.bindContext = function (owner, content, view, node, withData, event, hasRet) {
+    //    var fn = _vm.bindContext(owner, content, hasRet, view, node, withData);
+    //    return fn(event);
+    //};
+
+
+    var _newBase = function (p) {
+        //基础
+        var o = {
+            $extend: function (p) {
+                return bingo.extend(this, p);
+            }
+        };
+        return o.$extend(p);
+    }, _newBindContext = function (p, bd) {
+        //绑定上下文
+        var _pri = {
+            obsList: [],
+            withData: {},
+            valueObj: function ($this) {
+                if (this.valueParams) return this.valueParams;
+                var contents = $this.$contents, withData = this.withData,
+                    view = $this.$view,
+                    hasW = !!withData && withData.bgTestProps(contents),
+                    hasView = hasW ? false : view.bgTestProps(contents),
+                    hasWin = hasView ? false : window.bgTestProps(contents),
+                    obj = hasW ? withData : hasW ? window : view;
+                return (this.valueParams = [obj, hasW || hasView || hasWin]);
+            }
+        };
+        var bind = _newBase({
+            bgNoObserve: true,
+            $view: null,
+            $node: null,
+            $contents: '',
+            $withData: function (name, p) {
+                switch (arguments.length) {
+                    case 0:
+                        return _pri.withData;
+                    case 1:
+                        return bingo.isObject(name) ? (_pri.withData = name)
+                            : _pri.withData[name];
+                    case 2:
+                        return _pri.withData[name] = p;
+                }
             },
-            $getApp: function () {
-                return this._bgpri_.app || bingo.app(null);
+            $bindContext: function (contents, isRet) {
+                return function (event) { return _vm.bindContext(this, contents, isRet)(this.$node || this.$view, this.$view, _pri.withData || {}, bingo, event); }.bind(this);
             },
-            $addController: function (ctrl, name, ctrlname) {
-                name && (this.$name = name);
-                ctrlname && (this.$ctrlname = ctrlname);
-                ctrl && this._bgpri_.ctrls.push(ctrl);
+            $hasProps: function () {
+                return _pri.valueObj(this)[0].bgTestProps(this.$contents);
             },
-            $getViewnode: function (node) {
-                return node ? _getVNode(node) : this._bgpri_.vNode;
+            $value: function (val) {
+                var contents = this.$contents, obj = _pri.valueObj(this)[0];
+                if (arguments.length == 0) {
+                    return obj.bgDataValue(contents);
+                } else {
+                    //this.$view.$updateAsync();
+                    obj.bgDataValue(contents, val);
+                }
             },
-            $getNode: function (selector) {
-                var node = this._bgpri_.node;
-                return selector ? node.querySelectorAll(selector) : node;
+            $result: function (event) {
+                /// <summary>
+                /// 执行内容, 一定会返回结果, 不会报出错误, 没有经过过滤器
+                /// 在执行之前可以改变contents
+                /// </summary>
+                /// <param name="event">可选, 事件</param>
+                var fn = this.$bindContext(this.$contents, true);
+                return fn(event);
             },
-            $initData: function (fn) {
-                if (this._bgpri_.initPm)
-                    this._bgpri_.initPm.push(fn);
-                else
-                    fn.call(this);
-                return this;
+            $eval: function (event) {
+                /// <summary>
+                /// 执行内容, 根据执行返回结果, 会报出错误
+                /// 在执行之前可以改变contents
+                /// </summary>
+                /// <param name="event">可选, 事件</param>
+                var fn = this.$bindContext(this.$contents, false);
+                return fn(event);
             },
-            $initDataSrv: function (fn) {
-                if (this._bgpri_.initPmSrv)
-                    this._bgpri_.initPmSrv.push(fn);
-                else
-                    fn.call(this);
-                return this;
+            $layout: function (wFn, fn, num, init) {
+                /// <summary>
+                /// 
+                /// </summary>
+                /// <param name="wFn"></param>
+                /// <param name="fn"></param>
+                /// <param name="num"></param>
+                /// <param name="init">默认为true</param>
+                if (arguments.length == 1) {
+                    this.$init(wFn);
+                    return;
+                }
+                var obs = this.$view.$layout(wFn, fn, num, this, true, (init === false));
+                _pri.obsList.push(obs);
+                (init !== false) && bd && bd.pushStep('CPInit', function () {
+                    this.$view.bgToObserve(true);
+                    return [obs.init()];
+                    //return [bingo.aFramePromise().then(function () { return obs.init(); })];
+                }.bind(this));
+                return obs;
+            },
+            //$layoutResult(function(c)), this.$result
+            //$layoutResult('', function(c)), this.$attrs.$result
+            //$layoutResult('datas', function(c)), this.$attrs.datas.$result
+            $layoutResult: function () {
+                var args= arguments, len = args.length,
+                    prop = args[0],
+                    fn = args[len > 1 ? 1 : 0],
+                    ow = len > 1 ? (prop ? this.$attrs[prop] : this.$attrs) : this;
+
+                return this.$layout(function () {
+                    return this.$result && this.$result();
+                }.bind(ow || {}), fn);
+            },
+            $layoutValue: function () {
+                var args= arguments, len = args.length,
+                    prop = args[0],
+                    fn = args[len > 1 ? 1 : 0],
+                    ow = len > 1 ? (prop ? this.$attrs[prop] : this.$attrs) : this;
+
+                ow && (ow.$hasProps() || ow.$value(undefined));
+                return this.$layout(function () { return this.$value && this.$value(); }.bind(ow || {}), fn);
+            },
+            $init: function (fn) {
+                _addCPEvent(this, bd, 'CPInit', fn);
             },
             $ready: function (fn) {
-                if (this._bgpri_.readyPm)
-                    this._bgpri_.readyPm.push(fn);
-                else
-                    fn.call(this);
-                return this;
+                _addCPEvent(this, bd, 'CPReady', fn);
+            }
+        }).$extend(p);
+
+        bind.bgOnDispose(function () {
+            bingo.each(_pri.obsList, function (obs) {
+                obs.bgIsDispose || obs.unObserve();
+            });
+        });
+        bind.bgDispose(_pri);
+        return bind;
+
+    }, _pushStepView = function (view, step, _pri, type, bd) {
+        bd.pushStep(step, function () {
+            if (this.bgIsDispose) return;
+            var list = _pri[type], promises = [];
+            if (list.length > 0) {
+                _pri[type] = [];
+                bingo.each(list, function (item) {
+                    _promisePush(promises, item && item.call(this, this));
+                }, this);
+            }
+            this.bgToObserve();
+            return promises;
+        }.bind(view));
+
+    }, _newView = function (p, bd) {
+
+        var _pri = {
+            obsList: [],
+            obsListUn: [],
+            ctrls: [],
+            inits: [],
+            readys: []
+        };
+        var _inits = {}, _readys = {}
+
+        //新建view
+        var view = _newBase({
+            $ownerCP: null,
+            $parent: null,
+            $children: [],
+            $controller: function (fn) {
+                _pri.ctrls.push(fn);
             },
-            $observe: function (p, fn, dispoer, check) {
+            $init: function (p, fn) {
+                if (arguments.length == 2) {
+                    (_inits[p] || (_inits[p] = [])).push(fn);
+                } else if (bingo.isString(p))
+                    return _inits[p];
+                else
+                    _pri.inits.push(p);
+            },
+            $ready: function (p, fn) {
+                if (arguments.length == 2) {
+                    (_readys[p] || (_readys[p] = [])).push(fn);
+                } else if (bingo.isString(p))
+                    return _readys[p];
+                else
+                    _pri.readys.push(p);
+            },
+            $observe: function (p, fn, dispoer, check, autoInit) {
+                autoInit !== false && this.bgToObserve(true);
                 var fn1 = function () {
                     //这里会重新检查非法绑定
                     //所以尽量先定义变量到$view, 再绑定
-                    this.$updateAsync();
+                    if (this.bgIsDispose || (dispoer && dispoer.bgIsDispose)) return;
+                    //this.$updateAsync();
                     return fn.apply(this, arguments);
                 }.bind(this);
                 fn1.orgFn = fn.orgFn;//保存原来observe fn
-                var obs = !bingo.isFunction(p) ? bingo.observe(this, p, fn1)
-                    : bingo.observe(p, fn1);
+                var obs = !bingo.isFunction(p) ? bingo.observe(this, p, fn1, autoInit)
+                    : bingo.observe(function(){ return (this.bgIsDispose || (dispoer && dispoer.bgIsDispose)) || p.apply(this, arguments);}.bind(this), fn1, autoInit);
                 //check是否检查, 如果不检查直接添加到obsList
                 if (!check || !obs.isObs)
-                    (obs.isObs ? this._bgpri_.obsList : this._bgpri_.obsListUn).push([obs, dispoer, check]);
+                    (obs.isObs ? _pri.obsList : _pri.obsListUn).push([obs, dispoer, check]);
                 return obs;
             },
-            $layout: function (p, fn, fnN, dispoer, check) {
-                bingo.isNumeric(fnN) || (fnN = 1);
-                return this.$observe(p, bingo.aFrameProxy(fn, fnN), dispoer, check);
+            $layout: function (p, fn, fnN, dispoer, check, autoInit) {
+                return this.$observe(p, bingo.aFrameProxy(fn, fnN, dispoer), dispoer, check, autoInit);
+            },
+            $layoutAfter: function (p, fn, dispoer, check, autoInit) {
+                return this.$layout(p, fn, 1, dispoer, check, autoInit);
             },
             $update: function (force) {
                 if (!this.$isReady) return;
-                this.bgToObserve(true);
+                //this.bgToObserve(true);
 
                 //检查非法观察者
-                this._bgpri_.obsListUn = this._bgpri_.obsListUn.filter(function (item, index) {
+                _pri.obsListUn = _pri.obsListUn.filter(function (item, index) {
                     var dispoer = item[1], obs = item[0], check = item[2];
                     if (dispoer && dispoer.bgIsDispose) {
                         obs.unObserve();
@@ -2433,7 +2570,7 @@
 
                         if (obs.isObs) {
                             //如果不是check, 添加到_obsList
-                            if (!item[2]) this._bgpri_.obsList.push(item);
+                            if (!item[2]) _pri.obsList.push(item);
                             return false;
                         }
                     }
@@ -2442,530 +2579,940 @@
             },
             $updateAsync: function () {
                 if (this._upastime_) clearTimeout(this._upastime_);
-                this._upastime_ = setTimeout(function () { this.$update(); }.bind(this), 1);
-            },
-            $html: function (node, html) {
-                if (arguments.length > 0) {
-                    return bingo.compile(this).html(html).htmlTo(node).compile();
-                } else
-                    return jo.innerHTML;
+                this._upastime_ = setTimeout(function () {
+                    if (this.bgIsDispose) return;
+                    this.$update();
+                }.bind(this), 1);
             },
             $remove: function () {
-                _removeNode(this.$getNode());
+                if (this.$ownerCP) {
+                    this.$ownerCP.$html('');
+                }
             },
-            $getComp: function (name) {
-                return this._bgpri_.comp[name];
+            $getNodes: function () {
+                return this.$ownerCP.$getNodes();
             },
-            $removeComp: function (name) {
-                this.bgIsDispose || delete this._bgpri_.comp[name];
+            $query: function (selector) {
+                return this.$ownerCP.$query(selector);
             },
-            $defComp: function (p, name) {
-                var init;
-                bingo.eachProp(p, function (item, name) {
-                    if (bingo.inArray(name, _eDef) >= 0) {
-                        this[name](item);
-                    } else if (name == '$init') {
-                        init = item;
-                    }
-                    else if (!(name in _def))
-                        this[name] = item;
+            $queryAll: function (selector) {
+                return this.$ownerCP.$queryAll(selector);
+            },
+            $insertBefore: function (p, ref, ctrl) {
+                return this.$ownerCP.$insertBefore(p, ref, ctrl);
+            },
+            $insertAfter: function (p, ref, ctrl) {
+                return this.$ownerCP.$insertAfter(p, ref, ctrl);
+            },
+            $inject: function (p, injectObj, thisArg) {
+                return this.$app.inject(p, bingo.extend({
+                    $view: this,
+                    $cp: this.$ownerCP
+                }, injectObj), thisArg);
+            },
+            $link: function (props, view) {
+                /// <summary>
+                /// 关联数据来源<br />
+                /// $link({title:'@title', name:'=name'})<br />
+                /// $link({title:'@title', name:'=name'}, this.$parent)
+                /// </summary>
+                /// <param name="props"></param>
+                /// <param name="view">可选， 默认$parent</param>
+                view || (view = this.$parent);
+                if (!view) return;
+                var same = view == this;
+                bingo.eachProp(props, function (item, n) {
+                    var r = (item.indexOf('@') == 0);
+                    r && (item = item.substr(1));
+                    if (same && item == n) return;
+                    view.$observe(item, function (c) { this.bgDataValue(n, c.value); }.bind(this));
+                    this[n] = view.bgDataValue(item);
+                    if (r)
+                        this.bgToObserve(true);
+                    else
+                        this.$observe(n, function (c) { this.bgDataValue(item, c.value); }.bind(view));
                 }, this);
-
-                init && init.call(this);
-
-                if (name) {
-                    var comp = this.$parentView()._bgpri_.comp;
-                    comp[name] = this;
-                }
-
-                return this;
             }
-        };  //end _def
-        //var _defKey = Object.keys(_def).concat(_eDef);
+        }).$extend(p);
 
-        this.Define(_def);
+        var parentView = view.$parent;
+        parentView && parentView.$children.push(view);
 
-        this.Init(function (parentView, node, build) {
-            this.Private({
-                ow: this,
-                node: node,//view拥有node
-                children: [],
-                ctrls: [],
-                obsList: [],
-                obsListUn: [],
-                comp: {},
-                initPm:[],
-                initPmSrv:[],
-                readyPm:[],
-                readyAllPm: []
+        view.bgOnDispose(function () {
+
+            bingo.each(_pri.obsList, function (item) {
+                item[0].bgIsDispose || item[0].unObserve();
             });
-            this.$isReady = false;
 
-            this.bgLinkNode(node);
-
-            this.bgSyncAdd();
-            if (parentView) {
-                parentView.bgSyncAdd();
-                this._bgpri_.setParent(parentView);
-            }
-
-            this._bgpri_.bgOnDispose(function () {
-                bingo.each(this.obsList, function (item) {
-                    item[0].bgIsDispose || item[0].unObserve();
-                });
-
-                bingo.each(this.obsListUn, function (item) {
-                    item[0].bgIsDispose || item[0].unObserve();
-                });
-
-                //处理父子
-                var pView = this.pView;
-                if (pView && pView.bgDisposeStatus == 0)
-                    pView._bgpri_.removeChild(this.ow);
-
+            bingo.each(_pri.obsListUn, function (item) {
+                item[0].bgIsDispose || item[0].unObserve();
             });
-            this.bgDispose(this._bgpri_);
+            _removeView(this.$app, this);
 
-            if (build) {
-                build.bgOn('ready', function () {
-                    this._bgpri_.sendReady(build.ready);
-                }.bind(this));
+            if (parentView && !parentView.bgIsDispose) {
+                parentView.$children = bingo.removeArrayItem(this, parentView.$children);
             }
-
         });
-    }); //end _viewClass
+        view.bgDispose(_pri);
 
-    var _setVNode = function (node, vNode) {
-        node.__bg_vNode = vNode;
-    }, _getVNode = function (node) {
-        return node.__bg_vNode || (node.parentNode && _getVNode(node.parentNode));
-    }, _rmVNode = function (node) { node.__bg_vNode = undefined; };
-
-    //viewnode==管理与node节点连接====================
-    var _viewnodeClass = bingo.viewnodeClass = bingo.Class(function () {
-
-        this.Define({
-            _no_observe:true,
-            _setParent: function (viewnode) {
-                if (viewnode) {
-                    this.parent = viewnode;
-                    viewnode.children.push(this);
+        if (bd) {
+            if (bd.ctrl) {
+                view.$controller(bd.ctrl);
+                bd.ctrl = null;
+            }
+            bd.pushStep('ViewCtrl', function () {
+                if (this.bgIsDispose) return;
+                var ctrls = _pri.ctrls, promises = [];
+                if (ctrls.length > 0) {
+                    _pri.ctrls = [];
+                    bingo.each(ctrls, function (item) {
+                        _promisePush(promises, this.$inject(item));
+                    }, this);
                 }
+                return promises;
+            }.bind(view));
+
+            _pushStepView(view, 'ViewInit', _pri, 'inits', bd);
+            _pushStepView(view, 'ViewReady', _pri, 'readys', bd);
+        }
+
+        //编译时同步用
+        _addView(view.$app, view);
+        return view;
+    }, _cpNodeName = '_bgcp_', _getNodeCP = function (node) {
+        return node[_cpNodeName];
+    }, _removeCPNodes = function (nodes) {
+        if (nodes) {
+            //_unLinkNodes('_cpLinkC', nodes);
+            bingo.each(nodes, function (item) {
+                item[_cpNodeName] = null;
+                _removeNode(item);
+            });
+        }
+    }, _checkCPNodes = function (cp) {
+        var list = [];
+        bingo.each(cp.$nodes, function (item) {
+            if (!!item.parentNode)
+                list.push(item);
+        });
+        cp.$nodes = list;
+    }, _getCPRefNode = function (cp, last) {
+        _checkCPNodes(cp);
+        var nodes = cp.$nodes;
+        var len = cp.$nodes.length;
+        return len > 0 ? cp.$nodes[last ? len - 1 : 0] : null;
+    }, _clearCP = function (cp) {
+        bingo.each(cp.$children, function (item) {
+            item.bgDispose();
+        });
+        bingo.each(cp.$virtualNodes, function (item) {
+            item.bgDispose();
+        });
+        if (cp.$ownerView)
+            cp.$ownerView.bgDispose();
+        cp.$children = cp.$ownerView = null;
+        cp.$virtualNodes = [];
+    }, _getCPFirstNode = function (cp, childNodes) {
+
+        var node = _getCPRefNode(cp),
+            child = cp.$children[0],
+            cNode = child && _getCPRefNode(child);
+
+        if (cNode) {
+            var parent = node.parentNode;
+            if (cNode.parentNode != parent)
+                return node;
+            else {
+                childNodes || (childNodes = bingo.sliceArray(parent.childNodes));
+                var childNodes = bingo.sliceArray(parent.childNodes);
+                if (bingo.inArray(node, childNodes) < bingo.inArray(cNode, childNodes))
+                    return node;
+                else
+                    return _getCPFirstNode(child, childNodes);
+            }
+        } else
+            return node;
+
+    }, _getCPLastNode = function (cp, childNodes) {
+
+        var node = _getCPRefNode(cp, true),
+            child = cp.$children[cp.$children.length - 1],
+            cNode = child && _getCPRefNode(child, true);
+
+        if (cNode) {
+            var parent = node.parentNode;
+            if (cNode.parentNode != parent)
+                return node;
+            else {
+                childNodes || (childNodes = bingo.sliceArray(parent.childNodes));
+                if (bingo.inArray(node, childNodes) > bingo.inArray(cNode, childNodes))
+                    return node;
+                else
+                    return _getCPLastNode(child, childNodes);
+            }
+        } else
+            return node;
+    }, _getCPAllNodes = function (cp) {
+        var first = _getCPFirstNode(cp),
+            last = _getCPLastNode(cp);
+        if (first == last) return [first];
+        var list = first.nodeType == 1 ? [first] : [], item = first;
+        while (last != (item = item.nextSibling) && item) {
+            item.nodeType == 1 && list.push(item);
+        }
+        last.nodeType == 1 && list.push(last);
+        return list;
+    }, _addCPEvent = function (cp, bd, eName, fn) {
+        bd && bd.pushStep(eName, function () {
+            return [fn.call(cp)];
+        })
+    }, _newCP = function (p, extendWith, bd) {
+        var _pri = {
+            ctrl: null,
+            tmpl: '',
+            getContent: function (cp) {
+                var tmpl = this.tmpl;
+                if (bingo.isFunction(tmpl))
+                    return tmpl();
+                else
+                    return tmpl;
             },
-            _removeChild: function (viewnode) {
-                this.children = bingo.removeArrayItem(viewnode, this.children);
+            render: function (cp, bd) {
+                var ret = this.getContent(cp);
+                if (_isPromise(ret))
+                    ret.then(function (s) {
+                        _traverseCmd(bingo.trim(s), cp, bd);
+                    });
+                else
+                    _traverseCmd(bingo.trim(ret), cp, bd);
+                _promisePush(_renderPromise, ret);
+            }
+        };
+
+        //新建command的CP参数对象
+        var cp = _newBindContext({
+            $ownerView: null,
+            $app: null,
+            $cmd: '',
+            $attrs: null,
+            $nodes: null,
+            $virtualNodes: [],
+            $isAFrame:true,
+            $setNodes: function (nodes) {
+                _removeCPNodes(this.$nodes);
+                this.$nodes = nodes;
+                bingo.each(nodes, function (item) {
+                    item[_cpNodeName] = this;
+                }, this);
+                //_linkNodes('_cpLinkC', nodes, function () {
+                //    this.bgDispose();
+                //}.bind(this));
             },
-            $getAttr: function (name) {
-                name = name.toLowerCase();
+            $getNodes: function () {
+                return _getCPAllNodes(this);
+            },
+            $query: function (selector) {
+                return this.$queryAll(selector, true)[0];
+            },
+            $queryAll: function (selector, isFirst) {
+                var list = [], isSel = !!selector;
+                bingo.each(this.$nodes, function (node) {
+                    if (node.nodeType == 1) {
+                        if (isSel)
+                            list = list.concat(bingo.sliceArray(_queryAll(selector, node)));
+                        else
+                            list.push(node);
+                        if (isFirst && list.length > 0)
+                            return false;
+                    }
+                });
+                return list;
+            },
+            $parent: null,
+            $children: null,
+            $removeChild: function (cp) {
+                this.$children = bingo.removeArrayItem(cp, this.$children);
+            },
+            $getChild: function (id) {
                 var item;
-                bingo.each(this.attrList, function () {
-                    if (this.name == name) { item = this; return false; }
+                bingo.each(this.$children, function () {
+                    if (this.$id == id) {
+                        item = this;
+                        return false;
+                    }
                 });
                 return item;
             },
-            $html: function (html) {
-                return this.view.$html.apply(this.view, [this.node, html]);
+            $export: null,
+            $remove: function () {
+                this.bgDispose();
             },
-            _removeText: function (text) {
-                this._textList = bingo.removeArrayItem(text, this._textList);
+            $html: function (s, ctrl) {
+                if (arguments.length > 0) {
+                    _clearCP(this);
+                    this.$tmpl(s);
+
+                    return _compile({ cp: this, context: _getCPRefNode(this), opName: 'insertBefore' }, ctrl);
+                } else {
+                    var list = [];
+                    bingo.each(this.$nodes, function (item) {
+                        list.push(item.nodeType == 1 ? item.outerHTML : item.textContent);
+                    });
+                    return list.join('');
+                }
+            },
+            $insertBefore: function (p, ref, ctrl) {
+                /// <summary>
+                /// $insertBefore(html|cp|view) html|cp|view放到本cp的最前面<br />
+                /// $insertBefore(html|cp|view, cp|view) html|cp|view放到cp|view的前面<br />
+                /// </summary>
+
+                //view|cp|this
+                var cp = (ref && (ref.$ownerCP || ref)) || this;
+
+                var refNode = _getCPFirstNode(cp);
+
+                if (bingo.isString(p)) {
+                    return _compile({
+                        tmpl: p,
+                        view: cp.$ownerView || cp.$view,
+                        parent: ref ? (ref.$ownerCP || ref).$parent : cp,
+                        context: refNode,
+                        opName: 'insertBefore'
+                    }, ctrl).then(function (cpT) {
+                        cpT.$parent.$children.unshift(cpT);
+                        return cpT;
+                    });
+                } else {
+                    var childs = this.$children, target = p.$ownerCP || p;
+                    var index = bingo.inArray(target, childs);
+                    if (index >= 0) {
+                        if (cp == this) {
+                            if (index > 0) {//不能插入相同位置
+                                childs.splice(index, 1);
+                                childs.unshift(target);
+                                _insertDom(_getCPAllNodes(target), refNode, 'insertBefore');
+                            }
+                        } else {
+                            var pIndex = bingo.inArray(cp, childs);
+                            if (pIndex >= 0 && (pIndex - 1 != index)) {
+                                childs.splice(index, 1);
+                                childs.splice(pIndex, 0, target);
+                                _insertDom(_getCPAllNodes(target), refNode, 'insertBefore');
+                            }
+                        }
+                    }
+                    return _Promise.resolve(target);
+                }
+            },
+            $insertAfter: function (p, ref, ctrl) {
+                /// <summary>
+                /// $insertBefore(html|cp|view) html|cp|view放到本cp的最后面<br />
+                /// $insertBefore(html|cp|view, cp|view) html|cp|view放到cp|view的后面<br />
+                /// </summary>
+                //view|cp|this
+                var cp = (ref && (ref.$ownerCP || ref)) || this;
+
+                var node = _getCPLastNode(cp),
+                    refNode = node.nextSibling;
+
+                if (bingo.isString(p)) {
+                    return _compile({
+                        tmpl: p,
+                        view: cp.$ownerView || cp.$view,
+                        parent: ref ? (ref.$ownerCP || ref).$parent : cp,
+                        context: refNode ? refNode : node.parentNode,
+                        opName: refNode ? 'insertBefore' : 'appendTo'
+                    }, ctrl).then(function (cpT) {
+                        cpT.$parent.$children.push(cpT);
+                        return cpT;
+                    });
+                } else {
+                    var target = p.$ownerCP || p, childs = this.$children;
+                    var index = bingo.inArray(target, childs);
+                    if (index >= 0) {
+                        var lastIndex = childs.length - 1;
+                        if (cp == this) {
+                            if (index != lastIndex) {
+                                childs.splice(index, 1);
+                                childs.push(target);
+                                _insertDom(_getCPAllNodes(target), refNode ? refNode : node.parentNode, refNode ? 'insertBefore' : 'appendTo');
+                            }
+                        } else {
+                            var pIndex = bingo.inArray(cp, childs);
+                            if (pIndex >= 0 && (index - 1 != pIndex)) {
+                                childs.splice(index, 1);
+                                childs.splice(pIndex + 1, 0, target);
+                                _insertDom(_getCPAllNodes(target), refNode ? refNode : node.parentNode, refNode ? 'insertBefore' : 'appendTo');
+                            }
+                        }
+                    }
+                    return _Promise.resolve(target);
+                }
+            },
+            $text: function (s) {
+                if (arguments.length > 0) {
+                    _clearCP(this);
+                    this.$contents = this.tmplTag = bingo.htmlEncode(s);
+
+                    return _traverseCP(_getCPRefNode(this), this, 'insertBefore');
+                } else {
+                    var list = [];
+                    bingo.each(this.$nodes, function (item) {
+                        list.push(item.textContent);
+                    });
+                    return list.join('');
+                }
+            },
+            $tmpl: function (p) {
+                /// <summary>
+                /// $tmpl('') <br />
+                /// $tmpl(function(){return bingo.tmpl(url);}) <br />
+                /// $tmpl(function(){return '';}) <br />
+                /// </summary>
+                /// <param name="p"></param>
+                /// <returns value=''></returns>
+                _pri.tmpl = p;
+                return this;
+            },
+            $saveTmpl: function (id, tmpl, isApp) {
+                if (isApp)
+                    this.$app.saveTmpl(id, tmpl);
+                else {
+                    var cp = (this.$ownerView || this.$view).$ownerCP;
+                    var cObj = cp.__tmpl || (cp.__tmpl = {});
+                    cObj[id] = tmpl;
+                }
+            },
+            $loadTmpl: function (p, aP, bRoute) {
+
+                if (bingo.isString(p) && p.indexOf('#') == 0) {
+                    var id = p.substr(1);
+                    var cp = (this.$ownerView || this.$view).$ownerCP;
+                    var tmpl = cp.__tmpl && cp.__tmpl[id];
+                    return bingo.isString(tmpl) ? _Promise.resolve(tmpl) : this.$app.tmpl(p);
+                } else
+                    return this.$app.tmpl(p, aP, bRoute);
+
+            },
+            _render: function (bd) {
+                _pri.render(this, bd);
+                return _renderThread();
+            },
+            $controller: function (fn) {
+                _pri.ctrl = fn;
+            },
+            $inject: function (p, injectObj, thisArg) {
+                return this.$app.inject(p,
+                    bingo.extend({
+                        $view: this.$view,
+                        $cp: this
+                    }, injectObj), thisArg);
+            },
+            $link: function (props, view) {
+                return (this.$ownerView || this.$view).$link(props, view);
             }
-        });
+        }, bd).$extend(p);
 
-        this.Init(function (view, node, parent, withData, build) {
+        cp.$id || (cp.$id = bingo.makeAutoId());
 
-            this.bgLinkNode(node);
-            _setVNode(node, this);
-
-            bingo.extend(this, {
-                node: node,
-                view: view,
-                attrList: [],//command属性
-                _textList: [],
-                children: [],
-                withData: withData || (parent && parent.withData)
-            });
-
-            parent || (view._bgpri_.vNode = this);
-            this._setParent(parent);
-
-            this.bgOnDispose(function () {
-                _rmVNode(this.node);
-                //处理父子
-                var parent = this.parent;
-                (parent && parent.bgDisposeStatus == 0) && parent._removeChild(this);
-
-                //释放attrLst
-                bingo.each(this.attrList, function (item) {
-                    item.bgIsDispose || item.bgDispose();
-                });
-
-                //释放_textList
-                bingo.each(this._textList, function (item) {
-                    item.bgIsDispose || item.bgDispose();
-                });
-
-            });
-
-            if (build) {
-                build.bgOn('ctrl', function () {
-                    bingo.each(this.attrList, function (item) {
-                        var ctrl = item.command.controller;
-                        ctrl && _promisePush(build.ctrl, item._inject(ctrl));
-                    });
-                }.bind(this));
-                build.bgOn('compile', function () {
-                    this.attrList.sort(function (item, item1) { return item.priority - item1.priority; });
-                    bingo.each(this.attrList, function (item) {
-                        var compile = item.command.compile;
-                        compile && _promisePush(build.compile, item._inject(compile));
-                        _promisePush(build.compile, item._getPms());
-                    });
-                }.bind(this));
-                build.bgOn('link', function () {
-                    bingo.each(this.attrList, function (item) {
-                        var link = item.command.link;
-                        link && _promisePush(build.link, item._inject(link));
-                        _promisePush(build.link, item._getPms());
-                    });
-                }.bind(this));
-                build.bgOn('init', function () {
-                    bingo.each(this.attrList, function (item) {
-                        item.$publish();
-                    });
-                }.bind(this));
-            }
-
-        });
-    }); //end _viewnodeClass
-
-    var _vm = {
-        _cacheName: '__contextFun__',
-        bindContext: function (cacheobj, content, hasRet, view, node, withData) {
-
-            var cacheName = [content,hasRet].join('_');
-            var contextCache = (cacheobj[_vm._cacheName] || (cacheobj[_vm._cacheName] = {}));
-            if (contextCache[cacheName]) return contextCache[cacheName];
-
-            hasRet && (content = ['try { return ', content, ';} catch (e) {bingo.observe.error(e);}'].join(''));
-
-            return contextCache[cacheName] = (new Function('$view', 'node', '$withData', 'bingo', [
-                    'with ($view) {',
-                        //如果有withData, 影响性能
-                        withData ? 'with ($withData) {' : '',
-                            //this为node
-                            'return function (event) {',
-                                content,
-                            '}.bind(node);',
-                        withData ? '}' : '',
-                    '}'].join('')))(view, node || view.viewnode.node, withData, bingo);//bingo(多版本共存)
+        //要分离上下级的withData
+        extendWith && cp.$parent && cp.$withData(bingo.extend({}, cp.$parent.$withData()));
+        if (cp.$attrs) {
+            cp.$attrs._setCP(cp);
+            cp.$name = bingo.trim(cp.$attrs.$getAttr('name'));
         }
-    }; //end _vm
 
-    bingo.bindContext = function (owner, content, view, node, withData, event, hasRet) {
-        var fn = _vm.bindContext(owner, content, hasRet, view, node, withData);
-        return fn(event);
+        //处理else
+        var cmdDef, whereList, app = cp.$app,
+            elseList = cp.$elseList;
+        if (elseList) {
+            var cpT, whereList = cp.$whereList;
+            bingo.each(elseList, function (item, index) {
+                cpT = _newCP({
+                    $cmd: 'else',
+                    $app: app,
+                    $attrs: _traverseAttr(whereList[index]),
+                    $view: cp.$view, $contents: item,
+                    $parent: cp
+                }, false, bd);
+
+                elseList[index] = cpT;
+            });
+            cp.$whereList = null;
+        }
+
+        cp.bgOnDispose(function () {
+            _removeCPNodes(this.$nodes);
+            var parent = this.$parent;
+            if (parent && !parent.bgIsDispose) {
+                parent.$removeChild(this);
+            }
+            bingo.each(this.$elseList, function (cp) {
+                cp.bgIsDispose || cp.bgDispose();
+            });
+            this.$attrs && this.$attrs.bgDispose();
+            _clearCP(this);
+        });
+        cp.bgDispose(_pri);
+
+        bd && bd.pushStep('CPCtrl', function () {
+            if (this.bgIsDispose) return;
+            var ctrl = _pri.ctrl, promises = [];
+            if (ctrl) {
+                _pri.ctrl = null;
+                promises.push(this.$inject(ctrl, { $view: this.$ownerView || this.$view }));
+            }
+            if (this.$cmd != 'view' && this.$name) {
+                var view = this.$view;
+                view[this.$name] = this.$export || this.$ownerView || view;
+            }
+
+            return promises;
+        }.bind(cp));
+
+        //用于cp事件与view的事件连接，如$view.$init('select', function(){});
+        bd && bd.pushStep('CPEvent', function () {
+            if (this.bgIsDispose) return;
+            //处理$view.$init('cp', fn), $view.$ready('cp', fn)
+            var view = this.$view;
+            var e = view.$init(this.$name + '');
+            e && bingo.each(e, function (item) { this.$init(item); }, this);
+
+            e = view.$ready(this.$name + '');
+            e && bingo.each(e, function (item) { this.$ready(item); }, this);
+
+            return [];
+        }.bind(cp));
+
+
+        if (cp.$cmd) {
+            //处理command定义
+            cmdDef = app.command(cp.$cmd);
+            var rfn = function () {
+                cmdDef && (cmdDef = cmdDef.fn);
+                cmdDef && _promisePush(_renderPromise, cmdDef(cp));
+                _pri.render(cp, bd);
+            };
+
+            if (cmdDef || cp.$cmd == 'else') {
+                rfn();
+            } else {
+                _promisePush(_renderPromise, cp.$app.usingAll('command::' + cp.$cmd).then(function () {
+                    cmdDef = app.command(cp.$cmd);
+                    rfn();
+                }));
+            }
+        } else
+            _pri.render(cp, bd);
+
+        return cp;
+    }, _newCPAttr = function (contents, bd) {
+        return _newBindContext({
+            $contents: contents,
+        });
+    }, _newCPAttrs = function (contents, bd) {
+        var _names = [],
+            _attrs = _newBindContext({
+                $contents: contents,
+                $getAttr: function (name) {
+                    return this[name] ? this[name].$contents : '';
+                },
+                $setAttr: function (name, contents) {
+                    if (this[name])
+                        this[name].$contents = contents;
+                    else {
+                        _names.push(name);
+                        this[name] = _newCPAttr(contents, bd);
+                    }
+                },
+                _setCP: function (cp) {
+                    this.$view = cp.$view;
+                    this.$cp = cp;
+                    this.$withData(cp.$withData());
+                    var aT;
+                    bingo.each(_names, function (item) {
+                        aT = this[item];
+                        aT.$cp = cp;
+                        aT.$app = cp.$app;
+                        aT.$view = cp.$view;
+                        aT.$withData(cp.$withData());
+                    }, this);
+                }
+            });
+        _attrs.bgOnDispose(function () {
+            bingo.each(_names, function (item) {
+                this[item].bgDispose();
+            }, this);
+        });
+        return _attrs;
+    }, _newDom = function (p) {
+        var dom = _newBase({
+            $attr: function (name, val) {
+                var node = this.$node,
+                    aLen = arguments.length;
+                switch (name) {
+                    case 'class':
+                        if (aLen == 1)
+                            return node.className;
+                        node.className = val;
+                        break;
+                    case 'value':
+                        var isSelect = node.tagName.toLowerCase() == 'select';
+                        if (aLen == 1)
+                            return (isSelect ? _valSel : _val)(node);
+                        else
+                            (isSelect ? _valSel : _val)(node, val);
+                        break;
+                    default:
+                        if (aLen == 1)
+                            return _attr(node, name);
+                        else
+                            _attr(node, name, val);
+                        break;
+                }
+            },
+            $prop: function (name, val) {
+                if (arguments.length == 1)
+                    return _prop(this.$node, name);
+                else
+                    _prop(this.$node, name, val);
+            },
+            $css: function (name, val) {
+                if (arguments.length == 1)
+                    return _css(this.$node, name);
+                else
+                    _css(this.$node, name, val);
+            },
+            $show: function () {
+                _show(this.$node);
+            },
+            $hide: function () {
+                _hide(this.$node);
+            },
+            $on: function (name, fn, useCaptrue) {
+                _eventList.push(bingo.sliceArray(arguments));
+                _on.apply(this.$node, arguments);
+            },
+            $one: function (name, fn, useCaptrue) {
+                var args = bingo.sliceArray(arguments),
+                    node = this.$node;
+                args[2] = function () {
+                    fn && fn.apply(this, arguments);
+                    _off.apply(node, arguments);
+                };
+                _eventList.push(args);
+                _on.apply(node, args);
+            },
+            $off: function (name, fn, useCaptrue) {
+                _off.apply(this.$node, arguments);
+            },
+            $is: function (selector) {
+                return _isQuery(this.$node, selector);
+            },
+            $parent: function (selector) {
+                var node = _parentQuery(this.$node, selector);
+                return node ? _getVNode(node) : null;
+            }
+        }).$extend(p);
+        var _eventList = [];
+
+        dom.bgOnDispose(function () {
+            bingo.each(_eventList, function (item) {
+                _off.apply(this.$node, item);
+            }.bind(this));
+        });
+        return dom;
+    }, _vNodeName = '_bgvn_', _setVNode = function (vn, node) {
+        node[_vNodeName] = vn;
+    }, _getVNode = function (node) {
+        return node[_vNodeName];
+    }, _newVirtualNode = function (cp, node, bd) {
+        //如果是新view, 读取$ownerView
+        var view = cp.$ownerView || cp.$view;
+        var vNode = _newDom({
+            $view: view,
+            $app: view.$app,
+            $cp: cp,
+            $node: node,
+            $attrs: _newBase({}),
+            _addAttr: function (name, contents) {
+                return this.$attrs[name] = _newVirtualAttr(this, name, contents, bd);
+            }
+        });
+        _setVNode(vNode, node);
+        _virtualAttrs(vNode, node);
+        cp.$virtualNodes.push(vNode);
+        vNode.bgOnDispose(function () {
+            node[_vNodeName] = null;
+            var attrs = this.$attrs;
+            bingo.eachProp(attrs, function (item) {
+                item.bgDispose();
+            });
+        });
+        return vNode;
+    }, _newVirtualAttr = function (vNode, name, contents, bd) {
+        var cp = vNode.$cp;
+        var vAttr = _newBindContext(_newDom({
+            $cp: cp,
+            $vNode: vNode,
+            $node: vNode.$node,
+            $app: vNode.$app,
+            $view: vNode.$view,
+            $name: name,
+            $contents: contents
+        }), bd);
+
+        vAttr.$withData(cp.$withData());
+
+        var def = vAttr.$app.attr(name);
+        //def && def(vAttr);
+        var promies = def && def(vAttr);
+        bd && bd.pushStep('CPInit', function () {
+            return promies;
+        }.bind(this));
+        return vAttr;
     };
 
-    //_attrClass attr====管理与指令连接================
-    var _attrClass = bingo.attrClass = bingo.Class(function () {
+    //指令解释:
+    //{{cmd /}}
+    //{{cmd attr="asdf" /}}
+    //{{cmd attr="asdf"}} contents {{/cmd}}
+    var _tmplCmdReg = /\{\{\s*(\/?)\s*([^\s{}]+)\s*((?:(?:.|\n|\r)(?!\{\{|\}\}))*)(.?)\}\}/gi,
+        //解释else
+        _checkElse = /\{\{\s*(\/?if|else)\s*(.*?)\}\}/gi,
+        //解释指令属性: attr="fasdf"
+        _cmdAttrReg = /(\S+)\s*=\s*(?:\"((?:\\\"|[^"])*?)\"|\'((?:\\\'|[^'])*?)\')/gi,
+        //删除注释内容
+        _commentRMReg = /\<\!\-\-((?:.|\n|\r)*?)\-\-\>/g;
 
-        this.Define({
-            _no_observe: true,//防止observe
-            _inject: function (p) {
-                return bingo.inject(p, this.view, {
-                    node: this.node,
-                    $viewnode: this.viewnode,
-                    $attr: this,
-                    $withData: this.withData
-                }, this.command);
-            },
-            $eval: function (event) {
-                /// <summary>
-                /// 执行内容, 根据执行返回结果, 会报出错误
-                /// 在执行之前可以改变content
-                /// </summary>
-                /// <param name="event">可选, 事件</param>
-                var fn = _vm.bindContext(this, this.content, false, this.view, this.node, this.withData);
-                return fn(event);
-            },
-            $results: function (event) {
-                /// <summary>
-                /// 执行内容, 一定会返回结果, 不会报出错误, 没有经过过滤器
-                /// 在执行之前可以改变content
-                /// </summary>
-                /// <param name="event">可选, 事件</param>
-                var fn = _vm.bindContext(this, this.content, true, this.view, this.node, this.withData);
-                return fn(event);
-            },
-            _makeValueObj: function () {
-                if (this._makeValueParams) return this._makeValueParams;
-                var content = this.content, withData = this.withData,
-                    view = this.view,
-                    hasW = !!withData && withData.bgTestProps(content),
-                    hasView = hasW ? false : view.bgTestProps(content),
-                    hasWin = hasView ? false : window.bgTestProps(content),
-                    obj = hasW ? withData : hasW ? window : view;
-                return (this._makeValueParams = [obj, hasW || hasView || hasWin]);
-            },
-            $hasProps: function () {
-                return this._makeValueObj()[0].bgTestProps(this.content);
-            },
-            $value: function (val) {
-                /// <summary>
-                /// 设置或取值, 在执行之前可以改变content
-                /// </summary>
-                var content = this.content, obj = this._makeValueObj()[0];
-                if (arguments.length == 0) {
-                    return obj.bgDataValue(content);
-                } else {
-                    this.view.$updateAsync();
-                    obj.bgDataValue(content, val);
-                }
-            },
-            $publish: function () {
-                return;
-                bingo.each(this._obsList, function () {
-                    this.bgIsDispose || this.publish();
-                });
-            },
-            $observe: function (wFn, fn) {
-                if (arguments.length == 1) {
-                    fn = wFn;
-                    wFn = function () {
-                        return this.$results();
-                    }.bind(this);
-                }
-                var obs = this.view.$observe(wFn, fn, this, true);
-                this._obsList.push(obs);
-                return obs;
-            },
-            $observeValue: function (fn) {
-                this.$hasProps() || this.$value(undefined);
-                return this.$observe(function () { return this.$value(); }.bind(this), fn);
-            },
-            $layout: function (wFn, fn) {
-                if (arguments.length == 1) {
-                    fn = wFn;
-                    wFn = function () {
-                        return this.$results();
-                    }.bind(this);
-                }
-                var obs = this.view.$layout(wFn, fn, 0, this, true);
-                this._obsList.push(obs);
-                _promisePush(this._pms, obs.publish(true));
-                return obs;
-            },
-            $layoutValue: function (fn) {
-                this.$hasProps() || this.$value(undefined);
-                return this.$layout(function () { return this.$value(); }.bind(this), fn);
-            },
-            _getPms: function () {
-                var pms = this._pms;
-                this._pms = [];
-                return _retPromiseAll(pms);
-            }
-        });
+    //scriptTag
+    var _getScriptTag = function (id) { return ['<', 'script type="text/html" bg-id="', id, '"></', 'script>'].join(''); };
 
-        this.Init(function (view, viewnode, type, attrName, attrValue, command, build) {
-            /// <summary>
-            /// 
-            /// </summary>
-            /// <param name="viewnode">属性名称</param>
-            /// <param name="attrName">属性名称</param>
-            /// <param name="attrValue">属性名称</param>
-            /// <param name="command">指令定义</param>
-
-            //认为viewnode widthData只在编译时设置
-            bingo.extend(this, {
-                node:viewnode.node,
-                view: view,
-                viewnode: viewnode,
-                type: type,
-                name: attrName.toLowerCase(),
-                command: command,
-                priority: command.priority || 50,
-                withData: viewnode.withData,
-                content: attrValue,
-                _obsList: [],
-                _pms:[]
-            });
-
-            viewnode.attrList.push(this);
-
-            this.bgOnDispose(function () {
-                bingo.each(this._obsList, function (obs) {
-                    obs.bgIsDispose || obs.unObserve();
-                });
-            });
-
-        });
-    }); // end _attrClass
-
-    var _textTagS = {
-        _regex: /\{\{(.+?)\}\}/gi,
-        hasTag: function (text) {
-            this._regex.lastIndex = 0;
-            return this._regex.test(text);
+    var _addView = function (app, view) {
+            app._view.push(view);
         },
-        isRmTxNode: function (node, parentNode) {
-            if (node == parentNode || node.parentNode == parentNode)
-                return false
-            else
-                return node.parentNode ? this.isRmTxNode(node.parentNode, parentNode) : true;
+        _removeView = function (app, view) {
+            app._view = bingo.removeArrayItem(view, app._view);
         },
-        createTextNode: function (view, viewnode, node, attrName, attrValue, withData, pNode, build) {
-            //parentNode为所属的节点， 属性节点时用, text节点时为空
-
-            var nodeType = node.nodeType, parentNode = viewnode.node;
-
-            withData || (withData = bingo.extend({}, viewnode.withData, withData));
-            attrName && (attrName = attrName.toLowerCase());
-            node.nodeValue = '';
-
-            var isInited = false;
-
-            var textNode = {
-                _no_observe: true,//防止observe
-                type: nodeType,
-                name: attrName,
-                content: attrValue,
-                _init: function () {
-                    if (isInited) return;
-                    isInited = true;
-
-                    var nodeValue = attrValue,
-                        tagList = [];
-
-                    var _setValue = function (value) {
-                        node.nodeValue = value;
-                    }, _changeValue = function () {
-                        var allValue = nodeValue;
-                        bingo.each(tagList, function (tag) {
-                            allValue = allValue.replace(tag.text, tag.value);
-                        });
-                        _setValue(allValue);
-                    };;
-
-                    //解释内容, afasdf{{test | val:'sdf'}}
-                    var s = nodeValue.replace(_textTagS._regex, function (findText, textTagContain, findPos, allText) {
-                        var context = _vm.bindContext(textNode, textTagContain, true, view, node, withData);
-
-                        var obs = view.$layout(function () {
-                            return context();
-                        }, function (c) {
-                            if (textNode.bgIsDispose || textNode._checkRemove()) return;
-                            item.value = bingo.toStr(c.value);
-                            _changeValue();
-                        }, 0);
-                        
-                        var value = obs.value, item;
-                        tagList.push(item = { text: findText, value: value, context: context, obs: obs });
-
-                        return value;
-                    });
-                    _setValue(s);
-
-                    textNode.bgOnDispose(function () {
-                        bingo.each(tagList, function (tag) {
-                            tag.obs.bgIsDispose || tag.obs.unObserve();
-                            tag.bgDispose();
-                        });
-                        tagList = null;
-                    });
-
-                },
-                _checkRemove: function () {
-                    //如果是attr会在根据pNode情况判断
-                    var isRm = isInited && _textTagS.isRmTxNode(nodeType == 3 ? node : pNode, parentNode);
-                    isRm && this.bgDispose();
-                    return isRm;
-                }
-            }; //end textNode
-
-            viewnode._textList.push(textNode);
-            if (nodeType == 3) {
-                textNode.bgOnDispose(function () {
-                    viewnode.bgDisposeStatus == 0 && viewnode._removeText(textNode);
-                });
-            }
-
-            build.bgOn('init', function () {
-                textNode._init();
-            });
-
-        } // end createTextNode
-    }; // end _textTagS
-
-
-    //aFrame====================================
-
-    var _rAFrame = window.requestAnimationFrame,
-        _cAFrame = window.cancelAnimationFrame,
-        _aFrame = function (fn, frN, obj) {
-            /// <param name="fn" value="fn.call(obj, obj)"></param>
-            obj.id = _rAFrame(function () {
-                if (frN == 0)
-                    fn.call(obj, obj);
-                else
-                    _aFrame(fn, frN - 1, obj);
-            });
+        _getView = function (app, name) {
+            var index = bingo.inArray(function (item) { return item.$name == name; }, app._view);
+            return index > -1 ? app._view[index] : null;
         };
 
-    if (!_rAFrame) {
-        var prefixes = ['webkit','moz','ms','o']; //各浏览器前缀
-        bingo.each(prefixes, function (prefix) {
-            _rAFrame = window[prefix + 'RequestAnimationFrame'];
-            if (_rAFrame) {
-                _cAFrame = window[prefix + 'CancelAnimationFrame'] || window[prefix + 'CancelRequestAnimationFrame'];
-                return false;
+    var _traverseTmpl = function (tmpl) {
+        var item, isSingle, isEnd, tag, attrs, find, contents,
+            list = [], strAll = [], lastIndex = 0,
+            strIndex = 0,
+            index, lv = 0, id;
+        _tmplCmdReg.lastIndex = 0;
+        tmpl = tmpl.replace(_commentRMReg, '');
+        while (item = _tmplCmdReg.exec(tmpl)) {
+            find = item[0];
+            index = item.index;
+
+            tag = item[2];
+            isSingle = item[4] == '/' || tag == 'else' || tag == 'case';
+            isEnd = isSingle || item[1] == '/';
+            attrs = item[3];
+            !isSingle && (attrs = attrs + item[4]);
+
+            if (lv == 0) {
+                if (isSingle || !isEnd) {
+
+                    contents = tmpl.substr(lastIndex, index - lastIndex);
+                    strAll.push(contents);
+
+                    id = bingo.makeAutoId();
+                    strAll.push(_getScriptTag(id));
+                    list.push({
+                        id: id,
+                        //lv: lv,
+                        index: index,
+                        //find: find,
+                        single: isSingle,
+                        end: isEnd,
+                        tag: tag,
+                        attrs: attrs,
+                        contents: ''
+                    });
+                }
+                strIndex = index + find.length;
             }
+            if (isEnd) {
+                if (!isSingle) lv--;
+                if (lv == 0)
+                    list[list.length - 1].contents = tmpl.substr(strIndex, index - strIndex);
+            } else {
+                lv++;
+            }
+            lastIndex = index + find.length;
+        }
+        strAll.push(tmpl.substr(lastIndex, tmpl.length - lastIndex))
+
+        return { contents: strAll.join(''), regs: list };
+    };
+
+    var _traverseCmd = function (tmpl, cp, bd) {
+        var list = [], view, app;
+        bingo.isString(tmpl) || (tmpl = bingo.toStr(tmpl));
+        var tmplContext = _traverseTmpl(tmpl);
+
+        tmpl = tmplContext.contents;
+        bingo.each(tmplContext.regs, function (reg) {
+
+            var elseList, whereList, item,
+                cmd = reg.tag,
+                contents = reg.contents;
+            contents && (contents = bingo.trim(contents));
+            if (cmd == 'if') {
+                var elseContent = _traverseElse(contents);
+                contents = elseContent.contents;
+                elseList = elseContent.elseList;
+                whereList = elseContent.whereList;
+            }
+            item = {
+                $id: reg.id,
+                $cmd: cmd,
+                $attrs: _traverseAttr(reg.attrs, bd),
+                $contents: contents,
+                $elseList: elseList,
+                $whereList: whereList
+            };
+            (item.$cmd == 'view') && (view = item);
+            list.push(item);
+
         });
 
-        if (!_rAFrame) {
-            _rAFrame = function (callback) {
-                return window.setTimeout(callback, 10);
-            };
-            _cAFrame = function (id) {
-                window.clearTimeout(id);
-            };
+        if (view) {
+            app = bingo.app(view.$attrs.$getAttr('app'));
+            app == bingo.defualtApp && (app = cp.$app);
+            view = _newView({
+                $name: bingo.trim(view.$attrs.$getAttr('name')),
+                $app: app,
+                $parent: cp.$view,
+                $ownerCP: cp
+            }, bd);
+            cp.$ownerView = view;
+        } else {
+            app = cp.$app;
+            view = cp.$view;
         }
+
+        var children = [], tempCP;
+        bingo.each(list, function (item) {
+            tempCP = _newCP(bingo.extend(item, {
+                $view: view,
+                $app: app,
+                $parent: cp
+            }), true, bd);
+
+            children.push(tempCP);
+        });
+
+        cp.$children = children;
+        cp.tmplTag = tmpl;
+        //return _retPromiseAll(promises);
+    }, _traverseElse = function (contents) {
+        var lv = 0, item, cmd, index = -1, start = -1;
+        _checkElse.lastIndex = 0;
+        var elseList = [], whereList = [], wh;
+        while (item = _checkElse.exec(contents)) {
+            cmd = item[1];
+            wh = bingo.trim(item[2]);
+            switch (cmd) {
+                case 'if':
+                    lv++;
+                    break;
+                case 'else':
+                    if (lv <= 0) {
+                        whereList.push(wh);
+                        if (start == -1) start = item.index;
+                        if (index >= 0) {
+                            elseList.push(contents.substr(index, item.index - index));
+                        }
+                        //查找到位置加查找的长度
+                        index = item.index + item[0].length;
+                    }
+                    break;
+                case '/if':
+                    lv--;
+                    break;
+            }
+        }
+        if (lv <= 0 && index > -1 && index < contents.length) {
+            elseList.push(contents.substr(index));
+        }
+
+        return { contents: start > -1 ? contents.substr(0, start) : contents, elseList: elseList, whereList: whereList };
+    }, _traverseAttr = function (s, bd) {
+        _cmdAttrReg.lastIndex = 0;
+        var item, attrs = _newCPAttrs(s, bd);
+        while (item = _cmdAttrReg.exec(s)) {
+            attrs.$setAttr(item[1], item[2] || item[3]);
+        }
+        return attrs;
+    }, _renderPromise = [], _renderThread = function () {
+        var promises = _renderPromise;
+        _renderPromise = [];
+        return _Promise.always(promises).then(function () {
+            if (_renderPromise.length > 0) return _renderThread();
+        });
+    }, _newBuild = function (isAFrame) {
+        var _stepObj = {}, _doneStep = function (stepList, name) {
+            
+            var isFr = isAFrame !== false && (name.indexOf('Ready') > 0 || name.indexOf('Init') > 0),
+                fn = function () {
+                    var promises = [];
+                    bingo.each(stepList, function (fn) {
+                        _promisePushList(promises, fn());
+                    });
+                    return _retPromiseAll(promises, true).then(bd.doneStep(name));
+                };
+
+            if (isFr)
+                return bingo.aFramePromise().then(fn);
+            else
+                return fn();
+        }, end = false,bd;
+        return bd = {
+            pushStep: function (name, fn) {
+                if (_stepObj[name])
+                    _stepObj[name].push(fn);
+                else
+                    _stepObj[name] = [fn];
+
+                if (end) this.doneStep(name)();
+            },
+            doneStep: function (name) {
+                var stepList = _stepObj[name],
+                  has = stepList && stepList.length > 0;
+                has && (_stepObj[name] = []);
+                return function () { return has ? _doneStep(stepList, name) : null };
+            },
+            end: function () {
+                end = true;
+            }
+        };
+    };
+
+    /* 检测 scope */
+    var _qScope = ":scope ";
+    try {
+        _docEle.querySelector(":scope body");
+    } catch (e) {
+        _qScope = '';
     }
 
-    bingo.aFrame = function (fn, frN) {
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="fn"></param>
-        /// <param name="frN">第几帧， 默认0</param>
-        (!bingo.isNumeric(frN) || frN < 0) && (frN = 0);
-        var obj = {
-            stop: function () { _cAFrame(this.id); },
-            next: function (fn) { return bingo.aFrame(fn, frN); },
-            frame:bingo.aFrame
+    var _doc = document,
+        _docEle = _doc.documentElement, _queryAll = function (selector, context) {
+            context || (context = _docEle);
+            return context.querySelectorAll(_qScope + selector);
+        }, _query = function (selector, context) {
+            context || (context = _docEle);
+            return context.querySelector(_qScope + selector);
         };
-        _aFrame(fn, frN, obj);
-        return obj;
-    };
-    bingo.aFramePromise = function (frN) {
-        return _Promise(function (r) {
-            bingo.aFrame(r, frN);
-        });
-    };
-    bingo.aFrameProxy = function (fn, frN) {
-        var doing = false;
-        var fFn = function () {
-            if (doing) return;
-            doing = true;
-            var args = arguments;
-            bingo.aFrame(function () { doing = false; fn.apply(this, args); }.bind(this), frN);
-        };
-        //保存原来observe fn
-        fFn.orgFn = fn;
-        return fFn;
-    };
-    //end _rAFrame
 
-    //compiles======================================
 
     var _removeNode = function (node) {
         node.parentNode && node.parentNode.removeChild(node);
@@ -2980,678 +3527,314 @@
         colgroup: [2, "<table><tbody></tbody><colgroup>", "</colgroup></table>"],
         map: [1, "<map>", "</map>"],
         div: [1, "<div>", "</div>"]
-    }, _parseHTML = function (html, node, script) {
-        var tagName = node ? node.tagName.toLowerCase() : '';
+    }, _scriptType = /\/(java|ecma)script/i,
+    _cleanScript = /^\s*<!(?:\[CDATA\[|\-\-)|[\]\-]{2}>\s*$/g, _globalEval = function (node) {
+        if (node.src) {
+            bingo.defualtApp.using(node.src);
+        } else {
+            var data = (node.text || node.textContent || node.innerHTML || "").replace(_cleanScript, "");
+            if (data) {
+                (window.execScript || function (data) {
+                    window["eval"].call(window, data);
+                })(data);
+            }
+        }
+    }, _parseSrcipt = function (container, script) {
+        bingo.each(container.querySelectorAll('script'), function (node) {
+            if (!node.type || _scriptType.test(node.type)) {
+                _removeNode(node);
+                script && _globalEval(node);
+            }
+        });
+    }, _parseHTML = function (html, p, script) {
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="html"></param>
+        /// <param name="p">可以父节点或父节点tagName</param>
+        /// <param name="script">是否运行script</param>
+        /// <returns value=''></returns>
+        var tagName = p ? (bingo.isString(p) ? p : p.tagName.toLowerCase()) : '';
         var wrap = _wrapMap[tagName] || _wrapMap.div, depth = wrap[0];
         html = wrap[1] + html + wrap[2];
-        var container = doc.createElement('div');
+        var container = _doc.createElement('div');
         container.innerHTML = html;
         while (depth--) {
             container = container.lastChild;
         }
-        return container.childNodes;
+        _parseSrcipt(container, script);
+        return bingo.sliceArray(container.childNodes);
     }, _insertDom = function (nodes, refNode, fName) {
+        //fName:appendTo, insertBefore
+        var p;
+        if (nodes.length > 1) {
+            p = document.createDocumentFragment();
+            bingo.each(nodes, function (item) {
+                p.appendChild(item);
+            });
+        } else
+            p = nodes[0];
+        if (fName == 'appendTo')
+            refNode.appendChild(p);
+        else
+            refNode.parentNode[fName](p, refNode);
+    };
+
+    //是否支持select注释
+    var _isComment = (_parseHTML('<option>test</option><!--test-->', 'select').length > 1),
+        _commentPrefix = 'bg-virtual',
+        //取得cp空白节点
+        _getCpEmptyNode = function (cp) {
+            //var html = (_isComment) ?
+            //    ['<!--', _commentPrefix, cp.$id, '-->'].join('') :
+            //    _getScriptTag(cp.$id);
+            var html = (_isComment) ?
+                ['<!--bg-virtual-->'].join('') :
+                _getScriptTag(cp.$id);
+            return _parseHTML(html)[0];
+        },
+        _isScriptTag = /script/i,
+        //取得render cp标签节点
+        _getEmptyRenderId = function (node) {
+            return (_isScriptTag.test(node.tagName)) ?
+                node.getAttribute('bg-id') : null;
+        },
+        _isEmptyNode = function (node) {
+            if (_isComment) {
+                return (node.nodeType == 8 && node.nodeValue.indexOf(_commentPrefix) == 0);
+            } else {
+                return (_isScriptTag.test(node.tagName)) ?
+                    node.getAttribute('bg-id') : false;
+            }
+        },
+
+        //检查是否空内容（没有nodeType==1和8）, 如果为空， 添加一个临时代表
+        _checkEmptyNodeCp = function (nodes, cp) {
+            var empty = nodes.length == 0;
+            if (!empty) {
+                //是否有element节点, 注释节点不算
+                empty = (bingo.inArray(function (item) {
+                    return !_isEmptyNode(item);
+                    //return _isLinkNodeType(item.nodeType);
+                }, nodes) < 0);
+            }
+            empty && nodes.push(_getCpEmptyNode(cp));
+        };
+
+    var _traverseCP = function (refNode, cp, optName, bd) {
+        var tmpl = _renderAttr(cp.tmplTag);
+
+        var nodes = _parseHTML(tmpl, optName == 'appendTo' ? refNode : refNode.parentNode, true);
+
+        if (nodes.length > 0) {
+            var pNode = nodes[0].parentNode;
+            _virtualNodes(cp, nodes, bd);
+            _traverseNodes(nodes, cp, bd);
+            //重新读取childNodes，原因可以处理子级过程中有删除或增加节点
+            nodes = bingo.sliceArray(pNode.childNodes);
+        }
+
+        //检查是否空内容， 如果空，增加一个临时节点
+        _checkEmptyNodeCp(nodes, cp);
+        //if (isFrame)
+        //    bingo.aFrame(function () {
+        //        _insertDom(nodes, refNode, optName);
+        //    });
+        //else
+            _insertDom(nodes, refNode, optName);
+
+        cp.$setNodes(nodes);
+    }, _traverseNodes = function (nodes, cp, bd) {
+
+        var id, tempCP;
         bingo.each(nodes, function (item) {
-            if (fName == 'appendTo')
-                refNode.appendChild(item);
-            else
-                refNode.parentNode[fName](item, refNode);
+            if (item.nodeType == 1) {
+                //script的bg-id
+                id = _getEmptyRenderId(item);
+                if (id) {
+                    //获取子cp
+                    tempCP = cp.$getChild(id);
+                    if (tempCP) {
+                        //处理子cp
+                        _traverseCP(item, tempCP, 'insertBefore', bd);
+                        //删除script临时节点
+                        _removeNode(item);
+                    }
+                } else {
+                    //分析所有script节点， script临时节点
+                    _traverseNodes(_queryAll('script', item), cp, bd);
+                }
+            }
         });
     };
 
-    bingo.parseHTML = _parseHTML;
+    //_compile({view:view, tmpl:tmpl, context:node, opName:'appendTo', parent:cp});
+    //_compile({cp:cp, context:node, opName:'insertBefore'});
+    var _compile = function (p, ctrl) {
+        var view = p.view;
+        var bd = _newBuild(!p.cp || p.cp.$isAFrame);
+        bd.ctrl = ctrl;
+        var cp = p.cp || _newCP({
+            $app: view.$app || bingo.defualtApp,
+            $parent: p.parent || view.$ownerCP,
+            $view: view, $contents: p.tmpl
+        }, false, bd).$tmpl(p.tmpl);
 
-    var _compiles = {
-        attrName: '_bg_cpl_160220',
-        isCmpNode: function (node) {
-            return node[this.attrName] == "1";
-        },
-        setCmpNode: function (node) {
-            node[this.attrName] = "1";
-        },
-        traverseNode: function (p, nodeType, bNodes, idx) {
-            /// <summary>
-            /// 遍历node
-            /// </summary>
-            /// <param name="p" value='_newTraParam()'></param>
 
-            //元素element 1, 属性attr 2,文本text 3,注释comments 8,文档document 9
+        //render-->cpctrl-->viewctrl-->cpevent-->dom编译-->cpinit-->viewinit--cpready-->viewready
+        return cp._render(bd).then(function () {
+            return _Promise.resolve().then(bd.doneStep('CPCtrl')).then(bd.doneStep('ViewCtrl')).then(bd.doneStep('CPEvent')).then(function () {
+                var node = p.context, opName = p.opName;
+                _traverseCP(node, cp, opName, bd);
+            }).then(bd.doneStep('CPInit')).then(bd.doneStep('ViewInit'))
+            .then(bd.doneStep('CPReady')).then(bd.doneStep('ViewReady'));
 
-            var node = p.node;
-            if (nodeType === 1) {
+            //return _complieInit().then(function () { return cp; });
+        }).then(function () { bd.end(); return cp; });
+    };
 
-                if (!this.isCmpNode(node)) {
-                    this.setCmpNode(node);
+    //<>&"
+    //&lt;&gt;&amp;&quot;
+    var _attrEncode = bingo.attrEncode = function (s) {
+        return !s ? '' : s.replace(/\</g, '&lt;').replace(/\>/g, '&gt;').replace(/\&/g, '&amp;').replace(/\"/g, '&quot;');
+    };
+    bingo.attrDecode = bingo.htmlDecode;
 
-                    return this.analyzeNode(node, p, bNodes, idx);
-                }
-                return node.hasChildNodes() && this.traverseNodes(node.childNodes, p);
-            } else {
 
-                if (!this.isCmpNode(node)) {
-                    this.setCmpNode(node);
+    //查找dom 节点 <div>
+    var _domNodeReg = /\<(?:.|\n|\r)*?\[\[(?:.|\n|\r)*?\]\][^>]*\>/gi,
+        //解释可绑定的节点属性: attr="fasdf[[user.name]]"
+        _domAttrReg = /\s*(\S+)\s*=\s*((\")(?:\\\"|[^"])*?\[\[(?:.|\n|\r)+?\]\](?:\\\"|[^"])*\"|(\')(?:\\\'|[^'])*?\[\[(?:.|\n|\r)+?\]\](?:\\\'|[^'])*\')/gi,
+        //用于解释节点属性时， 将内容压成bg-virtual
+        //如:<div value="[user.name]" style="[[user.style]]"></div>
+        //解释成<div  bg-virtual="{value:'user.name', style:'user.style'}"></div>
+        _domNodeRPReg = /\s*(\/?\>)$/,
+        //如果绑定纯变量时去除"', 如valu="[[user.name]]", 解释后value=[[user.name]]
+        _domAttrPotReg = /^\s*['"]((?:.|\n|\r)*?)['"]\s*$/,
+        //如果绑定纯变量时去除[], 如valu=[[user.name]], 解释后value=user.name
+        _domAttrOnlyReg = /^\s*\[\[((?:.|\n|\r)*?)\]\]\s*$/,
+        //转义多个绑定时， 如果style="[[ok]]asdf[[false]]sdf", 解释后 style="''+ ok + 'asdf' + false + 'sdf"
+        _domAttrMultReg = /\[\[((?:.|\n|\r)*?)\]\]/g,
+        _domAttrVirName = 'bg-virtual',
+        _domAttrVirSt = [' ', _domAttrVirName, '="'].join(''),
+        _domAttrVirEn = '" $1',
+        _domAttrQuery = '[' + _domAttrVirName + ']';
 
-                    //收集textNode
-                    var text = node.nodeValue;
-                    if (_textTagS.hasTag(text)) {
-                        _textTagS.createTextNode(p.view, p.pViewnode, node, node.nodeName, text, p.withData,null, p.build);
-                    }
-                }
-            }
-            node = p = null;
-        },
-        traverseNodes: function (nodes, p, fisrt) {
-            /// <summary>
-            /// 
-            /// </summary>
-            /// <param name="nodes"></param>
-            /// <param name="p" value="_newTraParam()"></param>
-            /// <param name="withDataList"></param>
+    var _renderAttr = function (tmpl) {
+        tmpl = tmpl.replace(_domNodeReg, function (find, pos, contents) {
 
-            var injectTmplWithList = [],
-                withDataList = p.withDataList,
-                withData = p.withData, promises =[];
+            _domAttrReg.lastIndex = 0;
+            var domAttrs = {}, has = false, isV = false;
+            var findR = find.replace(_domAttrReg, function (findAttr, name, contents, dot, dot1) {
 
-            var node, pc,
-                tmplIndex = -1, nodeType, bNodes = fisrt ? p.build.nodes : null;
-            bingo.each(nodes, function (node, idx) {
-                nodeType = node.nodeType;
-                if (nodeType == 1 || nodeType == 3) {
-                    pc = bingo.extend({}, p);
-                    tmplIndex = withDataList ? this.getWithdataIndex(node) : -1;
-                    if (tmplIndex >= 0)
-                        withData = pc.withData = withDataList[tmplIndex];
-                    if (node.nodeType === 1 || node.nodeType === 3) {
-                        pc.node = node;
-                        _promisePush(promises, this.traverseNode(pc, nodeType, bNodes, idx));
-                    }
-                };
-            }, this);
+                if (isV || name == _domAttrVirName) { has = false; isV = true; return; }
+                dot = dot || dot1;
+                contents = contents.replace(_domAttrPotReg, '$1')
+                    .replace(_domAttrOnlyReg, '$1')
 
-            return _retPromiseAll(promises);
-        },
-        injWithTmpl: function (nodes, index) {
-            /// <summary>
-            /// 注入withDataList html
-            /// </summary>
-            nodes = bingo.sliceArray(nodes);
-            bingo.each(nodes, function (item) {
-                item._bg_withIndex_ = index;
+                _domAttrMultReg.lastIndex = 0;
+                if (_domAttrMultReg.test(contents))
+                    contents = dot + contents.replace(_domAttrMultReg, dot + ' + ($1) + ' + dot) + dot;
+                //dot = dot || dot1;
+                domAttrs[name] = contents;
+                has = true;
+                return '';// 'bg-' + findAttr;
             });
-            return nodes;
-        },
-        //取得注入的withDataList的index
-        getWithdataIndex: function (node) {
-            return '_bg_withIndex_' in node ? node._bg_withIndex_ : -1;
-        },
-        newView: function (p, node) {
-            /// <param name="p" value='_newTraParam()'></param>
-
-            p.view = new _viewClass(p.view, node, p.build);
-            if (p.ctrl) {
-                p.view.$addController(p.ctrl);
-                p.ctrl = null;
+            if (has) {
+                findR = findR.replace(_domNodeRPReg, [_domAttrVirSt, _attrEncode(JSON.stringify(domAttrs)), _domAttrVirEn].join(''));
             }
-            //清空数据
-            p.withData = p.pViewnode = null;
-        },
-        buildVNode: function (p, node, attrList, isNewView) {
-            /// <param name="p" value='_newTraParam()'></param>
-
-            //只会编译第一个节点， 所以tmpl一定要完整节点包起来
-            isNewView && (this.newView(p, node));
-            var view = p.view;
-
-            var viewnode = p.pViewnode = new _viewnodeClass(view, node, p.pViewnode, p.withData, p.build);
-
-            //处理attrList
-            bingo.each(attrList, function () {
-                new _attrClass(view, viewnode, this.type, this.aName, this.aVal, this.command, p.build);
-                this.command.tmpl = null;
-            });
-            return viewnode;
-        },
-        _makeCmd: function (command, view, node, attrObj) {
-
-            //防止修改command
-            var opt = bingo.extend({}, command);
-
-            opt.compilePre && _promisePush(attrObj.cmpPres, bingo.inject(opt.compilePre, view, { node: node }, opt));
-
-            return opt;
-        },
-        addAttrs: function (attrObj, command, attrName, attrVal, attrType) {
-            /// <param name="attrObj" value="window._attrObj_"></param>
-
-            attrObj.replace = command.replace;
-            attrObj.include = command.include;
-            //只允许一个tmpl, tmpl为true时由compilePre设置
-            attrObj.tmpl = command.tmpl;
-            attrObj.isNewView || (attrObj.isNewView = command.view);
-            //允许多个
-            (!attrObj.compileChild) || (attrObj.compileChild = command.compileChild);
-            var attr = { aName: attrName, aVal: attrVal, type: attrType, command: command };
-            if (attrObj.replace || attrObj.include)
-                attrObj.attrs = [attr];
-            else
-                attrObj.attrs.push(attr);
-        },
-        analyzeAttr: function (attrObj, app, node, isScriptNode, p) {
-            /// <param name="attrObj" value="window._attrObj_"></param>
-            /// <param name="node" value="window.document.body"></param>
-
-            var attrs = node.attributes, aVal, aName, len = attrs.length,
-                command;
-            bingo.each(attrs, function (aT) {
-                if (!_compiles.isCmpNode(aT)) {
-                    _compiles.setCmpNode(aT);
-
-                    aName = aT.nodeName;
-                    aVal = aT.nodeValue;
-                    //如果是script节点，将type内容识别模板指令
-                    (isScriptNode && aName == 'type') && (aName = aVal);
-                    command = app.command(aName);
-                    if (command) {
-                        command = _compiles._makeCmd(command.fn, p.view, node, attrObj);
-                        if (command.compilePre)
-                            aVal = aT.nodeValue;//compilePre有可能重写attr
-                        _compiles.addAttrs(attrObj, command, aName, aVal, 'attr');
-
-                        if (attrObj.replace || attrObj.include) return false;
-                    } else if (aVal && _textTagS.hasTag(aVal)) {
-                        attrObj.texts.push({ node: aT, aName: aName, aVal: aVal });
-                    }
-                }
-
-            }); //end each node.attributes
-            if (attrs.length != len)
-                _compiles.analyzeAttr(attrObj, app, node, isScriptNode, p);
-        },
-        analyzeView: function (attrObj, node, p, bNodes, idx) {
-            /// <param name="attrObj" value="window._attrObj_"></param>
-            /// <param name="node" value='document.body'></param>
-            /// <param name="p" value='_newTraParam()'></param>
-            var attrList = attrObj.attrs, compileChild = attrObj.compileChild,
-                promises = [];
-
-            var viewnode;
-            if (attrList.length > 0) {
-                var tmpl = attrObj.tmpl || attrList[0].command.tmpl,//可能后期compliePre改动tmpl参数
-                    replace = attrObj.replace, include = attrObj.include,
-                    isNewView = attrObj.isNewView;
-                
-                var emptyTmpl = bingo.isNullEmpty(tmpl);
-                if (replace || include || !emptyTmpl) {
-
-                    //替换 或 include
-                    if (replace || include) {
-                        var oldNode = node;
-                        //replace || include, 必须有tmpl
-                        if (!emptyTmpl) {
-                            promises.push(bingo.tmpl(tmpl).then(function (tmpl) {
-                                var node = oldNode;
-                                if (include) {
-                                    var inclTag = '{{bg-include}}';
-                                    (tmpl.indexOf(inclTag) >= 0) && (tmpl = bingo.replaceAll(tmpl, inclTag, node.outerHTML));
-                                }
-                                tmpl = bingo.trim(tmpl) || '<div></div>';
-                                var pNode = node.parentNode;
-                                var nT = _parseHTML(tmpl, pNode);
-                                if (nT.length > 1) {
-                                    //如果多个节点，自动用div包起来,所以tmpl一定要用完整节点包起来
-                                    node = _parseHTML('<div></div>', pNode)[0];
-                                    _insertDom(nT, node, 'appendTo');
-                                } else {
-                                    node = nT[0];
-                                };
-
-                                //插入新节点
-                                _insertDom([node], oldNode, 'insertBefore');
-                                //删除旧节点
-                                _removeNode(oldNode);
-                                bNodes && (bNodes[idx] = node);
-
-                                //生成view node等
-                                viewnode = _compiles.buildVNode(p, node, attrList, isNewView);
-
-                                return compileChild && _compiles.traverseNodes(node.childNodes, p);
-                            }));
-
-                        } else //else !emptyTmpl
-                            //删除本节点
-                            _removeNode(oldNode);
-
-                    } else {
-                        //else replace || include
-
-                        promises.push(bingo.tmpl(tmpl).then(function (tmpl) {
-                            node.innerHTML = tmpl;
-                            //只会编译第一个节点， 所以tmpl一定要完整节点包起来
-                            viewnode = _compiles.buildVNode(p, node, attrList, isNewView);
-                            return compileChild && _compiles.traverseNodes(node.childNodes, p);
-                        }));
-                    } //end //end replace || include
-
-                } else {
-                    //else replace || include || !emptyTmpl
-
-                    viewnode = _compiles.buildVNode(p, node, attrList, isNewView);
-                    compileChild && _promisePush(promises, _compiles.traverseNodes(node.childNodes, p));
-                } //end replace || include || !emptyTmpl
-
-            } //end attrList.length > 0
-
-            if (!(replace || include)) {
-                bingo.each(attrObj.texts, function () {
-                    _textTagS.createTextNode(p.view, viewnode || p.pViewnode, this.node, this.aName, this.aVal, p.withData, node, p.build);
-                });
-            }
-            tmpl = null;
-            compileChild && _promisePush(promises, _compiles.traverseNodes(node.childNodes, p));
-            return _retPromiseAll(promises);
-        },
-        analyzeNode: function (node, p, bNodes, idx) {
-            /// <summary>
-            /// 分析node
-            /// </summary>
-            /// <param name="node" value='document.body'></param>
-            /// <param name="p" value='_newTraParam()'></param>
-            var tagName = node.tagName, command = null;
-            if (bingo.isNullEmpty(tagName)) return;
-            tagName = tagName.toLowerCase();
-            var isScriptNode = (tagName == 'script');
-
-            var app = p.view.$getApp();
-
-            command = app.command(tagName);
-
-            var attrObj = {
-                attrs: [],
-                texts:[],
-                replace: false,
-                include: false,
-                compileChild: !isScriptNode,
-                tmpl: null,
-                //存放compliePre返回的promise
-                cmpPres: [],
-                isNewView:false
-            };
-
-            if (command) {
-                //node
-                command = _compiles._makeCmd(command.fn, p.view, node, attrObj);
-                _compiles.addAttrs(attrObj, command, tagName, '', 'node');
-            } else if (node.attributes.length> 0) {
-                _compiles.analyzeAttr(attrObj, app, node, isScriptNode, p);
-            }
-
-            var promises = [], cmpPres = attrObj.cmpPres;
-            if (cmpPres.length == 0)
-                _promisePush(promises, _compiles.analyzeView(attrObj, node, p, bNodes, idx));
-            else {
-                promises.push(_Promise.always(cmpPres).then(function () {
-                    return _compiles.analyzeView(attrObj, node, p, bNodes, idx);
-                }));
-            }
-            return _retPromiseAll(promises);
-            
-        } //end analyzeNode
-    }; //end _compiles;
-
-    var _cmpClass = bingo.Class(function () {
-
-        this.Prop({
-            view: null, url: null,tmpl:null,
-            //nodes可以单个node和node数组
-            nodes: null, html: null, controller: null, clearChild:false, withData: null, withDataList: null
+            //virtual
+            return isV ? find : findR;
         });
-
-        this.Define({
-            node: null,
-            //0, appendTo; 1,htmlTo; 2,insertBefore; 3,replace
-            type: 0,
-            prop: function (args, type) {
-                if (args.length == 0)
-                    return this.node;
-                this.type = type;
-                this.node = args[0];
-                return this;
-            },
-            appendTo: function (node) {
-                return this.prop(arguments, 0);
-            },
-            htmlTo: function (node) {
-                return this.prop(arguments, 1);
-            },
-            insertBefore: function (node) {
-                return this.prop(arguments, 2);
-            },
-            replaceTo: function (node) {
-                return this.prop(arguments, 3);
-            },
-            _rendArgs: null,
-            render: function (tmpl, datas, itemName, pWithData) {
-                this._rendArgs = bingo.sliceArray(arguments);
-                return this;
-            },
-            _render: function (tmpl, datas, itemName, pWithData) {
-                this._rendArgs = null;
-
-                datas = bingo.extend([], datas);
-                pWithData = pWithData || {};
-                var withDataList = [],
-                    pIndex = '$index' in pWithData ? pWithData.$index : -1,
-                    count = datas.length, list = [];
-                bingo.each(datas, function (data, index) {
-                    var obj = bingo.extend({}, pWithData);
-                    obj.itemName = itemName;
-                    obj[[itemName, 'index'].join('_')] = obj.$index = index;
-                    obj[[itemName, 'count'].join('_')] = obj.$count = count;
-                    obj[[itemName, 'first'].join('_')] = obj.$first = (index == 0);
-                    obj[[itemName, 'last'].join('_')] = obj.$last = (index == count - 1);
-                    var isOdd = (index % 2 == 0);//单
-                    obj[[itemName, 'odd'].join('_')] = obj.$odd = isOdd;
-                    obj[[itemName, 'even'].join('_')] = obj.$even = !isOdd;
-                    obj[itemName] = data;
-                    withDataList.push(obj);
-
-                    list = list.concat(_compiles.injWithTmpl(_parseHTML(tmpl, this.node), index));
-                    //htmls.push(_compiles.injWithTmpl(tmpl, index, pIndex));
-                }, this);
-
-                //var html = htmls.join('');
-                this.nodes(list).withDataList(withDataList);
-                return this;
-            },
-            stop: function () { this._stop = true; },
-            _isEnd: function () {
-                return this.bgIsDispose
-                        || this._stop
-                        || (this.view() && this.view().bgIsDispose);
-            },
-            _compile: function () {
-                var nodes = bingo.isElement(this.nodes()) ? [this.nodes()] : bingo.sliceArray(this.nodes());
-                var toNode = this.node, parentNode = toNode || nodes[0].parentNode;
-                if (!parentNode) return _Promise.resolve();
-                //用于编译后， 指示编译指令用
-                var build = {
-                    ctrl: [],
-                    compile: [],
-                    link: [],
-                    init: [],
-                    ready: [],
-                    //返回解释后的节点， 可能replace之类，变得不一样
-                    nodes: bingo.sliceArray(nodes)
-                };
-
-
-                var view = this.view() || bingo.view(parentNode),
-                    pViewnode = this.view() ? this.view().$getViewnode() : _getVNode(parentNode);
-
-                //检查pViewnode, view不等于pViewnode.view
-                //node上下关系并不与viewnode上下关系对应
-                if (pViewnode && pViewnode.view != view) pViewnode = null;
-
-                var withDataList = this.withDataList();
-
-                var $this = this, step = function (name) {
-                    return function () {
-                        if ($this._isEnd()) return;
-                        //处理command的compile, 或执行compile时期处理
-                        build.bgTrigger(name);
-                        return build[name].length > 0 && _Promise.always(build[name]);
-                    };
-                };
-
-                return _Promise.always([_compiles.traverseNodes(nodes, {
-                    node: null, pViewnode: pViewnode,
-                    view: view, ctrl: this.controller(),
-                    withData: this.withData(), withDataList: withDataList,
-                    build: build
-                }, true)]).then(step('ctrl')).then(function () {
-                    return $this._isEnd() || view._bgpri_.controller();
-                }).then(step('compile')).then(function () {
-                    return bingo.aFramePromise().then(function () {
-                        if ($this._isEnd()) return;
-                        var pVN = pViewnode;
-                        if (toNode) {
-                            var mn = 'appendTo', type = $this.type;
-                            switch (type) {
-                                case 1:
-                                    toNode.innerHTML = ''
-                                    break;
-                                case 2:
-                                case 3:
-                                    mn = 'insertBefore';
-                                    break;
-                            }
-                            _insertDom(build.nodes, toNode, mn);
-                            type == 3 && (_removeNode(toNode));
-                        }
-                    }).then(step('link')).then(step('init')).then(step('ready'));
-                }).finally(function (e) {
-                    (e instanceof Error) && bingo.trace(e);
-                    build.bgOff();
-                    build.bgDispose();
-                    $this.bgDispose();
-                });
-            },
-            compile: function () {
-                if (!this._isEnd()) {
-                    if (this._rendArgs) {
-                        return this._render.apply(this, this._rendArgs)._compile();
-                    } else if (this.nodes()) {
-
-                        return this._compile();
-
-                    } else if (bingo.isString(this.html())) {
-                        return this.nodes(_parseHTML(this.html(), this.node, true))._compile();
-                    } else if (this.url() || this.tmpl()) {
-                        //以url方式加载, 必须先指parentNode;
-                        var $this = this, view = this.view() || bingo.view(this.node);;
-                        this.view(view);
-                        return bingo.tmpl(this.url() || this.tmpl()).then(function (html) {
-                            return html && $this.html(html).compile();
+        return tmpl;
+    }, _virtualNodes = function (cp, nodes, bd) {
+        var list = [], ltemp;
+        bingo.each(nodes, function (item) {
+            if (item.nodeType == 1) {
+                if (item.hasAttribute(_domAttrVirName))
+                    _newVirtualNode(cp, item, bd);
+                if (item.hasChildNodes) {
+                    ltemp = _queryAll(_domAttrQuery, item);
+                    if (ltemp.length > 0) {
+                        bingo.each(ltemp, function (cItem) {
+                            _newVirtualNode(cp, cItem, bd);
                         });
                     }
                 }
-                return _Promise.resolve();
             }
         });
 
-    }); //end _cmpClass
+        //if (cp && cp.$virtualNodes.length > 0)
+        //    console.log('_virtualNodes', cp.$virtualNodes);
+    },
+    _virtualAttrs = function (vNode, node) {
+        var attr = node.getAttribute(_domAttrVirName),
+            context = JSON.parse(bingo.attrDecode(attr));
 
-    bingo.compile = function (view) {
-        return new _cmpClass().view(view);
-    };
+        node.removeAttribute(_domAttrVirName);
 
-    bingo.bgEventDef('ready');
-
-    (function () {
-        //初始rootView
-        _compiles.setCmpNode(_docEle);
-        _rootView = new _viewClass(null, _docEle);
-        new _viewnodeClass(_rootView, _docEle);
-
-        //触发bingo.ready
-        _rootView.$ready(function () {
-            bingo.bgEnd('ready');
+        var list = [];
+        bingo.eachProp(context, function (item, n) {
+            vNode._addAttr(n, item);
         });
 
-        //DOMContentLoaded 时起动
-        var _readyName = 'DOMContentLoaded', _ready = function () {
-            doc.removeEventListener(_readyName, _ready, false);
-            window.removeEventListener('load', _ready, false);
-            //等待动态加载js完成后开始
-            bingo.usingAll().then(function () {
-                bingo.compile(_rootView).nodes(_docEle).compile().finally(function () {
-                    return _rootView._bgpri_.sendReady();
-                });
-            });
-        };
-        
-        doc.addEventListener(_readyName, _ready, false);
-        window.addEventListener("load", _ready, false);
+    };
 
-    })();
-
-})(bingo);
-
-
-(function (bingo) {
-    "use strict";
-
-    bingo.service('$rootView', function () { return bingo.rootView(); });
-    bingo.service('$parentView', ['$view', function ($view) { return $view.$parentView(); }]);
-
-    bingo.service('$inject', ['$view', '$attr', function ($view, $attr) {
-        return function (p, withData) {
-            return bingo.inject(p, $view, {
-                node: $attr && $attr.node,
-                $viewnode: $attr && $attr.viewnode,
-                $attr: $attr,
-                $withData: $attr ? bingo.extend({}, $attr.withData, withData) : withData
-            }, $attr);
-        };
-    }]);
-
-    bingo.service('$compile', ['$view', function ($view) { return function (p) { return bingo.compile($view).tmpl(p);  } }]);
-
-    bingo.service('$ajax', ['$view', function ($view) {
-        return function (p) { return bingo.ajax(p, $view); };
-    }]);
-
-    //$comp('select1');
-    bingo.each(['$comp', '$component'], function (name) {
-        bingo.service(name, ['$view', function ($view) {
-            var fn = function (name) { return $view.$getComp(name); };
-            fn.create = function (pNode, src, name) {
-                pNode || (pNode = $view.$getNode());
-                return bingo.aFramePromise().then(function () {
-                    var tmpl = '<bg:component bg-src="' + src + '" bg-name="' + name + '"></bg:component>';
-                    //var node = bingo.parseHTML(tmpl, pNode)[0];
-                    //pNode.appendChild(node);
-                    return bingo.compile($view).html(tmpl).appendTo(pNode).compile().then(function () {
-                        return fn(name);
-                    });
-                });
-            };
-
-            return fn;
-        }]);
-    });
-
-    //绑定内容解释器, var bind = $bindContext('user.id == "1"', document.body); var val = bind.getContext();
-    bingo.each(['$bindContext', '$evalContext'], function (sName) {
-        var hasRet = sName == '$bindContext';
-        bingo.service(sName, ['$view', '$viewnode', '$withData', function ($view, $viewnode, $withData) {
-            return function (content, node, withData, event) {
-                node || (node = $viewnode.node);
-                withData = bingo.extend({}, $withData, withData);
-                return bingo.bindContext($viewnode, content, $view, node, withData, event, hasRet);
-            };
-        }]);
-    });//end $bindContext;
-
-    bingo.service('$observe', ['$view', function ($view) {
-        return function (p, fn, disposer) {
-            return $view.$observe(p, fn, disposer);
-        };
-    }]);
-
-    bingo.service('$layout', ['$view', function ($view) {
-        return function (p, fn, disposer) {
-            return $view.$layout(p, fn, 1, disposer);
-        };
-    }]);
-
-    bingo.service('$tmpl', ['$view', function ($view) {
-        return function (p, async) {
-            return bingo.tmpl(p, async);
-        };
-    }]);
-
-    var _cacheObj = {};
-    bingo.service('$cache', function () {
-        return function (key, value, max) {
-            var args = [_cacheM].concat(bingo.sliceArray(arguments));
-            return bingo.cache.apply(bingo, args);
-        };
-    });
-
-    //参数，使用后，自动清除
-    var _paramObj = {};
-    bingo.service('$param', function () {
-        return function (key, value) {
-            if (arguments.length == 1)
-                return bingo.cache(_paramObj, key);
-            else
-                return bingo.cache(_paramObj, key, value, 10);
-        };
-    });
-
-})(bingo);
-
-
-(function (bingo) {
-    "use strict";
-    var _Promise = bingo.Promise,
-        _attr = function (node, name, val) {
-            if (arguments.length < 3)
-                return node.getAttribute(name);
-            else
-                node.setAttribute(name, val)
-        },
-        _prop = function (node, name, val) {
-            if (arguments.length < 3)
-                return node[name];
-            else
-                node[name] = val;
-        },
-        _on = document.addEventListener,
-        _off = document.removeEventListener,
-        _val = function (node, val) {
+    var _attr = function (node, name, val) {
+        if (arguments.length < 3)
+            return node.getAttribute(name);
+        else
+            node.setAttribute(name, val)
+    },
+    _prop = function (node, name, val) {
+        if (arguments.length < 3)
+            return node[name];
+        else
+            node[name] = val;
+    },
+    _on = document.addEventListener,
+    _off = document.removeEventListener,
+    _val = function (node, val) {
+        if (arguments.length < 2)
+            return node.value;
+        else
+            node.value = val;
+    },
+    _valSel = function (node, val) {
+        var one = node.type == 'select-one';
+        if (one) {
             if (arguments.length < 2)
                 return node.value;
             else
                 node.value = val;
-        },
-        _valSel = function (node, val) {
-            var one = node.type == 'select-one';
-            if (one) {
-                if (arguments.length < 2)
-                    return node.value;
-                else
-                    node.value = val;
+        } else {
+            var options = node.options,
+                ret = [];
+            if (arguments.length < 2) {
+                bingo.each(options, function (item) {
+                    if (item.selected && !item.disabled)
+                        ret.push(item.value);
+                });
+                return ret;
             } else {
-                var options = node.options,
-                    ret = [];
-                if (arguments.length < 2) {
-                    bingo.each(options, function (item) {
-                        if (item.selected && !item.disabled)
-                            ret.push(item.value);
-                    });
-                    return ret;
-                } else {
-                    bingo.isArray(val) || (val = [val]);
-                    bingo.each(options, function (item) {
-                        item.selected = (val.indexOf(item.value) >= 0);
-                    });
-                }
+                bingo.isArray(val) || (val = [val]);
+                bingo.each(options, function (item) {
+                    item.selected = (val.indexOf(item.value) >= 0);
+                });
             }
-        };
-
+        }
+    };
 
     var _getComputedStyle = document.defaultView.getComputedStyle,
         _cssNumber = { 'column-count': 1, 'columns': 1, 'font-weight': 1, 'line-height': 1, 'opacity': 1, 'z-index': 1, 'zoom': 1 },
-        _dasherize = function(str) {
+        _dasherize = function (str) {
             return str.replace(/::/g, '/')
                    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
                    .replace(/([a-z\d])([A-Z])/g, '$1_$2')
                    .replace(/_/g, '-')
                    .toLowerCase();
         },
-        _maybeAddPx=function(name, value) {
+        _maybeAddPx = function (name, value) {
             return (bingo.isNumeric(value) && !_cssNumber[_dasherize(name)]) ? value + "px" : value;
         },
         _css = function (node, property, value) {
@@ -3682,596 +3865,677 @@
             _css(node, 'display', 'none');
         },
         _spaceRE = /\s+/g,
-        _hasClass = function (node, name) {
-            return name ? node.className.split(_spaceRE).indexOf(name) >= 0 : false;
+        _getClass = function (node) {
+            var cn = node.className;
+            return cn ? cn.split(_spaceRE) : [];
         },
-        _addClass = function (node, name) {
-            if (_hasClass(node, name)) return;
-            node.className = node.className ? [node.className, name].join(' ') : name;
+        _setClass = function (node, classNames) {
+            var cn = classNames.join(' ');
+            (cn == node.className) || (node.className = cn);
         },
-        _removeClass = function (node, name) {
-            if (!_hasClass(node, name)) return;
-            node.className = node.className.split(_spaceRE).filter(function (item) {
+        _hasClass = function (classNames, name) {
+            return name ? classNames.indexOf(name) >= 0 : false;
+        },
+        _addClass = function (classNames, name) {
+            _hasClass(classNames, name) || classNames.push(name);
+        },
+        _removeClass = function (classNames, name) {
+            if (!_hasClass(classNames, name)) return classNames;
+            return classNames.filter(function (item) {
                 return item != name;
-            }).join(' ');
+            });
         };
 
-    /*
-        使用方法:
-        bg-controller="function($view){}"   //直接绑定一个function
-        bg-controller="ctrl/system/user"    //绑定到一个url
-    */
+    var _matches = _docEle.matchesSelector ||
+			_docEle.mozMatchesSelector ||
+			_docEle.webkitMatchesSelector ||
+			_docEle.oMatchesSelector ||
+			_docEle.msMatchesSelector,
+        _isQuery = function (node, selector) {
+            return _matches.call(node, selector);
+        }, _parentQuery = function (node, selector) {
+            node = node.parentNode;
+            return (!node || node == _docEle || node == _doc) ? null : (!selector || _isQuery(node, selector) ? node : _parentQuery(node, selector));
+        };
 
-    bingo.each(['bg-controller', 'bg-controller-add'], function (cmdName) {
-        var _isAdd = cmdName == 'bg-controller-add';
 
-        bingo.command(cmdName, function () {
+    bingo.app.extend({
+        _view: [],
+        view: function (p) {
+            /// <summary>
+            /// 获取view<br />
+            /// app.view('main') <br />
+            /// app.view(document.body)
+            /// </summary>
 
-            return {
-                //优先级, 越小越前, 默认50
-                priority: _isAdd ? 5 : 1,
-                //模板, 可以是引用id, url, html和node节点
-                //tmpl:'#div1'
-                //tmpl:'tmpl/test.thml'
-                //tmpl:'<div>{{text1}}</div>'
-                //tmpl:document.body  //==> document.body.innerHTML
-                tmpl: '',
-                //是否替换节点, 默认为false
-                replace: false,
-                //是否indclude, 默认为false, 模板内容要包函{{bg-include}}
-                include: false,
-                //是否新view, 默认为false
-                view: !_isAdd,
-                //是否编译子节点, 默认为true
-                compileChild: _isAdd,
-                //编译前, 主要用于dom的重新改造, 只能注入$view/node/$ajax...
-                //如果view == true , 注入的view属于上层, 原因是新view还没解释出来, 还处于分析
-                //compilePre还可以修改本定义属性
-                compilePre: null,
-                //controller
-                compile: null,
-                //link
-                link: null,
-                //编译, 这时还没有appendTo文档，最好不要处理事件之类的
-                //compilePre编译前-->command.controller初始数据-->view.controller-->compile编译-->插入到document-->link连接command)-->init-->ready
-                controller: ['$view', '$compile', 'node', '$attr', function ($view, $compile, node, $attr) {
-                    var attrVal = $attr.content, val = null,
-                        name = _attr(node, 'bg-name'),
-                        pView = $view.$parentView();
-                    if (!bingo.isNullEmpty(attrVal)) {
-                        if (pView.bgTestProps(attrVal))
-                            val = pView.bgDataValue(attrVal);
-                        else if (window.bgTestProps(attrVal))
-                            val = window.bgDataValue(attrVal);
-                    }
+            if (arguments.length == 0)
+                return this._view;
+            else if (bingo.isString(p))
+                return _getView(this, p);
+            else {
+                var cp = _getNodeCP(p);
+                return cp ? (cp.$ownerView || cp.$view) : null;
+            }
+        },
+        cp: function (node) {
+            /// <summary>
+            /// 获取cp <br />
+            /// app.cp(document.body);
+            /// </summary>
+            /// <param name="node"></param>
+            return _getNodeCP(node);
+        }
+    });
 
-                    var cmp = function () {
-                        return !_isAdd && bingo.usingAll().then(function () {
-                            return $view.bgIsDispose || $compile().nodes(node.childNodes).compile();
-                        });
-                    };
+    bingo.rootView = function () { return _rootView; };
+    var _rootView = _newView({
+        $name: '',
+        $app: bingo.app('')
+    }), _rootCP = _newCP({
+        $app: bingo.defualtApp,
+        $parent: null,
+        $view: _rootView, $contents: '',
+        $ownerView: _rootView
+    });
+    _rootView.$ownerCP = _rootCP;
 
-                    if (bingo.isNullEmpty(attrVal)
-                        || bingo.isFunction(val) || bingo.isArray(val)) {
-                        //如果是function或数组, 直接当action, 或是空值时
-                        //添加controller
-                        val && $view.$addController(val, name, attrVal);
-                        //编译
-                        return cmp();
-                    } else {
-                        //使用url方式, 异步加载action, 走mvc开发模式
-                        var url = attrVal;
-
-                        var routeContext = bingo.routeContext(url);
-                        var context = routeContext.context();
-
-                        if (context.controller) {
-                            //如果controller不为空, 即已经定义controller
-                            //设置app
-                            $view.$setApp(context.app);
-                            //添加controller
-                            $view.$addController(context.controller, name, attrVal);
-                            //编译
-                            return cmp();
-                        } else {
-                            //如果找不到controller, 加载js
-                            return bingo.using(url).then(function () {
-                                if ($view.bgIsDispose) return;
-                                var context = routeContext.context();
-                                if (context.controller) {
-                                    //设置app
-                                    $view.$setApp(context.app);
-                                    //添加controller
-                                    $view.$addController(context.controller, name, attrVal);
-                                    //编译
-                                    return cmp();
-                                }
-                            });
-                        }
-                    }
-                }]  //end controller
-            };
+    bingo.compile = function (node, ctrl) {
+        var isP = bingo.isPlainObject(node), tmplP;
+        if (isP) {
+            ctrl = node.ctrl;
+            tmplP = node.tmpl;
+            node = node.node;
+        }
+        var cp = _getNodeCP(node) || _rootCP,
+            app = cp.$app,
+            view = cp.$view,
+            isScript = node.tagName.toLowerCase() == 'script';
+        
+        return app.usingAll().then(function () {
+            var r = (tmplP ? _Promise.resolve(tmplP) : app.tmpl(node)).then(function (tmpl) {
+                tmplP || (node.innerHTML = '');
+                return _compile({
+                    tmpl: tmpl,
+                    view: view,
+                    parent: view.$ownerCP || cp,
+                    context: node,
+                    opName: isScript ? 'insertBefore' : 'appendTo'
+                }, ctrl).then(function (cpT) {
+                    isScript && _removeNode(node);
+                    cpT.$parent.$children.push(cpT);
+                    return cpT;
+                });
+            });
+            return r;
         });
-    }); // end bg-controller
-
-    //bg-init初始数据用, bg-load节点准备好了。
-    bingo.each(['bg-init', 'bg-load'], function (cName) {
-        var priority = cName == 'bg-load' ? 999999 : 3;
-        bingo.command(cName, function () {
-            var cmd = {
-                priority: priority
-            };
-            cmd[cName == 'bg-load' ? 'link' : 'compile'] = ['$attr', function ($attr) {
-                $attr.$eval();
-            }];
-            return cmd;
-        });
-    }); //end bg-init
-
-    bingo.command('bg-not-compile', function () {
-        return {
-            //是否编译子节点, 默认为true
-            compileChild: false
-        };
-    });// end bg-not-compile
-
-    bingo.command('bg-node', function () {
-        return {
-            compile: ['$attr', function ($attr) {
-                $attr.$value($attr.node);
-            }]
-        };
-    }); //end bg-node
-
-    bingo.command('bg-text', function () {
-        return {
-            compile: ['$attr', 'node', function ($attr, node) {
-                $attr.$layout(function (c) {
-                    node.textContent = c.value;
-                });
-            }]
-        };
-    }); //end bg-text
-
-    bingo.command('bg-html', function () {
-        return {
-            compile: ['$attr', '$viewnode', function ($attr, $viewnode) {
-                $attr.$layout(function (c) {
-                    return $viewnode.$html(c.value);
-                });
-            }]
-        };
-    }); //end bg-html
-
-    bingo.command('bg-include', function () {
-        return {
-            compile: ['$attr', '$viewnode', '$tmpl', function ($attr, $viewnode, $tmpl) {
-
-                var _html = function (p) {
-                    return $tmpl(p).then(function (html) {
-                       return $attr.bgIsDispose || $viewnode.$html(html);
-                    });
-                };
-
-                if ($attr.$hasProps())
-                    $attr.$layoutValue(function (c) {
-                        return $viewnode.$html(c.value);
-                    });
-                else
-                    return _html($attr.content);
-            }]
-        };
-    }); //end bg-include
-
-    bingo.command('bg-if', function () {
-        return {
-            compileChild: false,
-            compile: ['$attr', '$viewnode', 'node', '$tmpl', function ($attr, $viewnode, node, $tmpl) {
-                return $tmpl(node).then(function (html) {
-
-                    var _set = function (value) {
-                        if (value) {
-                            return $viewnode.$html(html).then(function () { _show(node); });
-                        } else
-                            _hide(node);
-                    };
-
-                    $attr.$layout(function (c) {
-                        return _set(c.value);
-                    });
-                });
-            }]
-        };
-    }); //end bg-if
-
-    /*
-        使用方法:
-        bg-attr="{src:'text.html', value:'ddd'}"
-        bg-prop="{disabled:false, checked:true}"
-        bg-checked="true" //直接表达式
-        bg-checked="helper.checked" //绑定到变量, 双向绑定
-    */
-    var _addClassNames = function (node, names) {
-        names.split(_spaceRE).forEach(function (item) { console.log('aaaaa', item);  _addClass(node,item); });
     };
-    bingo.each('attr,prop,src,checked,unchecked,disabled,enabled,readonly,class'.split(','), function (attrName) {
-        bingo.command('bg-' + attrName, function () {
 
-            return {
-                compile: ['$view', '$attr', 'node', function ($view, $attr, node) {
+    bingo.bgEventDef('ready');
 
-                    var _set = function (val) {
-                        switch (attrName) {
-                            case 'attr':
-                                //bg-attr="{src:'text.html', value:'ddd'}"
-                                bingo.eachProp(val, function (item, n) {
-                                    _attr(node, n, item);
-                                });
-                                break;
-                            case 'prop':
-                                bingo.eachProp(val, function (item, n) {
-                                    _prop(node, n, item);
-                                });
-                                break;
-                            case 'enabled':
-                                _prop(node, 'disabled', !val);
-                                break;
-                            case 'unchecked':
-                                _prop(node, 'checked', !val);
-                                break;
-                            case 'disabled':
-                            case 'readonly':
-                            case 'checked':
-                                _prop(node, attrName, val);
-                                break;
-                            case 'class':
-                                if (bingo.isObject(val)) {
-                                    bingo.eachProp(val, function (item, n) {
-                                        _addClassNames(node, n);
-                                    });
-                                } else if (val) {
-                                    _addClassNames(node, val);
-                                }
-                                break;
-                            default:
-                                _attr(node, attrName, val);
-                                break;
+    (function () {
+
+        ////DOMContentLoaded 时起动
+        var _readyName = 'DOMContentLoaded', _ready = function () {
+            _doc.removeEventListener(_readyName, _ready, false);
+            window.removeEventListener('load', _ready, false);
+            //等待动态加载js完成后开始
+            bingo.bgEnd('ready');
+        };
+
+        _doc.addEventListener(_readyName, _ready, false);
+        window.addEventListener("load", _ready, false);
+
+        window.addEventListener('unload', function () {
+            bingo.rootView().$ownerCP.$remove()
+        }, false);
+    })();
+
+})(bingo);
+
+
+(function (bingo) {
+    "use strict";
+    var defualtApp = bingo.defualtApp;
+
+    defualtApp.service('$rootView', function () { return bingo.rootView(); });
+
+    defualtApp.service('$inject', ['$view', function ($view) {
+        return function (p, injectObj, thisArg) {
+            return $view.$inject(p, injectObj, thisArg);
+        };
+    }]);
+
+    defualtApp.service('$location', ['$app', function ($app) {
+        return function (name) { return $app.location(name); };
+    }]);
+
+    defualtApp.service('$ajax', ['$app', function ($app) {
+        return function (url, p) { return $app.ajax(url, p); };
+    }]);
+
+    defualtApp.service('$observe', ['$view', function ($view) {
+        return function (p, fn, disposer) {
+            return $view.$observe(p, fn, disposer);
+        };
+    }]);
+
+    defualtApp.service('$layout', ['$view', function ($view) {
+        return function (p, fn, disposer) {
+            return $view.$layout(p, fn, 0, disposer);
+        };
+    }]);
+
+    defualtApp.service('$tmpl', ['$app', function ($app) {
+        return function (p, ap) {
+            return $app.tmpl(p, true, ap);
+        };
+    }]);
+
+    var _cacheObj = {};
+    defualtApp.service('$cache', function () {
+        return function (key, value, max) {
+            var args = [_cacheObj].concat(bingo.sliceArray(arguments));
+            return bingo.cache.apply(bingo, args);
+        };
+    });
+
+    //参数，使用后，自动清除
+    var _paramObj = {};
+    defualtApp.service('$param', function () {
+        return function (key, value) {
+            if (arguments.length == 1)
+                return bingo.cache(_paramObj, key);
+            else
+                return bingo.cache(_paramObj, key, value, 10);
+        };
+    });
+
+})(bingo);
+
+
+(function (bingo) {
+    "use strict";
+
+    var defualtApp = bingo.defualtApp;
+
+    var _addCtrl = function (cp) {
+
+
+        var ctrlAttr = cp.$attrs.$getAttr('controller');
+
+        if (!bingo.isNullEmpty(ctrlAttr)) {
+            var ctrl, view = cp.$view, pView = view.$parent,
+                app = view.$app;
+            if (pView.bgTestProps(ctrlAttr))
+                ctrl = pView.bgDataValue(ctrlAttr);
+            else if (window.bgTestProps(ctrlAttr))
+                ctrl = window.bgDataValue(ctrlAttr);
+
+            if (bingo.isFunction(ctrl) && bingo.isFunction(ctrl)) {
+                cp.$view.$controller(ctrl);
+            } else {
+                var url = 'controller::' + ctrlAttr;
+                var routeContext = app.routeContext(url);
+                var context = routeContext.context();
+
+                if (context.controller) {
+                    view.$controller(context.controller)
+                } else {
+                    //如果找不到controller, 加载js
+                    return app.using(url).then(function () {
+                        if (cp.bgIsDispose) return;
+                        var context = routeContext.context();
+                        if (context.controller) {
+                            view.$controller(context.controller)
                         }
-
-                    };
-
-                    $attr.$layout(function (c) {
-                        _set(c.value);
                     });
+                }
+            }
 
-                    if (attrName == 'checked' || attrName == 'unchecked') {
-                        var fn = function () {
-                            var value = _prop(node, 'checked');
-                            $attr.$value(attrName == 'checked' ? value : !value);
-                        };
-                        //如果是checked, 双向绑定
-                        _on.call(node, 'click', fn);
-                        $attr.bgOnDispose(function () {
-                            _off.call(node, 'click', fn);
-                        });
-                    }
+        }
+    };
 
-                }]
-            };
+    defualtApp.command('view', function (cp) {
+        return _addCtrl(cp);
+    });
+
+    defualtApp.command('controller', function (cp) {
+
+        var src = cp.$attrs.$getAttr('src');
+
+        if (!src) cp.$view.$controller(function () {
+            cp.$eval();
         });
-    }); //end attrs
+        else return _addCtrl(src);
+
+    });
+
+    defualtApp.command('using', function (cp) {
+        var src = cp.$attrs.$getAttr('src');
+        return src && cp.$app.using(src);
+    });
+
+    defualtApp.command('service', function (cp) {
+        var src = cp.$attrs.$getAttr('src'),
+            name = cp.$attrs.$getAttr('name');
+        return src && name && cp.$inject(src).then(function (srv) { cp.$view[name] = srv; });
+    });
+
+    var _forItemReg = /[ ]*([^ ]+)[ ]+in[ ]+(?:(.+)[ ]+tmpl[ ]*=[ ]*(.+)|(.+))/;
 
 
-    /*
-        使用方法:
-        bg-event="{click:function(e){}, dblclick:helper.dblclick, change:['input', helper.dblclick]}"
-        bg-click="helper.click"     //绑定到方法
-        bg-click="['input', helper.click]"     //绑定到数组, 等效于$().on('click', 'input', helper.click)
-        bg-click="helper.click()"   //直接执行方法
-    */
-    bingo.each('event,click,blur,change,dblclick,focus,focusin,focusout,keydown,keypress,keyup,mousedown,mouseenter,mouseleave,mousemove,mouseout,mouseover,mouseup,resize,scroll,select,submit,contextmenu'.split(','), function (eventName) {
-        bingo.command('bg-' + eventName, function () {
+    defualtApp.command('with', function (cp) {
+        cp.$isAFrame = false;
 
-            return ['$view', 'node', '$attr', function ($view, node, $attr) {
+        var contents = cp.$attrs.$contents;
 
-                var _bindList = [], bind = function (evName, callback) {
+        var itemName, dataName;
+        if (_forItemReg.test(contents)) {
+            itemName = RegExp.$1,
+            dataName = RegExp.$2 || RegExp.$4;
+        } else {
+            dataName = contents;
+        }
+        
+        if (dataName) {
+            cp.$init(function () {
+                var bindContext = cp.$attrs.$bindContext(dataName, true),
+                    data = bindContext() || {};
+                var withData = bingo.extend({}, cp.$withData());
+                if (itemName)
+                    cp.$withData(itemName, data);
+                else
+                    cp.$withData(data);
+
+                return cp.$html(cp.$contents);
+            });
+        }
+
+    });
+
+    var _makeForTmpl = function (tmpl, datas, itemName, pWithData, withListName) {
+        datas = bingo.extend([], datas);
+        pWithData = pWithData || {};
+        var withDataList = [],
+            count = datas.length, tmplList = [];
+
+        bingo.each(datas, function (data, index) {
+            var obj = bingo.extend({}, pWithData);
+            obj.itemName = itemName;
+            obj[[itemName, 'index'].join('_')] = obj.$index = index;
+            obj[[itemName, 'count'].join('_')] = obj.$count = count;
+            obj[[itemName, 'first'].join('_')] = obj.$first = (index == 0);
+            obj[[itemName, 'last'].join('_')] = obj.$last = (index == count - 1);
+            var isOdd = (index % 2 == 0);//单
+            obj[[itemName, 'odd'].join('_')] = obj.$odd = isOdd;
+            obj[[itemName, 'even'].join('_')] = obj.$even = !isOdd;
+            obj[itemName] = data;
+            withDataList.push(obj);
+
+            tmplList.push(['{{with ', withListName, '[', index ,'] }}', tmpl, '{{/with}}'].join(''));
+
+            //htmls.push(_compiles.injWithTmpl(tmpl, index, pIndex));
+        }, this);
+        pWithData[withListName] = withDataList;
+
+        return tmplList.join('');
+    };
+
+    defualtApp.command('for', function (cp) {
+
+        cp.$isAFrame = false;
+
+        var contents = cp.$attrs.$contents;
+        var withListName = '_bg_for_datas_' + bingo.makeAutoId();
+
+        if (_forItemReg.test(contents)) {
+            var itemName = RegExp.$1, dataName = RegExp.$2 || RegExp.$4, tmpl = bingo.trim(RegExp.$3);
+            if (itemName && dataName) {
+                cp.$attrs.$contents = dataName;
+                var render = function (html, datas) {
+                    if (tmpl)
+                        return cp.$loadTmpl(tmpl).then(function (html) { return renHtml(html, datas); });
+                    else
+                        return renHtml(html, datas);
+                }, renHtml = function (html, datas) {
+                    html = _makeForTmpl(html, datas, itemName, cp.$withData(), withListName);
+                    return cp.$html(html);
+                };
+                cp.$layout(function () {
+                    return cp.$attrs.$result();
+                }, function (c) {
+                    var t = c.value,
+                        isL = bingo.isArray(t),
+                        datas = isL ? t : bingo.sliceArray(t);
+                    (!isL) && datas.length == 0 && (datas = t ? [t] : []);
+
+                    return render(cp.$contents, datas);
+
+                });
+            }
+        }
+
+        cp.bgOnDispose(function () {
+            var withData = cp.$withData();
+            delete withData[withListName];
+        });
+
+    });
+
+    defualtApp.command('if', function (cp) {
+
+        var _contents = cp.$contents,
+            _elseList = cp.$elseList, _getContent = function (index, val) {
+                if (index == -1 && val)
+                    return _contents;
+                else {
+                    var ret = cp.$attrs.$result();
+                    if (ret) return _contents;
+                    var s;
+                    bingo.each(_elseList, function (item, i) {
+                        if (!item.$attrs.$contents || (index == i && val)
+                            || item.$attrs.$result()) {
+                            s = item.$contents
+                            return false;
+                        }
+                    });
+                    return s;
+                }
+            }, _tid, _html = function (c, index) {
+                if (_tid) return;
+                _tid = true;
+                return bingo.Promise.timeout(1).then(function () { _tid = false; return cp.$html && cp.$html(_getContent(index, c.value)); });
+            };
+        cp.$layout(function () {
+            return cp.$attrs.$result();
+        }, function (c) {
+            return _html(c, -1);
+        });
+
+        bingo.each(_elseList, function (item, index) {
+            item.$attrs.$contents && cp.$layout(function () {
+                return item.$attrs.$result();
+            }, function (c) {
+                return _html(c, index);
+            });
+        });
+
+    });
+
+    defualtApp.command('include', function (cp) {
+        var src = cp.$attrs.$getAttr('src');
+
+        cp.$init(function () {
+            return !src ? cp.$html(cp.$contents) : cp.$loadTmpl(src).then(function (tmpl) { return cp.$html(tmpl); });
+        });
+
+    });
+
+    defualtApp.command('html', function (cp) {
+
+        cp.$layout(function () {
+            return cp.$attrs.$result();
+        }, function (c) {
+            return cp.$html(c.value);
+        });
+
+    });
+
+    defualtApp.command('text', function (cp) {
+
+        cp.$layout(function () {
+            return cp.$attrs.$result();
+        }, function (c) {
+            return cp.$text(c.value);
+        });
+
+    });
+
+    defualtApp.command('cp', function (cp) {
+        cp.$tmpl(cp.$contents);
+        cp.$export = cp;
+    });
+
+    //{{tmpl id="tmpl001" for="app"}} tmpl contents {{/tmpl}}
+    defualtApp.command('tmpl', function (cp) {
+        var id = cp.$attrs.$getAttr('id');
+        if (id) {
+            var isApp = /app/i.test(cp.$attrs.$getAttr('for'));
+            cp.$saveTmpl(id, cp.$contents, isApp);
+        }
+        cp.$init(function () { cp.$remove(); });
+    });
+
+    defualtApp.command('route', function (cp) {
+
+        var src = cp.$attrs.$getAttr('src'),
+            app = cp.$app,
+            rId = 0;
+
+        src && cp.$init(function () {
+            location.href(src);
+        });
+
+        var location = {
+            bgNoObserve: true,
+            url: src,
+            name: cp.$name,
+            href: function (src, ctrl) {
+                var id = (++rId);//加载最后一个src
+                this.url = src;
+                return cp.$loadTmpl('view::' + src).then(function (html) {
+                    return (id == rId) ? cp.$html(html, ctrl) : '';
+                });
+            },
+            //路由query部分参数
+            queryParams: function () {
+                return this.routeParams().queryParams
+            },
+            //路由参数
+            routeParams: function () {
+                var url = this.url;
+                var routeContext = app.routeContext('route::' + url);
+                return routeContext.params;
+            },
+            reload: function (ctrl) {
+                return this.href(src, ctrl);
+            },
+            toString: function () {
+                return this.url;
+            },
+            close: function () {
+                this.bgDispose();
+                cp.$remove();
+            }
+        };
+
+        cp.$name && (cp.$app._location[cp.$name] = location);
+
+        cp.$export = location;
+    });
+
+    bingo.app.extend({
+        _location:{},
+        location: function (name) {
+            return this._location[name];
+        }
+    });
+    
+    
+})(bingo);
+
+
+(function (bingo) {
+    "use strict";
+
+    var defualtApp = bingo.defualtApp;
+    bingo.app.extend({
+        _attr:{},
+        attr: function (name, fn) {
+            if (arguments.length == 1)
+                return this._attr[name] || defualtApp._attr[name] || defualtApp._attr[_vAttrDefaultName];
+            else
+                this._attr[name] = fn;
+        }
+    });
+
+    //默认attr
+    var _vAttrDefaultName = 'bg_default_vattr',
+        _isEvent = /^\s*on/i;
+    defualtApp.attr(_vAttrDefaultName, function (vAttr) {
+
+        var name = vAttr.$name, view = vAttr.$view;
+
+        if (_isEvent.test(name)) {
+            var eventName = name.replace(_isEvent, ''),
+                bind = function (evName, callback) {
                     var fn = function () {
-                        $view.$updateAsync();
+                        view.$updateAsync();
                         return callback.apply(this, arguments);
                     };
-                    _bindList.push([evName, fn]);
-                    _on.call(node, evName, fn);
+                    vAttr.$on(evName, fn);
                 };
-                $attr.bgOnDispose(function () {
-                    bingo.each(_bindList, function (item) {
-                        _off.call(node, item[0], item[1]);
-                    });
-                });
 
-                if (eventName != 'event') {
-                    var fn = /^\s*\[(.|\n)*\]\s*$/g.test($attr.content) ? $attr.$results() : $attr.$value();
-                    if (!bingo.isFunction(fn) && !bingo.isArray(fn))
-                        fn = function (e) { return $attr.$eval(e); };
-                    bind(eventName, fn);
-                } else {
-                    var evObj = $attr.$results();
-                    if (bingo.isObject(evObj)) {
-                        bingo.eachProp(evObj, function (fn, n) {
-                            bind(n, fn);
-                        });
-                    }
-                }
+            var fn = /^\s*\[(.|\n)*\]\s*$/g.test(vAttr.$contents) ? vAttr.$result() : vAttr.$value();
+            if (!bingo.isFunction(fn) && !bingo.isArray(fn))
+                fn = function (e) { return vAttr.$eval(e); };
+            bind(eventName, fn);
+            return;
+        }
 
-            }];
-
+        vAttr.$layoutResult(function (c) {
+            if (name == 'value' && vAttr.$is('option')) {
+                var vNode = vAttr.$parent('select');
+                if (vNode && vNode.$attrs.model)
+                    if (vNode.$attrs.model.$value() == c.value) vAttr.$prop('selected', true);
+            }
+            vAttr.$attr(name, c.value);
         });
-    }); //end event
 
-    /*
-        使用方法:
-        bg-style="{display:'none', width:'100px'}"
-        bg-show="true"
-        bg-show="res.show"
-    */
-    bingo.each('style,show,hide,visible'.split(','), function (attrName) {
-        bingo.command('bg-' + attrName, function () {
+    });
 
-            return {
-                compile: ['$attr', 'node', function ($attr, node) {
+    defualtApp.attr('node', function (vAttr) {
 
-                    var _set = function (val) {
+        vAttr.$init(function () {
+            vAttr.$value(vAttr.$node);
+        });
 
-                        switch (attrName) {
-                            case 'style':
-                                //bg-style="{display:'none', width:'100px'}"
-                                bingo.eachProp(val, function (item, n) {
-                                    _css(node, n, item);
-                                });
-                                break;
-                            case 'hide':
-                                val = !val;
-                            case 'show':
-                                if (val) _show(node); else _hide(node);
-                                break;
-                            case 'visible':
-                                val = val ? 'visible' : 'hidden';
-                                _css(node, 'visibility', val);
-                                break;
-                            default:
-                                _css(node, attrName, val);
-                                break;
-                        }
-                    };
+    });
 
-                    $attr.$layout(function (c) {
-                        _set(c.value);
-                    });
+    bingo.each('checked,unchecked,disabled,enabled,readonly'.split(','), function (attrName) {
+        defualtApp.attr(attrName, function (vAttr) {
 
-                }]
+            var _set = function (val) {
+                switch (attrName) {
+                    case 'enabled':
+                        vAttr.$prop('disabled', !val);
+                        break;
+                    case 'unchecked':
+                        vAttr.$prop('checked', !val);
+                        break;
+                    default:
+                        vAttr.$prop(attrName, val);
+                        break;
+                }
             };
 
-        });
-    }); //end style
-
-    bingo.command('bg-model', function () {
-
-        return {
-            compile: ['$view', 'node', '$attr', function ($view, node, $attr) {
-
-
-                var _type = _attr(node, 'type'),
-                    _isRadio = _type == 'radio',
-                    _isCheckbox = _type == 'checkbox',
-                    _checkboxVal = _isCheckbox ? _val(node) : null,
-                    _isSelect = node.tagName.toLowerCase() == 'select';
-
-                var _getElementValue = function () {
-                    return _isCheckbox ? (_prop(node, "checked") ? _checkboxVal : '') : (_isSelect ? _valSel(node) : _val(node));
-                }, _setElementValue = function (value) {
-                    value = _isSelect && bingo.isArray(value) ? value : bingo.toStr(value);
-                    if (_isCheckbox) {
-                        _prop(node, "checked", (_val(node) == value));
-                    } else if (_isRadio) {
-                        _prop(node, "checked", (_val(node) == value));
-                    } else if (_isSelect)
-                        _valSel(node, value);
-                    else
-                        _val(node, value);
-                };
-
-                var _eVal, eName, fn = function () {
-                    var value = _getElementValue();
-                    if (_eVal != value || _isRadio) {
-                        _eVal = value;
-                        $attr.$value(value);
-                    }
-                };
-                if (_isRadio) {
-                    eName = 'click';
-                } else {
-                    eName = 'change';
-                    _on.call(node, 'change', fn);
-                }
-                if (eName) {
-                    _on.call(node, eName, fn);
-                    $attr.bgOnDispose(function () {
-                        _off.call(node, eName, fn);
-                    });
-                }
-
-                $attr.$layoutValue(function (c) {
-                    var val = c.value;
-                    _setElementValue(val);
-                });
-
-            }]
-        };
-
-    });//end model
-
-
-    /*
-        使用方法:
-        bg-for="item in user.list"
-
-        例:
-        <select bg-for="item in list">
-            ${if item.id == 1}
-            <option value="${item.id}">text_${item.text}</option>
-            ${else}
-            <option value="${item.id}">text_${item.text}eee</option>
-            ${/if}
-        </select>
-    */
-
-    //bg-for
-    //bg-for="datas"  ==等效==> bg-render="item in datas"
-    //bg-for="item in datas"
-    //bg-for="item in datas tmpl=#tmplid"    //tmpl以#开头认为ID
-    //bg-for="item in datas tmpl=view/user/listtmpl"  //tmpl不以#开头认为url, 将会异步加载
-    //bg-for="item in datas | asc"
-    //bg-for="item in datas | asc tmpl=#tmplid"
-    bingo.command('bg-for', function () {
-        return {
-            priority: 10,
-            compileChild: false,
-            compile: ['$view', '$compile', 'node', '$attr', '$tmpl', function ($view, $compile, node, $attr, $tmpl) {
-
-                var attrData = _makeBindContext($attr);
-
-                if (!attrData) return;
-                var _itemName = attrData.itemName,
-                    _tmpl = attrData.tmpl;
-
-                _tmpl || $tmpl(node).then(function (s) {
-                    _tmpl = s;
-                });
-
-                var _render = function (tmpl, datas) {
-                    return $view.bgIsDispose || $compile().render(tmpl, datas, _itemName, $attr.withData).htmlTo(node).compile().then(function () {
-                        if ($view.bgIsDispose) return;
-                        var m = $attr.viewnode.$getAttr('bg-model');
-                        m && m.$publish();
-                    });
-                };
-                $attr.$layout(function (c) {
-                    var t = c.value,
-                        isL  =bingo.isArray(t),
-                        datas = isL ?t : bingo.sliceArray(t);
-                    (!isL) && datas.length == 0 && (datas = t ? [t] : []);
-                    return $tmpl(_tmpl).then(function (s) {
-                        return _render(s, datas);
-                    });
-                    //return 'bg-for aaaaaaaaaaa';
-                });
-
-            }]
-        };
-
-    }); //end bg-for
-
-    var _renderReg = /[ ]*([^ ]+)[ ]+in[ ]+(?:(.+)[ ]+tmpl[ ]*=[ ]*(.+)|(.+))/,
-        _makeBindContext = function ($attr) {
-            var code = $attr.content;
-            if (bingo.isNullEmpty(code))
-                code = 'item in {}';
-            if (!_renderReg.test(code)) {
-                code = ['item in ', code].join('');
-            }
-            var _itemName = '', _dataName = '', _tmpl = '';
-            //分析item名称, 和数据名称
-            code.replace(_renderReg, function () {
-                _itemName = arguments[1];
-                _dataName = arguments[2];
-                _tmpl = bingo.trim(arguments[3]);
-
-                if (bingo.isNullEmpty(_dataName))
-                    _dataName = arguments[4];
+            vAttr.$layoutResult(function (c) {
+                _set(c.value);
             });
 
-            $attr.content = _dataName;
+            if (attrName == 'checked' || attrName == 'unchecked') {
+                var fn = function () {
+                    var value = vAttr.$prop('checked');
+                    vAttr.$value(attrName == 'checked' ? value : !value);
+                };
+                //如果是checked, unchecked, 双向绑定
+                vAttr.$on('click', fn);
+            }
 
-            return {
-                itemName: _itemName,
-                dataName: _dataName,
-                tmpl: _tmpl
-            };
-        }; //end _makeBindContext
+        });
+    });
+    bingo.each('show,hide,visible'.split(','), function (attrName) {
+        defualtApp.attr(attrName, function (vAttr) {
 
-    //end bg-for 
+            var _set = function (val) {
 
-    bingo.each(['bg-component', 'bg:component'], function (cmdName) {
-        var isInner = (cmdName == 'bg-component');
-        bingo.command(cmdName, function () {
-
-            return {
-                priority: 3,
-                view: true,
-                compileChild: false,
-                replace: true,
-                include: false,
-                compilePre: ['$view', 'node', '$inject', function (pView, node, $inject) {
-                    var attrVal = _attr(node, isInner ? 'bg-component' : 'bg-src'),
-                        val, compName = _attr(node, 'bg-name');
-
-                    if (!bingo.isNullEmpty(attrVal)) {
-                        if (pView.bgTestProps(attrVal))
-                            val = pView.bgDataValue(attrVal);
-                        else if (window.bgTestProps(attrVal))
-                            val = window.bgDataValue(attrVal);
-                    }
-                    var init = function (def) {
-                        def = bingo.isFunction(def) ? $inject(def) : def;
-                        //取得定义后， 得到$tmpl
-                        this.tmpl = def.$tmpl || node;
-                        this._bgcompdef_ = { def: def, name: compName };
-                    }.bind(this);
-
-                    if (val) {
-                        return init(val);
-                    } else {
-                        //使用url方式, 异步加载action, 走mvc开发模式
-                        var url = attrVal;
-
-                        var routeContext = bingo.routeContext(url);
-                        var context = routeContext.context();
-
-                        if (context.component) {
-                            return init(context.component);
-                        } else {
-                            return bingo.using(url).then(function () {
-                                if (pView.bgIsDispose) return;
-                                routeContext = bingo.routeContext(url);
-                                context = routeContext.context();
-                                if (context.component) {
-                                    return init(context.component);
-                                }
-                            });
-                        }
-                    }
-                }],
-                controller: ['$view', '$compile', 'node', '$attr', function ($view, $compile, node) {
-                    var pView = $view.$parentView(),
-                        comdef = this._bgcompdef_,
-                        def = comdef.def,
-                        compName = comdef.name;
-                   
-                    $view.bgOnDispose(function () {
-                        pView.$removeComp(compName);
-                        //console.log('bg:component dispose', node.tagName);
-                    });
-                    if (def) {
-                        var co = $view.$defComp(def, compName);
-                        co.bgToObserve();
-                        return $compile().nodes([node]).compile();
-                    }
-
-                }]  //end compile
+                switch (attrName) {
+                    case 'hide':
+                        val = !val;
+                    case 'show':
+                        if (val) vAttr.$show(); else vAttr.$hide();
+                        break;
+                    case 'visible':
+                        val = val ? 'visible' : 'hidden';
+                        vAttr.$css('visibility', val);
+                        break;
+                }
             };
 
-        }); //end bg-component
+            vAttr.$layoutResult(function (c) {
+                _set(c.value);
+            });
 
-    });//end each bg-component
+        });
+    });
 
-    
+    defualtApp.attr('model', function (vAttr) {
+
+        var _val = function (val) {
+            if (arguments.length == 0)
+                return vAttr.$attr('value');
+            else
+                vAttr.$attr('value', val);
+        };
+
+        var node = vAttr.$node;
+
+        var _type = vAttr.$attr('type'),
+            _isRadio = _type == 'radio',
+            _isCheckbox = _type == 'checkbox',
+            _checkboxVal = _isCheckbox ? _val(node) : null,
+            _isSelect = node.tagName.toLowerCase() == 'select';
+
+        var _getNodeValue = function () {
+            return _isCheckbox ? (vAttr.$prop("checked") ? _checkboxVal : '') : (_val());
+        }, _setNodeValue = function (value) {
+            value = _isSelect && bingo.isArray(value) ? value : bingo.toStr(value);
+            if (_isCheckbox) {
+                vAttr.$prop("checked", (_val() == value));
+            } else if (_isRadio) {
+                vAttr.$prop("checked", (_val() == value));
+            } else if (_isSelect)
+                _val(value);
+            else
+                _val(value);
+        };
+
+        var _eVal, eName, fn = function () {
+            var value = _getNodeValue();
+            if (_eVal != value || _isRadio) {
+                _eVal = value;
+                vAttr.$value(value);
+            }
+        };
+        if (_isRadio) {
+            eName = 'click';
+        } else {
+            eName = 'change';
+        }
+        if (eName) {
+            vAttr.$on(eName, fn);
+        }
+
+        vAttr.$layoutValue(function (c) {
+            var val = c.value;
+            _setNodeValue(val);
+        });
+
+        //vAttr.$ready(function () {
+        //    _setNodeValue(vAttr.$value());
+        //});
+
+    });
+
+
 })(bingo);

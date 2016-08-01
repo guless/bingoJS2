@@ -1,23 +1,21 @@
 
-bingo.app('demo').controller('routes/route2', function ($view, $comp, $location) {
-    $location('routeTest')
+demoApp.controller('route2', function ($view, $location) {
     $view.title = 'route2';
-    $view.desc = 'route2 OK';
-    console.log('route2 cp select1', $comp('select1'), $comp('select1').datas);
+    $view.desc = 'route2 OK' + new Date();
 
     $view.$ready(function () {
         console.log('route2 ready');
     });
 
-    $view.$readyAll(function () {
-        console.log('route2 readyall');
-    });
-
     $view.reload = function () {
-        $location().reload();
+        $location('main').reload();
     };
     $view.route1 = function () {
-        $location().href('routes/route1');
+        $location('main').href('route1');
     };
+
+    $view.bgOnDispose(function () {
+        console.log('dispose route2');
+    });
 
 });

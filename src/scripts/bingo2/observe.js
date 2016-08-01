@@ -134,7 +134,7 @@
             /// bgToObserve('prop', true)
             /// </summary>
             /// <param name="deep">是否自动深toObserve</param>
-            if (this._no_observe === true) return this;
+            if (this.bgNoObserve) return this;
             if (bingo.isBoolean(prop)) { deep = prop; prop = null; }
             _defObserve(this, prop ? [prop] : Object.keys(this), deep);
             return this;
@@ -144,7 +144,7 @@
             /// bgObServe(function(change){})<br/>
             /// bgObServe('prop', function(change){})
             /// </summary>
-            if (this._no_observe === true) return this;
+            if (this.bgNoObserve) return this;
             if (bingo.isNull(prop) || bingo.isFunction(prop)) {
                 this.bgToObserve();
                 _addObs(this, null, prop || fn);
@@ -160,7 +160,7 @@
             /// bgUnObServe(fn)<br/>
             /// bgUnObServe('prop', fn)
             /// </summary>
-            if (this._no_observe === true) return this;
+            if (this.bgNoObserve) return this;
             if (bingo.isNull(prop) || bingo.isFunction(prop)) {
                 _delObs(this, null, prop || fn);
             } else {
@@ -189,7 +189,9 @@
             /// bgBuildProps('aaaa.bbb')  ==> [this, 'aaaa', false]
             /// </summary>
             return _splitProp(this, prop, true)[2];
-        }
+        },
+        //防止observe
+        bgNoObserve:false
     });
 
     //数组观察方法， length不能观察有些浏览器会报错
@@ -253,14 +255,19 @@
 
     //observe fn时不能观观察root层
     bingo.extend({
-        observe: function (obj, prop, fn) {
-            if (bingo.isFunction(obj)) {
-                var colFn = obj;
+        observe: function (obj, prop, fn, autoInit) {
+            /// <summary>
+            /// observe(obj, 'title', function(c){}) <br />
+            /// observe(function(){return value;}, function(c){}) <br />
+            /// </summary>
+
+            if (bingo.isArgs(arguments, 'fun', 'fun')) {
+                var colFn = obj, isAutoInit = arguments[2] !== false;
                 fn = prop;
-                var obs, tid, cList = [], old, publish = function (isPub, org) {
+                var obs, tid, cList = [], old, publish = function (isPub, org, orgVal) {
                     var val;
                     try {
-                        val = colFn();
+                        val = arguments.length == 3 ? orgVal : colFn();
                         if (isPub || (bingo.isArray(old) ? !_ArrayEquals(old, val) : (bingo.isObject(old) ? !_ObjectEquals(old, val) : old != val))) {
                             //如果只是单个属性的情况, 如bingo.observe(obj, 'aaa.bbb', fn)
                             var cLTemp = cList.length == 1 ? cList[0] : null,
@@ -301,7 +308,11 @@
                             item.object.bgObServe(item.name, ftw);
                         });
                     }
-                    if (refs !== true)
+                    if (!isAutoInit) {
+                        ret.value = old = obs.val;
+                        publish(true, true, old);
+                        isAutoInit = true;
+                    } else if (refs !== true)
                         ret.value = old = obs.val;
                     else
                         ret.check();
@@ -333,19 +344,29 @@
                     refresh: function () {
                         _unObserve();
                         done(true);
+                    },
+                    init: function () {
+                        ret.init = bingo.noop;
+                        done();
                     }
                 };
-                done();
+                isAutoInit && ret.init();
                 return ret;
             } else if (obj) {
                 var bo = _splitProp(obj, prop, false),
-                    obj = bo[0],pname = bo[1],
+                    obj = bo[0], pname = bo[1],
                     sFn = function () {
                         return obj[pname];
                     };
-                return bingo.observe(sFn, fn);
-
+                return bingo.observe(sFn, fn, autoInit);
             }
+
+            //if (bingo.isFunction(obj)) {
+                
+            //} else if (obj) {
+                
+
+            //}
         },
         isObserve: function (obj, prop) {
             return _isObserve(obj, prop);
@@ -427,13 +448,17 @@
             if (test && !_existProp(last, item)) { has = false; return false; }
             if (index <= end) {
                 if (!last[item]) {
-                    last = last[item] = (nreg.test(l[index + 1]) ? {} : []);
+                    last[item] = (nreg.test(l[index + 1]) ? {} : []);
+                    last.bgToObserve(item, true);
+                    last = last[item];
                 } else
                     last = last[item];
             } else {
                 name = item;
-                if (!(name in last))
+                if (!(name in last)) {
                     last[name] = null;
+                    last.bgToObserve(name, true);
+                }
             }
         });
         return [last, name, end == -1 ? _existProp(last, name) : has];
