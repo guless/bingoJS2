@@ -110,7 +110,7 @@
                         _height = 0;
 
 
-                    $view.$init(function () {
+                    $view.$ready(function () {
                         _height = $view.divNode.offsetHeight;
                         $view.bottom -= _moveHeight;
                     });

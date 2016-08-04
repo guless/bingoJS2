@@ -19,7 +19,7 @@
 
     var bingo = window.bingo = {
         //主版本号.子版本号.修正版本号.编译版本号(日期)
-        version: { major: 2, minor: 0, rev: 0, build: '160731', toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
+        version: { major: 2, minor: 0, rev: 1, build: '160804', toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
         bgNoObserve: true,//防止observe
         isDebug: false,
         prdtVersion: '',
@@ -2852,7 +2852,14 @@
                     _clearCP(this);
                     this.$tmpl(s);
 
-                    return _compile({ cp: this, context: _getCPRefNode(this), opName: 'insertBefore' }, ctrl);
+                    var nodes = this.$nodes, context = _getCPRefNode(this);
+                    this.$nodes = [];
+                    return _compile({
+                        cp: this, context: context, domBefore: function () {
+                            _removeCPNodes(nodes);
+
+                        }, opName: 'insertBefore'
+                    }, ctrl);
                 } else {
                     var list = [];
                     bingo.each(this.$nodes, function (item) {
@@ -3682,11 +3689,33 @@
 
 
         //render-->cpctrl-->viewctrl-->cpevent-->dom编译-->cpinit-->viewinit--cpready-->viewready
+        var node = p.context, optName = p.opName,
+            isAppend = optName == 'appendTo',
+            tmNode = _doc.createElement((isAppend ? node : node.parentNode).tagName),
+            nextNode, pNode, domBefore = p.domBefore;
+        if (!isAppend) {
+
+            nextNode = _doc.createElement('script');
+            nextNode.type = 'text/html';
+
+            _doc.createElement
+            _insertDom([nextNode], node, 'insertBefore');
+            tmNode.appendChild(node.cloneNode(false));
+        }
         return cp._render(bd).then(function () {
             return _Promise.resolve().then(bd.doneStep('CPCtrl')).then(bd.doneStep('ViewCtrl')).then(bd.doneStep('CPEvent')).then(function () {
-                var node = p.context, opName = p.opName;
-                _traverseCP(node, cp, opName, bd);
-            }).then(bd.doneStep('CPInit')).then(bd.doneStep('ViewInit'))
+                var nodeT = isAppend ? tmNode : tmNode.firstChild;
+                _traverseCP(nodeT, cp, optName, bd);
+            }).then(bd.doneStep('CPInit')).then(bd.doneStep('ViewInit')).then(function () {
+                domBefore && domBefore();
+                if (isAppend)
+                    _insertDom(tmNode.childNodes, node, 'appendTo');
+                else {
+                    _insertDom(bingo.sliceArray(tmNode.childNodes, 0, -1), nextNode, 'insertBefore');
+                    _removeNode(nextNode);
+                }
+                tmNode = nextNode = null;
+            })
             .then(bd.doneStep('CPReady')).then(bd.doneStep('ViewReady'));
 
             //return _complieInit().then(function () { return cp; });
