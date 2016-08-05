@@ -19,7 +19,7 @@
 
     var bingo = window.bingo = {
         //主版本号.子版本号.修正版本号.编译版本号(日期)
-        version: { major: 2, minor: 0, rev: 1, build: '160804', toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
+        version: { major: 2, minor: 0, rev: 1, build: '160805', toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
         bgNoObserve: true,//防止observe
         isDebug: false,
         prdtVersion: '',
@@ -2701,7 +2701,15 @@
         var nodes = cp.$nodes;
         var len = cp.$nodes.length;
         return len > 0 ? cp.$nodes[last ? len - 1 : 0] : null;
+    }, _bakClearCP = function (cp) {
+        var bak = {
+            $children: bingo.sliceArray(cp.$children),
+            $virtualNodes: bingo.sliceArray(cp.$virtualNodes),
+            $ownerView: cp.$ownerView
+        };
+        return cp._bgbak_ = bak;
     }, _clearCP = function (cp) {
+        cp._bgbak_ && _clearCP(cp._bgbak_);
         bingo.each(cp.$children, function (item) {
             item.bgDispose();
         });
@@ -2710,7 +2718,7 @@
         });
         if (cp.$ownerView)
             cp.$ownerView.bgDispose();
-        cp.$children = cp.$ownerView = null;
+        cp.$children = cp.$ownerView = cp._bgbak_ = null;
         cp.$virtualNodes = [];
     }, _getCPFirstNode = function (cp, childNodes) {
 
@@ -2849,15 +2857,15 @@
             },
             $html: function (s, ctrl) {
                 if (arguments.length > 0) {
-                    _clearCP(this);
+                    var bak = _bakClearCP(this);
                     this.$tmpl(s);
 
                     var nodes = this.$nodes, context = _getCPRefNode(this);
                     this.$nodes = [];
                     return _compile({
                         cp: this, context: context, domBefore: function () {
+                            _clearCP(bak);
                             _removeCPNodes(nodes);
-
                         }, opName: 'insertBefore'
                     }, ctrl);
                 } else {
