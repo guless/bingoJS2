@@ -8,6 +8,10 @@
 
 [https://guless.github.io/bingoJS2/dist/index.html](https://guless.github.io/bingoJS2/dist/index.html)
 
+[AmazeUI + bingoJS 2.x 演示PC端的搭建](https://github.com/guless/AmazeUI-bjs) 
+
+[sandal + bingoJS 2.x 演示移动端的搭建](https://github.com/guless/sandal-bjs) 
+
 ## 安装/使用:
 
 遵循以下4个简单的步骤, 就能使用demo
