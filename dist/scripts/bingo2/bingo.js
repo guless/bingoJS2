@@ -19,7 +19,7 @@
 
     var bingo = window.bingo = {
         //主版本号.子版本号.修正版本号.编译版本号(日期)
-        version: { major: 2, minor: 0, rev: 1, build: '160805', toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
+        version: { major: 2, minor: 0, rev: 1, build: '160806', toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
         bgNoObserve: true,//防止observe
         isDebug: false,
         prdtVersion: '',
@@ -1029,6 +1029,7 @@
                     else
                         ret.check();
                 }, _unObserve = function () {
+                    if (!obs) return;
                     bingo.each(obs.w, function (item) {
                         item.object.bgUnObServe(item.name, ft);
                     });
@@ -2398,7 +2399,7 @@
                 if (arguments.length == 0) {
                     return obj.bgDataValue(contents);
                 } else {
-                    //this.$view.$updateAsync();
+                    this.$view.$updateAsync();
                     obj.bgDataValue(contents, val);
                 }
             },
@@ -2489,7 +2490,7 @@
                     _promisePush(promises, item && item.call(this, this));
                 }, this);
             }
-            this.bgToObserve();
+            this.bgToObserve(true);
             return promises;
         }.bind(view));
 
@@ -2534,7 +2535,7 @@
                     //这里会重新检查非法绑定
                     //所以尽量先定义变量到$view, 再绑定
                     if (this.bgIsDispose || (dispoer && dispoer.bgIsDispose)) return;
-                    //this.$updateAsync();
+                    this.$updateAsync();
                     return fn.apply(this, arguments);
                 }.bind(this);
                 fn1.orgFn = fn.orgFn;//保存原来observe fn
@@ -3500,10 +3501,12 @@
                 if (end) this.doneStep(name)();
             },
             doneStep: function (name) {
-                var stepList = _stepObj[name],
-                  has = stepList && stepList.length > 0;
-                has && (_stepObj[name] = []);
-                return function () { return has ? _doneStep(stepList, name) : null };
+                return function() {
+                    var stepList = _stepObj[name],
+                        has = stepList && stepList.length > 0;
+                    has && (_stepObj[name] = []);
+                    return has ? _doneStep(stepList, name) : null;
+                };
             },
             end: function () {
                 end = true;
@@ -3696,7 +3699,8 @@
         }, false, bd).$tmpl(p.tmpl);
 
 
-        //render-->cpctrl-->viewctrl-->cpevent-->dom编译-->cpinit-->viewinit--cpready-->viewready
+        //创建临时node-->render-->cpctrl-->viewctrl-->cpevent-->dom编译
+        //       -->cpinit-->viewinit-->插入临时node到dom-->cpready-->viewready
         var node = p.context, optName = p.opName,
             isAppend = optName == 'appendTo',
             tmNode = _doc.createElement((isAppend ? node : node.parentNode).tagName),

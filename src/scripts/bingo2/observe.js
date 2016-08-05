@@ -317,6 +317,7 @@
                     else
                         ret.check();
                 }, _unObserve = function () {
+                    if (!obs) return;
                     bingo.each(obs.w, function (item) {
                         item.object.bgUnObServe(item.name, ft);
                     });
