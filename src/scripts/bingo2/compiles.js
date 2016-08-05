@@ -598,7 +598,15 @@
         var nodes = cp.$nodes;
         var len = cp.$nodes.length;
         return len > 0 ? cp.$nodes[last ? len - 1 : 0] : null;
+    }, _bakClearCP = function (cp) {
+        var bak = {
+            $children: bingo.sliceArray(cp.$children),
+            $virtualNodes: bingo.sliceArray(cp.$virtualNodes),
+            $ownerView: cp.$ownerView
+        };
+        return cp._bgbak_ = bak;
     }, _clearCP = function (cp) {
+        cp._bgbak_ && _clearCP(cp._bgbak_);
         bingo.each(cp.$children, function (item) {
             item.bgDispose();
         });
@@ -607,7 +615,7 @@
         });
         if (cp.$ownerView)
             cp.$ownerView.bgDispose();
-        cp.$children = cp.$ownerView = null;
+        cp.$children = cp.$ownerView = cp._bgbak_ = null;
         cp.$virtualNodes = [];
     }, _getCPFirstNode = function (cp, childNodes) {
 
@@ -746,10 +754,17 @@
             },
             $html: function (s, ctrl) {
                 if (arguments.length > 0) {
-                    _clearCP(this);
+                    var bak = _bakClearCP(this);
                     this.$tmpl(s);
 
-                    return _compile({ cp: this, context: _getCPRefNode(this), opName: 'insertBefore' }, ctrl);
+                    var nodes = this.$nodes, context = _getCPRefNode(this);
+                    this.$nodes = [];
+                    return _compile({
+                        cp: this, context: context, domBefore: function () {
+                            _clearCP(bak);
+                            _removeCPNodes(nodes);
+                        }, opName: 'insertBefore'
+                    }, ctrl);
                 } else {
                     var list = [];
                     bingo.each(this.$nodes, function (item) {
@@ -1579,11 +1594,33 @@
 
 
         //render-->cpctrl-->viewctrl-->cpevent-->dom编译-->cpinit-->viewinit--cpready-->viewready
+        var node = p.context, optName = p.opName,
+            isAppend = optName == 'appendTo',
+            tmNode = _doc.createElement((isAppend ? node : node.parentNode).tagName),
+            nextNode, pNode, domBefore = p.domBefore;
+        if (!isAppend) {
+
+            nextNode = _doc.createElement('script');
+            nextNode.type = 'text/html';
+
+            _doc.createElement
+            _insertDom([nextNode], node, 'insertBefore');
+            tmNode.appendChild(node.cloneNode(false));
+        }
         return cp._render(bd).then(function () {
             return _Promise.resolve().then(bd.doneStep('CPCtrl')).then(bd.doneStep('ViewCtrl')).then(bd.doneStep('CPEvent')).then(function () {
-                var node = p.context, opName = p.opName;
-                _traverseCP(node, cp, opName, bd);
-            }).then(bd.doneStep('CPInit')).then(bd.doneStep('ViewInit'))
+                var nodeT = isAppend ? tmNode : tmNode.firstChild;
+                _traverseCP(nodeT, cp, optName, bd);
+            }).then(bd.doneStep('CPInit')).then(bd.doneStep('ViewInit')).then(function () {
+                domBefore && domBefore();
+                if (isAppend)
+                    _insertDom(tmNode.childNodes, node, 'appendTo');
+                else {
+                    _insertDom(bingo.sliceArray(tmNode.childNodes, 0, -1), nextNode, 'insertBefore');
+                    _removeNode(nextNode);
+                }
+                tmNode = nextNode = null;
+            })
             .then(bd.doneStep('CPReady')).then(bd.doneStep('ViewReady'));
 
             //return _complieInit().then(function () { return cp; });
