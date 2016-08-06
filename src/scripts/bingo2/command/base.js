@@ -214,7 +214,7 @@
         cp.$init(function () {
             return !src ? cp.$html(cp.$contents) : cp.$loadTmpl(src).then(function (tmpl) { return cp.$html(tmpl); });
         });
-
+        cp.$export = cp;
     });
 
     defualtApp.command('html', function (cp) {
