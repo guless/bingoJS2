@@ -19,7 +19,7 @@
 
     var bingo = window.bingo = {
         //主版本号.子版本号.修正版本号.编译版本号(日期)
-        version: { major: 2, minor: 0, rev: 1, build: '160806', toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
+        version: { major: 2, minor: 0, rev: 2, build: 160814, toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
         bgNoObserve: true,//防止observe
         isDebug: false,
         prdtVersion: '',
@@ -138,7 +138,7 @@
             //callback(element, index, array){this === data;}
             //过程中改变list长度， 不会影响遍历长度, 但内容会变
             if (!list || !callback) return;
-            bingo.isArray(list) || (list = this.sliceArray(list));
+            bingo.isArray(list) || (list = slice.apply(list));
             list.some(function (item) {
                 return (callback.apply(thisArg || item, arguments) === false);
             });
@@ -174,7 +174,7 @@
                 }, this);
                 return this;
             }
-            var args = this.sliceArray(arguments, 1);
+            var args = slice.call(arguments, 1);
             bingo.each(args, function (ot) {
                 ot && this.eachProp(ot, function (item, n) {
                     obj[n] = item;
@@ -239,7 +239,7 @@
             /// </summary>
             /// <param name="args"></param>
             /// <param name="p">obj, str, array, bool, num, null, empty, undef, fun, *, regex, window, element</param>
-            var types = bingo.sliceArray(arguments, 1), isOk = true,val;
+            var types = slice.call(arguments, 1), isOk = true,val;
             bingo.each(types, function (item, index) {
                 val = args[index];
                 if (bingo.isString(item)) {
@@ -366,7 +366,7 @@
             this._thenH = null;
         },
         _doNext: function (res, type) {
-            if (res && bingo.isFunction(res.then)) {
+            if (res && res.then) {
                 if (res.state == _rejected && !res._thenH) {
                     this.state = type;
                     this._result = null;
@@ -4264,6 +4264,7 @@
     });
 
     defualtApp.command('if', function (cp) {
+        cp.$isAFrame = false;
 
         var _contents = cp.$contents,
             _elseList = cp.$elseList, _getContent = function (index, val) {
@@ -4282,10 +4283,10 @@
                     });
                     return s;
                 }
-            }, _tid, _html = function (c, index) {
-                if (_tid) return;
-                _tid = true;
-                return bingo.Promise.timeout(1).then(function () { _tid = false; return cp.$html && cp.$html(_getContent(index, c.value)); });
+            }, _old, _html = function (c, index) {
+                var html = _getContent(index, c.value);
+                if (html == _old) return;
+                return cp.$html && cp.$html(_old = html);
             };
         cp.$layout(function () {
             return cp.$attrs.$result();
@@ -4304,12 +4305,21 @@
     });
 
     defualtApp.command('include', function (cp) {
-        var src = cp.$attrs.$getAttr('src');
+
+        var _inc = function (src) {
+            return !src ? cp.$html(cp.$contents) : cp.$loadTmpl(src).then(function (tmpl) { return cp.$html(tmpl); });
+        };
 
         cp.$init(function () {
-            return !src ? cp.$html(cp.$contents) : cp.$loadTmpl(src).then(function (tmpl) { return cp.$html(tmpl); });
+            return _inc(cp.$attrs.$getAttr('src'));
         });
 
+        cp.bgNoObserve = false;
+        cp.bgToObserve('src').bgObServe('src', function (c) {
+            _inc(c[0].value);
+        });
+        cp.bgNoObserve = true;
+        cp.$export = cp;
     });
 
     defualtApp.command('html', function (cp) {

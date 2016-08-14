@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>测试编译性能(comPerform)</title>
+    <link href="style.css" rel="stylesheet" />
+</head>
+<body>
+    <script type="text/html" id="demo">
+        {{view controller="main" name="main" app="demo" /}}
+        <div>
+            <button onclick="[[start]]">开始</button>
+        </div>
+        <table>
+            <tr>
+                <td>列1</td>
+                <td>列2</td>
+                <td>列3</td>
+                <td>列3</td>
+                <td>列4</td>
+                <td>列5</td>
+            </tr>
+            {{include name="inc1" /}}
+            {{tmpl id="tmpl1"}}
+            {{for item in list}}
+            <tr>
+                {{for col in [1,2,3,4,5]}}
+                <td>{{text item[col_index] /}}</td>
+                {{/for}}
+            </tr>
+            {{/for}}
+            {{/tmpl}}
+            {{tmpl id="tmpl2"}}
+            {{for item in list}}
+            <tr>
+                <td>{{text item[0] /}}</td>
+                <td>{{text item[1] /}}</td>
+                <td>{{text item[2] /}}</td>
+                <td>{{text item[3] /}}</td>
+                <td>{{text item[4] /}}{{if $odd}} ok{{/if}} </td>
+            </tr>
+            {{/for}}
+            {{/tmpl}}
+        </table>
+    </script>
+    <script src="../scripts/bingo2/bingo.js"></script>
+    <script src="route.js"></script>
+    <script type="text/javascript">
+        (function () {
+            var app = bingo.app('demo');
+
+            app.controller('main', function ($view) {
+
+                var datas = [];
+                for (var i = 1; i <= 50; i++) {
+                    datas.push([i, 'Business management','default', '测试1号', '2014年9月4日 7:28:47']);
+                }
+                $view.list = datas;
+
+                $view.$ready(function () {
+                    
+                });
+
+                $view.start = function () {
+                    datas = datas.slice();
+                    $view.list = datas;
+                    console.time('list');
+                    //console.profile('list');
+                    //$view.inc1.src = '#tmpl2';
+                    $view.inc1.$loadTmpl('#tmpl2').then(function (s) {
+                        $view.inc1.$html(s).then(function (cp) {
+                            //console.profileEnd('list');
+                            console.timeEnd('list');
+                        });
+                    });
+                };
+
+            });
+
+
+            bingo.ready(function () {
+                console.time('boot');
+                bingo.compile(document.getElementById('demo')).then(function () {
+                    //console.profileEnd('boot');
+                    console.timeEnd('boot');
+                });
+            });
+        })();
+    </script>
+</body>
+</html>
