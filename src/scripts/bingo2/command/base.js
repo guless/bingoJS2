@@ -169,6 +169,7 @@
     });
 
     defualtApp.command('if', function (cp) {
+        cp.$isAFrame = false;
 
         var _contents = cp.$contents,
             _elseList = cp.$elseList, _getContent = function (index, val) {
@@ -187,10 +188,10 @@
                     });
                     return s;
                 }
-            }, _tid, _html = function (c, index) {
-                if (_tid) return;
-                _tid = true;
-                return bingo.Promise.timeout(1).then(function () { _tid = false; return cp.$html && cp.$html(_getContent(index, c.value)); });
+            }, _old, _html = function (c, index) {
+                var html = _getContent(index, c.value);
+                if (html == _old) return;
+                return cp.$html && cp.$html(_old = html);
             };
         cp.$layout(function () {
             return cp.$attrs.$result();
@@ -209,11 +210,20 @@
     });
 
     defualtApp.command('include', function (cp) {
-        var src = cp.$attrs.$getAttr('src');
+
+        var _inc = function (src) {
+            return !src ? cp.$html(cp.$contents) : cp.$loadTmpl(src).then(function (tmpl) { return cp.$html(tmpl); });
+        };
 
         cp.$init(function () {
-            return !src ? cp.$html(cp.$contents) : cp.$loadTmpl(src).then(function (tmpl) { return cp.$html(tmpl); });
+            return _inc(cp.$attrs.$getAttr('src'));
         });
+
+        cp.bgNoObserve = false;
+        cp.bgToObserve('src').bgObServe('src', function (c) {
+            _inc(c[0].value);
+        });
+        cp.bgNoObserve = true;
         cp.$export = cp;
     });
 

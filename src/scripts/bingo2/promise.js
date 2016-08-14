@@ -41,7 +41,7 @@
             this._thenH = null;
         },
         _doNext: function (res, type) {
-            if (res && bingo.isFunction(res.then)) {
+            if (res && res.then) {
                 if (res.state == _rejected && !res._thenH) {
                     this.state = type;
                     this._result = null;
