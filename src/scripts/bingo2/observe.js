@@ -91,22 +91,31 @@
             if (!_isObserve(obj, prop)) {
                 _defObserve(obj, bingo.isNull(prop) ? null : [prop]);
             }
+            //aaaaa++;
             var obs = _getObserveData(obj, prop);
             obs && obs.push({ fn: fn });
             return obs;
         }, _delObs = function (obj, prop, fn) {
             var obd;
             if (obd = obj[_obsDName]) {
+                var obs = obd.obs;
                 if (bingo.isNull(prop)) {
                     if (!fn)
                         obd.sobs = [];
-                    else
-                        obd.sobs = obd.sobs.filter(function (item) { return item.fn != fn; });
-                } else if (obd.obs[prop]) {
+                    else {
+                        //注意只会释放一次
+                        _removeFn(obd.sobs, fn);
+                        obd.sobs = obd.sobs.slice();
+                        //obd.sobs = obd.sobs.filter(function (item) { return item.fn != fn; });
+                    }
+                } else if (obs[prop]) {
                     if (!fn)
-                        obd.obs[prop] = [];
-                    else
-                        obd.obs[prop] = obd.obs[prop].filter(function (item) { return item.fn != fn; });
+                        obs[prop] = [];
+                    else {
+                        _removeFn(obs[prop], fn);
+                        obs[prop] = obs[prop].slice();
+                        //obs[prop] = obs[prop].filter(function (item) { return item.fn != fn; });
+                    }
                 }
             }
         }, _resObs = function (obj) {
@@ -115,9 +124,15 @@
                 obd.obs = [];
             }
             obj.bgToObserve();
+        }, _removeFn = function (list, fn) {
+            var index = bingo.inArray(function (item) { return item.fn == fn; }, list);
+            if (index > -1) {
+                list.splice(index, 1);
+                _removeFn(list, fn);
+            }
         };
 
-
+    //window.aaaaa = 0;
     Object.prototype.bgDefProps({
         _bg_clsobd: function () {
             var de = this[_obsDName];
@@ -131,25 +146,28 @@
             /// <summary>
             /// bgToObserve(true)<br/>
             /// bgToObserve('prop')<br/>
+            /// bgToObserve(['prop1','prop2'])<br/>
             /// bgToObserve('prop', true)
+            /// bgToObserve(['prop1','prop2'], true)<br/>
             /// </summary>
             /// <param name="deep">是否自动深toObserve</param>
             if (this.bgNoObserve) return this;
             if (bingo.isBoolean(prop)) { deep = prop; prop = null; }
-            _defObserve(this, prop ? [prop] : Object.keys(this), deep);
+            _defObserve(this, prop ? (bingo.isArray(prop) ? prop : [prop]) : Object.keys(this), deep);
             return this;
         },
         bgObServe: function (prop, fn) {
             /// <summary>
             /// bgObServe(function(change){})<br/>
             /// bgObServe('prop', function(change){})
+            /// bgObServe(['prop1','prop2'], function(change){})
             /// </summary>
             if (this.bgNoObserve) return this;
             if (bingo.isNull(prop) || bingo.isFunction(prop)) {
                 this.bgToObserve();
                 _addObs(this, null, prop || fn);
             } else {
-                bingo.each(prop ? [prop] : Object.keys(this), function (item) {
+                bingo.each(prop ? (bingo.isArray(prop) ? prop : [prop]) : Object.keys(this), function (item) {
                     _addObs(this, item, fn);
                 }, this);
             }
@@ -159,12 +177,13 @@
             /// <summary>
             /// bgUnObServe(fn)<br/>
             /// bgUnObServe('prop', fn)
+            /// bgUnObServe(['prop1','prop2'], fn)
             /// </summary>
             //if (this.bgNoObserve) return this;
             if (bingo.isNull(prop) || bingo.isFunction(prop)) {
                 _delObs(this, null, prop || fn);
             } else {
-                bingo.each(prop ? [prop] : Object.keys(this), function (item) {
+                bingo.each(prop ? (bingo.isArray(prop) ? prop : [prop]) : Object.keys(this), function (item) {
                     _delObs(this, item, fn);
                 }, this);
             }

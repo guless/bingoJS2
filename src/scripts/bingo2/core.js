@@ -6,9 +6,10 @@
         toString = Object.prototype.toString,
         core_hasOwn = Object.prototype.hasOwnProperty,
         noop = function () { },
-        slice = Array.prototype.slice;
+        slice = Array.prototype.slice,
+        _trimReg = /(^\s*)|(\s*$)|(^\u3000*)|(\u3000*$)|(^\ue4c6*)|(\ue4c6*$)/g;
 
-    var fpName = '_bg_ifFn_',spName = '_bg_ifStr_';
+    var fpName = '_bg_ifFn_', spName = '_bg_ifStr_';
 
     var _htmlDivTarget = null,
     _getHtmlDivTarget = function () {
@@ -107,7 +108,7 @@
         isWindow: function (obj) { return !!(obj && obj == obj.window); },
         isElement: function (obj) { var t = obj && (obj.ownerDocument || obj).documentElement; return t ? true : false; },
         trim: function (str) {
-            return this.isString(str) ? str.replace(/(^\s*)|(\s*$)|(^\u3000*)|(\u3000*$)|(^\ue4c6*)|(\ue4c6*$)/g, '') : this.isNull(str) ? '' : str.toString();
+            return this.isNull(str) ? '' : this.isString(str) ? (str.replace(_trimReg, '')) : str.toString();
         },
         replaceAll: function (s, str, repl, flags) {
             if (this.isNullEmpty(s) || this.isNullEmpty(str)) return s;

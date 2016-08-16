@@ -170,7 +170,7 @@
     });
 
     defualtApp.command('if', function (cp) {
-        cp.$isAFrame = false;
+        //cp.$isAFrame = false;
 
         var _contents = cp.$contents,
             _elseList = cp.$elseList, _getContent = function (index, val) {
