@@ -7,9 +7,9 @@
 </head>
 <body>
     <script type="text/html" id="demo">
-        {{view controller="main" name="main" app="demo" /}}
+        {{view controller="main" with="true" name="main" app="demo" /}}
         <div>
-            <button onclick="[[start]]">开始</button>
+            <button onclick="[[this.start]]">开始</button>
         </div>
         <table>
             <tr>
@@ -22,7 +22,7 @@
             </tr>
             {{include name="inc1" /}}
             {{tmpl id="tmpl1"}}
-            {{for item in list}}
+            {{for item in this.list}}
             <tr>
                 {{for col in [1,2,3,4,5]}}
                 <td>{{text item[col_index] /}}</td>

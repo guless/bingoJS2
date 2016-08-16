@@ -160,7 +160,7 @@
             /// bgUnObServe(fn)<br/>
             /// bgUnObServe('prop', fn)
             /// </summary>
-            if (this.bgNoObserve) return this;
+            //if (this.bgNoObserve) return this;
             if (bingo.isNull(prop) || bingo.isFunction(prop)) {
                 _delObs(this, null, prop || fn);
             } else {
@@ -445,6 +445,7 @@
             end = l.length - 2, last = obj, name = prop, has = true;
         end >= 0 && bingo.each(l, function (item, index) {
             item = item.replace(dot, '.');
+            if (item == 'this') return;
             //测试模式
             if (test && !_existProp(last, item)) { has = false; return false; }
             if (index <= end) {

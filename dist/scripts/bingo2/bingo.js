@@ -8,6 +8,8 @@
         noop = function () { },
         slice = Array.prototype.slice;
 
+    var fpName = '_bg_ifFn_',spName = '_bg_ifStr_';
+
     var _htmlDivTarget = null,
     _getHtmlDivTarget = function () {
         return _htmlDivTarget || (_htmlDivTarget = document.createElement('div'));
@@ -19,7 +21,7 @@
 
     var bingo = window.bingo = {
         //主版本号.子版本号.修正版本号.编译版本号(日期)
-        version: { major: 2, minor: 0, rev: 2, build: 160814, toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
+        version: { major: 2, minor: 0, rev: 2, build: 160816, toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
         bgNoObserve: true,//防止observe
         isDebug: false,
         prdtVersion: '',
@@ -60,14 +62,17 @@
             return (this.isNull(s) || s === stringEmpty);
         },
         isFunction: function (fun) {
-            return this.isType("Function", fun);
+            (fpName in Function.prototype) || (Function.prototype[fpName] = true);
+            return !this.isNull(fun) && fun[fpName] === true;
         },
         isNumeric: function (n) {
             //return this.isType("Number", n) && !isNaN(n) && isFinite(n);;
             return !isNaN(parseFloat(n)) && isFinite(n);
         },
         isString: function (obj) {
-            return this.isType("String", obj);
+            (spName in String.prototype) || (String.prototype[spName] = true);
+            return !this.isNull(obj) && obj[spName] === true;
+            //return this.isType("String", obj);
         },
         isObject: function (obj) {
             return !this.isNull(obj) && this.isType("Object", obj)
@@ -872,7 +877,7 @@
             /// bgUnObServe(fn)<br/>
             /// bgUnObServe('prop', fn)
             /// </summary>
-            if (this.bgNoObserve) return this;
+            //if (this.bgNoObserve) return this;
             if (bingo.isNull(prop) || bingo.isFunction(prop)) {
                 _delObs(this, null, prop || fn);
             } else {
@@ -1157,6 +1162,7 @@
             end = l.length - 2, last = obj, name = prop, has = true;
         end >= 0 && bingo.each(l, function (item, index) {
             item = item.replace(dot, '.');
+            if (item == 'this') return;
             //测试模式
             if (test && !_existProp(last, item)) { has = false; return false; }
             if (index <= end) {
@@ -2307,10 +2313,11 @@
 
     var _vm = {
         _cacheName: '__contextFun__',
-        bindContext: function (cacheobj, content, hasRet) {
+        bindContext: function (cacheobj, content, hasRet, hasWith) {
 
             var cacheName = [content, hasRet].join('_'), cT;
             var contextCache = (cacheobj[_vm._cacheName] || (cacheobj[_vm._cacheName] = {}));
+
             if (contextCache[cacheName])
                 return contextCache[cacheName];
             else {
@@ -2318,15 +2325,21 @@
                 if (cT) return cT;
             }
 
-            hasRet && (content = ['try { return ', content, ';} catch (e) {bingo.observe.error(e);}'].join(''));
+            content = ['var fn = function(){ ', (hasRet ? 'return ' : ''), content, ';}.bind(_this_);'].join('');
             var fnDef = [
-                        'return function (_this_, $view, $withData, bingo, event) {',
-                            'with ($view) {',
+                        'return function (_this_, $view, $withData, node, bingo, event) {',
+                            hasWith ? 'with ($view) {' : '',
                                 //如果有withData, 影响性能
-                                'with ($withData) {',
-                                        content,
+                                'if ($withData) {',
+                                    'with ($withData) {',
+                                            content,
+                                        'try { return fn();} catch (e) {bingo.observe.error(e);}',
+                                    '}',
+                                '} else {',
+                                    content,
+                                    'try { return fn(); } catch (e) {bingo.observe.error(e);}',
                                 '}',
-                            '}',
+                            hasWith ? '}':'',
                         '};'].join('');
             try {
                 cT = contextCache[cacheName] = (new Function(fnDef))();//bingo(多版本共存)
@@ -2341,13 +2354,7 @@
             cacheObj[_vm._cacheName] = {};
         }
     }; //end _vm
-
-    //bingo.bindContext = function (owner, content, view, node, withData, event, hasRet) {
-    //    var fn = _vm.bindContext(owner, content, hasRet, view, node, withData);
-    //    return fn(event);
-    //};
-
-
+    
     var _newBase = function (p) {
         //基础
         var o = {
@@ -2389,7 +2396,7 @@
                 }
             },
             $bindContext: function (contents, isRet) {
-                return function (event) { return _vm.bindContext(this, contents, isRet)(this.$node || this.$view, this.$view, _pri.withData || {}, bingo, event); }.bind(this);
+                return function (event) { return _vm.bindContext(this, contents, isRet, this.$view.$hasWith)(this.$view || this.$node, this.$view, _pri.withData, this.$node, bingo, event); }.bind(this);
             },
             $hasProps: function () {
                 return _pri.valueObj(this)[0].bgTestProps(this.$contents);
@@ -2507,6 +2514,8 @@
 
         //新建view
         var view = _newBase({
+            //是否有with
+            $hasWith:true,
             $ownerCP: null,
             $parent: null,
             $children: [],
@@ -3407,7 +3416,8 @@
                 $name: bingo.trim(view.$attrs.$getAttr('name')),
                 $app: app,
                 $parent: cp.$view,
-                $ownerCP: cp
+                $ownerCP: cp,
+                $hasWith: view.$attrs.$getAttr('with') !== 'false'
             }, bd);
             cp.$ownerView = view;
         } else {
@@ -4227,11 +4237,12 @@
         cp.$isAFrame = false;
 
         var contents = cp.$attrs.$contents;
-        var withListName = '_bg_for_datas_' + bingo.makeAutoId();
+        var withListName = '';
 
         if (_forItemReg.test(contents)) {
             var itemName = RegExp.$1, dataName = RegExp.$2 || RegExp.$4, tmpl = bingo.trim(RegExp.$3);
             if (itemName && dataName) {
+                var withListName = '_bg_for_datas_' + itemName;
                 cp.$attrs.$contents = dataName;
                 var render = function (html, datas) {
                     if (tmpl)

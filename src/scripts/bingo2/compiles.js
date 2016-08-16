@@ -203,10 +203,11 @@
 
     var _vm = {
         _cacheName: '__contextFun__',
-        bindContext: function (cacheobj, content, hasRet) {
+        bindContext: function (cacheobj, content, hasRet, hasWith) {
 
             var cacheName = [content, hasRet].join('_'), cT;
             var contextCache = (cacheobj[_vm._cacheName] || (cacheobj[_vm._cacheName] = {}));
+
             if (contextCache[cacheName])
                 return contextCache[cacheName];
             else {
@@ -214,15 +215,21 @@
                 if (cT) return cT;
             }
 
-            hasRet && (content = ['try { return ', content, ';} catch (e) {bingo.observe.error(e);}'].join(''));
+            content = ['var fn = function(){ ', (hasRet ? 'return ' : ''), content, ';}.bind(_this_);'].join('');
             var fnDef = [
-                        'return function (_this_, $view, $withData, bingo, event) {',
-                            'with ($view) {',
+                        'return function (_this_, $view, $withData, node, bingo, event) {',
+                            hasWith ? 'with ($view) {' : '',
                                 //如果有withData, 影响性能
-                                'with ($withData) {',
-                                        content,
+                                'if ($withData) {',
+                                    'with ($withData) {',
+                                            content,
+                                        'try { return fn();} catch (e) {bingo.observe.error(e);}',
+                                    '}',
+                                '} else {',
+                                    content,
+                                    'try { return fn(); } catch (e) {bingo.observe.error(e);}',
                                 '}',
-                            '}',
+                            hasWith ? '}':'',
                         '};'].join('');
             try {
                 cT = contextCache[cacheName] = (new Function(fnDef))();//bingo(多版本共存)
@@ -237,13 +244,7 @@
             cacheObj[_vm._cacheName] = {};
         }
     }; //end _vm
-
-    //bingo.bindContext = function (owner, content, view, node, withData, event, hasRet) {
-    //    var fn = _vm.bindContext(owner, content, hasRet, view, node, withData);
-    //    return fn(event);
-    //};
-
-
+    
     var _newBase = function (p) {
         //基础
         var o = {
@@ -285,7 +286,7 @@
                 }
             },
             $bindContext: function (contents, isRet) {
-                return function (event) { return _vm.bindContext(this, contents, isRet)(this.$node || this.$view, this.$view, _pri.withData || {}, bingo, event); }.bind(this);
+                return function (event) { return _vm.bindContext(this, contents, isRet, this.$view.$hasWith)(this.$view || this.$node, this.$view, _pri.withData, this.$node, bingo, event); }.bind(this);
             },
             $hasProps: function () {
                 return _pri.valueObj(this)[0].bgTestProps(this.$contents);
@@ -403,6 +404,8 @@
 
         //新建view
         var view = _newBase({
+            //是否有with
+            $hasWith:true,
             $ownerCP: null,
             $parent: null,
             $children: [],
@@ -1303,7 +1306,8 @@
                 $name: bingo.trim(view.$attrs.$getAttr('name')),
                 $app: app,
                 $parent: cp.$view,
-                $ownerCP: cp
+                $ownerCP: cp,
+                $hasWith: view.$attrs.$getAttr('with') !== 'false'
             }, bd);
             cp.$ownerView = view;
         } else {

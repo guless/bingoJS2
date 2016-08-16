@@ -28,5 +28,7 @@
 
 5. {{include}} 的$export为cp, 并支持src属性
 
-6. 优化代码 
+6. {{view with="true/false" /}} 添加with属性支持默认为true, 使用with模式； 如果为false时{{this.userName}}指令内容要添加this
+
+7. 优化代码(编译性能提升30%)
 
