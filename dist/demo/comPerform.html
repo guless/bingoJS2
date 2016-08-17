@@ -7,7 +7,7 @@
 </head>
 <body>
     <script type="text/html" id="demo">
-        {{view controller="main" with="true" name="main" app="demo" /}}
+        {{view controller="main" with="false" name="main" app="demo" /}}
         <div>
             <button onclick="[[this.start]]">开始</button>
         </div>
@@ -31,7 +31,7 @@
             {{/for}}
             {{/tmpl}}
             {{tmpl id="tmpl2"}}
-            {{for item in list}}
+            {{for item in this.list}}
             <tr>
                 <td>{{text item[0] /}}</td>
                 <td>{{text item[1] /}}</td>
@@ -58,18 +58,17 @@
                 $view.list = datas;
 
                 $view.$ready(function () {
-                    
                 });
 
                 $view.start = function () {
                     datas = datas.slice();
                     $view.list = datas;
                     console.time('list');
-                    //console.profile('list');
+                    console.profile('list');
                     //$view.inc1.src = '#tmpl2';
                     $view.inc1.$loadTmpl('#tmpl2').then(function (s) {
                         $view.inc1.$html(s).then(function (cp) {
-                            //console.profileEnd('list');
+                            console.profileEnd('list');
                             console.timeEnd('list');
                         });
                     });

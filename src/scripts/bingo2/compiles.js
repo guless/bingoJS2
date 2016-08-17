@@ -14,7 +14,7 @@
         }, _aFrameCK = function () {
             var list = [], orgs = _aFrameList;
             _aFrameList = [];
-            bingo.each(orgs, function (item) {
+            orgs.forEach(function (item) {
                 if (!item._stop) {
                     item.n--;
                     if (item.n < 0)
@@ -162,7 +162,7 @@
             _isPromise(p) && promises.push(p);
             return p;
         }, _promisePushList = function (promises, list) {
-            bingo.each(list, function (item) { _promisePush(promises, item); });
+            list && list.forEach(function (item) { _promisePush(promises, item); });
             return list;
         }, _retPromiseAll = function (promises, must) {
             return must || promises.length > 0 ? _Promise.always(promises) : undefined;
@@ -205,7 +205,7 @@
     var _vm = {
         _withMd: function (withData) {
             var vList = [], kList = withData ? Object.keys(withData) : [];
-            bingo.each(kList, function (item) {
+            kList.forEach(function (item) {
                 vList.push([item, ' = $withData.', item].join(''));
             });
             return kList.length > 0 ? ['var ',  vList.join(','), ';'].join('') : '';
@@ -384,7 +384,7 @@
         }).$extend(p);
 
         bind.bgOnDispose(function () {
-            bingo.each(_pri.obsList, function (obs) {
+            _pri.obsList.forEach(function (obs) {
                 obs.bgIsDispose || obs.unObserve();
             });
         });
@@ -397,7 +397,7 @@
             var list = _pri[type], promises = [];
             if (list.length > 0) {
                 _pri[type] = [];
-                bingo.each(list, function (item) {
+                list.forEach(function (item) {
                     _promisePush(promises, item && item.call(this, this));
                 }, this);
             }
@@ -554,11 +554,11 @@
 
         view.bgOnDispose(function () {
 
-            bingo.each(_pri.obsList, function (item) {
+            _pri.obsList.forEach(function (item) {
                 item[0].bgIsDispose || item[0].unObserve();
             });
 
-            bingo.each(_pri.obsListUn, function (item) {
+            _pri.obsListUn.forEach(function (item) {
                 item[0].bgIsDispose || item[0].unObserve();
             });
             _removeView(this.$app, this);
@@ -579,7 +579,7 @@
                 var ctrls = _pri.ctrls, promises = [];
                 if (ctrls.length > 0) {
                     _pri.ctrls = [];
-                    bingo.each(ctrls, function (item) {
+                    ctrls.forEach(function (item) {
                         _promisePush(promises, this.$inject(item));
                     }, this);
                 }
@@ -598,7 +598,7 @@
     }, _removeCPNodes = function (nodes) {
         if (nodes) {
             //_unLinkNodes('_cpLinkC', nodes);
-            bingo.each(nodes, function (item) {
+            nodes.forEach(function (item) {
                 item[_cpNodeName] = null;
                 _removeNode(item);
             });
@@ -703,10 +703,10 @@
                 var ret = this.getContent(cp);
                 if (_isPromise(ret))
                     ret.then(function (s) {
-                        _traverseCmd(bingo.trim(s), cp, bd);
+                        _traverseCmd(s, cp, bd);
                     });
                 else
-                    _traverseCmd(bingo.trim(ret), cp, bd);
+                    _traverseCmd(ret, cp, bd);
                 _promisePush(_renderPromise, ret);
             }
         };
@@ -719,11 +719,11 @@
             $attrs: null,
             $nodes: null,
             $virtualNodes: [],
-            $isAFrame:true,
+            //$isAFrame:true,
             $setNodes: function (nodes) {
                 _removeCPNodes(this.$nodes);
                 this.$nodes = nodes;
-                bingo.each(nodes, function (item) {
+                nodes && nodes.forEach(function (item) {
                     item[_cpNodeName] = this;
                 }, this);
                 //_linkNodes('_cpLinkC', nodes, function () {
@@ -949,7 +949,7 @@
         extendWith && cp.$parent && cp.$withData(bingo.extend({}, cp.$parent.$withData()));
         if (cp.$attrs) {
             cp.$attrs._setCP(cp);
-            cp.$name = bingo.trim(cp.$attrs.$getAttr('name'));
+            cp.$name = cp.$attrs.$getAttr('name');
         }
 
         //处理else
@@ -1006,10 +1006,10 @@
             //处理$view.$init('cp', fn), $view.$ready('cp', fn)
             var view = this.$view;
             var e = view.$init(this.$name + '');
-            e && bingo.each(e, function (item) { this.$init(item); }, this);
+            e && e.forEach(function (item) { this.$init(item); }, this);
 
             e = view.$ready(this.$name + '');
-            e && bingo.each(e, function (item) { this.$ready(item); }, this);
+            e && e.forEach(function (item) { this.$ready(item); }, this);
 
             return [];
         }.bind(cp));
@@ -1060,7 +1060,7 @@
                     this.$cp = cp;
                     this.$withData(cp.$withData());
                     var aT;
-                    bingo.each(_names, function (item) {
+                    _names.forEach(function (item) {
                         aT = this[item];
                         aT.$cp = cp;
                         aT.$app = cp.$app;
@@ -1070,7 +1070,7 @@
                 }
             });
         _attrs.bgOnDispose(function () {
-            bingo.each(_names, function (item) {
+            _names.forEach(function (item) {
                 this[item].bgDispose();
             }, this);
         });
@@ -1147,9 +1147,9 @@
         var _eventList = [];
 
         dom.bgOnDispose(function () {
-            bingo.each(_eventList, function (item) {
+            _eventList.forEach(function (item) {
                 _off.apply(this.$node, item);
-            }.bind(this));
+            }, this);
         });
         return dom;
     }, _vNodeName = '_bgvn_', _setVNode = function (vn, node) {
@@ -1288,12 +1288,12 @@
         var tmplContext = _traverseTmpl(tmpl);
 
         tmpl = tmplContext.contents;
-        bingo.each(tmplContext.regs, function (reg) {
+        tmplContext.regs.forEach(function (reg) {
 
             var elseList, whereList, item,
                 cmd = reg.tag,
                 contents = reg.contents;
-            contents && (contents = bingo.trim(contents));
+            contents && (contents = contents);
             if (cmd == 'if') {
                 var elseContent = _traverseElse(contents);
                 contents = elseContent.contents;
@@ -1317,7 +1317,7 @@
             app = bingo.app(view.$attrs.$getAttr('app'));
             app == bingo.defualtApp && (app = cp.$app);
             view = _newView({
-                $name: bingo.trim(view.$attrs.$getAttr('name')),
+                $name: view.$attrs.$getAttr('name'),
                 $app: app,
                 $parent: cp.$view,
                 $ownerCP: cp,
@@ -1330,7 +1330,7 @@
         }
 
         var children = [], tempCP;
-        bingo.each(list, function (item) {
+        list.forEach(function (item) {
             tempCP = _newCP(bingo.extend(item, {
                 $view: view,
                 $app: app,
@@ -1349,7 +1349,7 @@
         var elseList = [], whereList = [], wh;
         while (item = _checkElse.exec(contents)) {
             cmd = item[1];
-            wh = bingo.trim(item[2]);
+            wh = item[2];
             switch (cmd) {
                 case 'if':
                     lv++;
@@ -1388,22 +1388,14 @@
         return _Promise.always(promises).then(function () {
             if (_renderPromise.length > 0) return _renderThread();
         });
-    }, _newBuild = function (isAFrame) {
+    }, _newBuild = function () {
         var _stepObj = {}, _doneStep = function (stepList, name) {
-            
-            var isFr = isAFrame !== false && (name.indexOf('Ready') > 0 || name.indexOf('Init') > 0),
-                fn = function () {
-                    var promises = [];
-                    bingo.each(stepList, function (fn) {
-                        _promisePushList(promises, fn());
-                    });
-                    return _retPromiseAll(promises, true).then(bd.doneStep(name));
-                };
 
-            if (isFr)
-                return bingo.aFramePromise().then(fn);
-            else
-                return fn();
+            var promises = [];
+            stepList.forEach(function (fn) {
+                _promisePushList(promises, fn());
+            });
+            return _retPromiseAll(promises, true).then(bd.doneStep(name));
         }, end = false,bd;
         return bd = {
             pushStep: function (name, fn) {
@@ -1472,7 +1464,7 @@
             }
         }
     }, _parseSrcipt = function (container, script) {
-        bingo.each(container.querySelectorAll('script'), function (node) {
+        _slice.call(container.querySelectorAll('script')).forEach(function (node) {
             if (!node.type || _scriptType.test(node.type)) {
                 _removeNode(node);
                 script && _globalEval(node);
@@ -1577,7 +1569,7 @@
     }, _traverseNodes = function (nodes, cp, bd) {
 
         var id, tempCP;
-        bingo.each(nodes, function (item) {
+        nodes.forEach(function (item) {
             if (item.nodeType == 1) {
                 //script的bg-id
                 id = _getEmptyRenderId(item);
@@ -1592,7 +1584,7 @@
                     }
                 } else {
                     //分析所有script节点， script临时节点
-                    _traverseNodes(_queryAll('script', item), cp, bd);
+                    _traverseNodes(_slice.call(_queryAll('script', item)), cp, bd);
                 }
             }
         });
@@ -1602,7 +1594,7 @@
     //_compile({cp:cp, context:node, opName:'insertBefore'});
     var _compile = function (p, ctrl) {
         var view = p.view;
-        var bd = _newBuild(!p.cp || p.cp.$isAFrame);
+        var bd = _newBuild();
         bd.ctrl = ctrl;
         var cp = p.cp || _newCP({
             $app: view.$app || bingo.defualtApp,

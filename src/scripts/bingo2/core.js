@@ -6,10 +6,9 @@
         toString = Object.prototype.toString,
         core_hasOwn = Object.prototype.hasOwnProperty,
         noop = function () { },
-        slice = Array.prototype.slice,
-        _trimReg = /(^\s*)|(\s*$)|(^\u3000*)|(\u3000*$)|(^\ue4c6*)|(\ue4c6*$)/g;
+        slice = Array.prototype.slice;
 
-    var fpName = '_bg_ifFn_', spName = '_bg_ifStr_';
+    var fpName = '_bg_ifFn_',spName = '_bg_ifStr_';
 
     var _htmlDivTarget = null,
     _getHtmlDivTarget = function () {
@@ -22,7 +21,7 @@
 
     var bingo = window.bingo = {
         //主版本号.子版本号.修正版本号.编译版本号(日期)
-        version: { major: 2, minor: 0, rev: 2, build: 160816, toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
+        version: { major: 2, minor: 0, rev: 2, build: 160817, toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
         bgNoObserve: true,//防止observe
         isDebug: false,
         prdtVersion: '',
@@ -108,7 +107,7 @@
         isWindow: function (obj) { return !!(obj && obj == obj.window); },
         isElement: function (obj) { var t = obj && (obj.ownerDocument || obj).documentElement; return t ? true : false; },
         trim: function (str) {
-            return this.isNull(str) ? '' : this.isString(str) ? (str.replace(_trimReg, '')) : str.toString();
+            return this.isString(str) ? str.replace(/(^\s*)|(\s*$)|(^\u3000*)|(\u3000*$)|(^\ue4c6*)|(\ue4c6*$)/g, '') : this.isNull(str) ? '' : str.toString();
         },
         replaceAll: function (s, str, repl, flags) {
             if (this.isNullEmpty(s) || this.isNullEmpty(str)) return s;
@@ -175,17 +174,13 @@
         extend: function (obj) {
             var len = arguments.length;
             if (len == 1) {
-                this.eachProp(obj, function (item, n0) {
-                    this[n0] = item;
-                }, this);
+                obj && Object.keys(obj).some(function (n) { this[n] = obj[n]; }, this);
                 return this;
             }
             var args = slice.call(arguments, 1);
-            bingo.each(args, function (ot) {
-                ot && this.eachProp(ot, function (item, n) {
-                    obj[n] = item;
-                });
-            }, this);
+            args.some(function (ot) {
+                ot && Object.keys(ot).some(function (n) { obj[n] = this[n]; }, ot);
+            });
             return obj;
         },
         Class: function (fn) {
@@ -233,9 +228,7 @@
             return function() { return fn && fn.apply(thisArg, arguments); };
         },
         _splitEvName: function (eventName) {
-            return bingo.isString(eventName)
-                ? (bingo.isNullEmpty(eventName) ? null : bingo.trim(eventName).split(/\s+/g).map(function (item) { return bingo.trim(item); }))
-                : eventName;
+            return !eventName ? [] : eventName.replace(/(^\s*)|(\s*$)/g, '').split(/\s+/g);
         },
         isArgs: function (args, p) {
             /// <summary>

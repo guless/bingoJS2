@@ -21,7 +21,7 @@
 
     var bingo = window.bingo = {
         //主版本号.子版本号.修正版本号.编译版本号(日期)
-        version: { major: 2, minor: 0, rev: 2, build: 160816, toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
+        version: { major: 2, minor: 0, rev: 2, build: 160817, toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
         bgNoObserve: true,//防止observe
         isDebug: false,
         prdtVersion: '',
@@ -174,17 +174,13 @@
         extend: function (obj) {
             var len = arguments.length;
             if (len == 1) {
-                this.eachProp(obj, function (item, n0) {
-                    this[n0] = item;
-                }, this);
+                obj && Object.keys(obj).some(function (n) { this[n] = obj[n]; }, this);
                 return this;
             }
             var args = slice.call(arguments, 1);
-            bingo.each(args, function (ot) {
-                ot && this.eachProp(ot, function (item, n) {
-                    obj[n] = item;
-                });
-            }, this);
+            args.some(function (ot) {
+                ot && Object.keys(ot).some(function (n) { obj[n] = this[n]; }, ot);
+            });
             return obj;
         },
         Class: function (fn) {
@@ -232,9 +228,7 @@
             return function() { return fn && fn.apply(thisArg, arguments); };
         },
         _splitEvName: function (eventName) {
-            return bingo.isString(eventName)
-                ? (bingo.isNullEmpty(eventName) ? null : bingo.trim(eventName).split(/\s+/g).map(function (item) { return bingo.trim(item); }))
-                : eventName;
+            return !eventName ? [] : eventName.replace(/(^\s*)|(\s*$)/g, '').split(/\s+/g);
         },
         isArgs: function (args, p) {
             /// <summary>
@@ -483,8 +477,8 @@
             return this.all(args, fn, true);
         }
     });
-    var _makeArgs = function (args, fn) {
-        args = bingo.sliceArray(args);
+    var _slice = Array.prototype.slice, _makeArgs = function (args, fn) {
+        args = _slice.call(args);
         args.length == 0 && (args = [args]);
         if (!fn) return args;
         var list = [];
@@ -564,7 +558,7 @@
             },
             trigger: function (args, owner, isHandler) {
                 var list = this.list, hasOne = false, ret;
-                bingo.each(list, function (item) {
+                list.forEach(function (item) {
                     if (item.one === true)
                         hasOne = true;
                     if ((ret = item.callback.apply(owner, args || [])) === false) return false;
@@ -588,14 +582,14 @@
     Object.prototype.bgDefProps({
         //bgOn('ready init', fn)
         bgOn: function (eventName, callback) {
-            bingo.each(_splitEvName(eventName), function (item) {
+            _splitEvName(eventName).forEach(function (item) {
                 _getEvent(this, item, true).on(callback, this);
             }, this);
             return this;
         },
         //bgOn('ready init', fn)
         bgOne: function (eventName, callback) {
-            bingo.each(_splitEvName(eventName), function (item) {
+            _splitEvName(eventName).forEach(function (item) {
                 _getEvent(this, item, true).on(callback, this, true);
             }, this);
             return this;
@@ -607,14 +601,14 @@
             if (arguments.length == 0)
                 _rmEvent(this);
             else
-                bingo.each(_splitEvName(eventName), function (item) {
+                _splitEvName(eventName).forEach(function (item) {
                     _getEvent(this, item).off(callback);
                 }, this);
             return this;
         },
         //bgEnd('ready init')
         bgEnd: function (eventName) {
-            bingo.each(_splitEvName(eventName), function (item) {
+            _splitEvName(eventName).forEach(function (item) {
                 _getEvent(this, item, true).end(this);
             }, this);
             return this;
@@ -624,14 +618,14 @@
         //bgTrigger('ready init', [arg1, arg2], this)
         bgTrigger: function (eventName, args, thisArg) {
             var ret;
-            bingo.each(_splitEvName(eventName), function (item) {
+            _splitEvName(eventName).forEach(function (item) {
                 ret = _getEvent(this, item).trigger(args, thisArg || this);
             }, this);
             return ret;
         },
         bgTriggerHandler: function (eventName, args, thisArg) {
             var ret;
-            bingo.each(_splitEvName(eventName), function (item) {
+            _splitEvName(eventName).forEach(function (item) {
                 ret = _getEvent(this, item).trigger(args, thisArg || this, true);
             }, this);
             return ret;
@@ -641,7 +635,7 @@
             /// <summary>
             /// bgEventDef('onOk onError')
             /// </summary>
-            bingo.each(_splitEvName(eventName), function (item) {
+            _splitEvName(eventName).forEach(function (item) {
                 this[item] = function (callback) {
                     return this.bgOn(item, callback);
                 };
@@ -667,7 +661,8 @@
                 bingo.each(this._bg_dispose, function (item) { item.bgDispose(); });
             } finally {
                 this._bg_clsobd();
-                bingo.eachProp(this, function (item, n) {
+                Object.keys(this).forEach(function (n) {
+                    var item = this[n];
                     if (item && item.bgAutoDispose === true)
                         item.bgDispose();
                     this[n] = null;
@@ -735,7 +730,7 @@
                             if (ods.length > 0) {
                                 tid = setTimeout(function () {
                                     try {
-                                        bingo.each(ods, function (ob) {
+                                        ods.forEach(function (ob) {
                                             ob.fn && ob.fn.call(this, changes);
                                         }, obj);
                                     } finally {
@@ -750,7 +745,7 @@
             }
             var obd = obj[_obsDName];
             deep = (deep !== false) || obd.deep;
-            bingo.each(props, function (pname, index) {
+            props.forEach(function (pname, index) {
                 //如果以下划画开始， 认为私用变量， 不给予处理
                 if (pname.indexOf('_') == 0) return;
                 var item = obj[pname];
@@ -793,11 +788,11 @@
         }, _getObserveData = function (obj, prop) {
             //取得observe数据
             var obd = obj[_obsDName];
-            return obd && (bingo.isNull(prop) ? obd.sobs : obd.obs[prop]);
+            return obd && (!prop ? obd.sobs : obd.obs[prop]);
         }, _publish = function (obj, prop, change) {
             //发送请求Observe
             var ods = _getObserveData(obj, prop);
-            bingo.each(ods, function (ob) {
+            bingo.isArray(ods) && ods.forEach(function (ob) {
                 ob.fn && ob.fn.call(this, [change]);
             }, obj);
 
@@ -814,16 +809,24 @@
         }, _delObs = function (obj, prop, fn) {
             var obd;
             if (obd = obj[_obsDName]) {
+                var obs = obd.obs;
                 if (bingo.isNull(prop)) {
                     if (!fn)
                         obd.sobs = [];
-                    else
-                        obd.sobs = obd.sobs.filter(function (item) { return item.fn != fn; });
-                } else if (obd.obs[prop]) {
+                    else {
+                        //注意只会释放一次
+                        obd.sobs = obd.sobs.slice();
+                        _removeFn(obd.sobs, fn);
+                        //obd.sobs = obd.sobs.filter(function (item) { return item.fn != fn; });
+                    }
+                } else if (obs[prop]) {
                     if (!fn)
-                        obd.obs[prop] = [];
-                    else
-                        obd.obs[prop] = obd.obs[prop].filter(function (item) { return item.fn != fn; });
+                        obs[prop] = [];
+                    else {
+                        obs[prop] = obs[prop].slice();
+                        _removeFn(obs[prop], fn);
+                        //obs[prop] = obs[prop].filter(function (item) { return item.fn != fn; });
+                    }
                 }
             }
         }, _resObs = function (obj) {
@@ -832,8 +835,13 @@
                 obd.obs = [];
             }
             obj.bgToObserve();
+        }, _removeFn = function (list, fn) {
+            var index = bingo.inArray(function (item) { return item.fn == fn; }, list);
+            if (index > -1) {
+                list.splice(index, 1);
+                _removeFn(list, fn);
+            }
         };
-
 
     Object.prototype.bgDefProps({
         _bg_clsobd: function () {
@@ -848,25 +856,28 @@
             /// <summary>
             /// bgToObserve(true)<br/>
             /// bgToObserve('prop')<br/>
+            /// bgToObserve(['prop1','prop2'])<br/>
             /// bgToObserve('prop', true)
+            /// bgToObserve(['prop1','prop2'], true)<br/>
             /// </summary>
             /// <param name="deep">是否自动深toObserve</param>
             if (this.bgNoObserve) return this;
             if (bingo.isBoolean(prop)) { deep = prop; prop = null; }
-            _defObserve(this, prop ? [prop] : Object.keys(this), deep);
+            _defObserve(this, prop ? (bingo.isArray(prop) ? prop : [prop]) : Object.keys(this), deep);
             return this;
         },
         bgObServe: function (prop, fn) {
             /// <summary>
             /// bgObServe(function(change){})<br/>
             /// bgObServe('prop', function(change){})
+            /// bgObServe(['prop1','prop2'], function(change){})
             /// </summary>
             if (this.bgNoObserve) return this;
             if (bingo.isNull(prop) || bingo.isFunction(prop)) {
                 this.bgToObserve();
                 _addObs(this, null, prop || fn);
             } else {
-                bingo.each(prop ? [prop] : Object.keys(this), function (item) {
+                (prop ? (bingo.isArray(prop) ? prop : [prop]) : Object.keys(this)).forEach(function (item) {
                     _addObs(this, item, fn);
                 }, this);
             }
@@ -876,12 +887,13 @@
             /// <summary>
             /// bgUnObServe(fn)<br/>
             /// bgUnObServe('prop', fn)
+            /// bgUnObServe(['prop1','prop2'], fn)
             /// </summary>
             //if (this.bgNoObserve) return this;
             if (bingo.isNull(prop) || bingo.isFunction(prop)) {
                 _delObs(this, null, prop || fn);
             } else {
-                bingo.each(prop ? [prop] : Object.keys(this), function (item) {
+                (prop ? (bingo.isArray(prop) ? prop : [prop]) : Object.keys(this)).forEach(function (item) {
                     _delObs(this, item, fn);
                 }, this);
             }
@@ -913,30 +925,43 @@
 
     //数组观察方法， length不能观察有些浏览器会报错
     var _arrayProps = ['reverse', 'splice', 'push', 'pop', 'copyWithin', 'fill', 'shift', 'unshift', 'sort'];
-    var _arrayDef = {}, _arrayProtoOld = {};
-    bingo.each(_arrayProps, function (prop) {
-        var oldPro = Array.prototype[prop];
-        _arrayDef[prop] = function () {
+    var _arrayDef = {}, _arrayProtoOld = {}, _arrayPublish = function (array, prop) {
+        var publishId = array._publishId;
+        publishId && clearTimeout(publishId);
+        array._publishId = setTimeout(function () {
+            var old = array._oldValue;
+            var noC = old.length == array.length && array.every(function (item, index) {
+                return item === old[index];
+            });
+            if (!noC) {
+                _resObs(array);
+                _publish(array, prop, { name: prop, object: array, value: array, oldValue: old, type: 'update' });
+            }
+
+            array._publishId = array._oldValue = null;
+        },1);
+    };
+    _arrayProps.forEach(function (prop) {
+        var oldPro = Array.prototype[prop],
+            newName = ['bg', prop.replace(/^.?/, function (s) { return s.toUpperCase(); })].join('');
+        _arrayDef[newName] = function () {
             if (_isObserve(this)) {
-                var old = this.slice();
+                this._oldValue || (this._oldValue = this.slice());
                 var ret = oldPro.apply(this, arguments);
-                var noC = old.length == this.length && this.every(function (item, index) {
-                    return item === old[index];
-                });
-                if (!noC) {
-                    _resObs(this);
-                    //this.bgToObserve();
-                    _publish(this, prop, { name: prop, object: this, value: this, oldValue: old, type: 'update' });
-                }
+                _arrayPublish(this, prop);
                 return ret;
             } else
                 return oldPro.apply(this, arguments);
         };
     });
-    _arrayDef.size = function (size) {
-        if (arguments.length == 0)
+    
+    Object.defineProperty(Array.prototype, 'bgLength', {
+        configurable: false,
+        enumerable: false,
+        get: function () {
             return this.length;
-        else {
+        },
+        set: function (size) {
             var old = this.length;
             if (this.length != size) {
                 old = this.slice();
@@ -945,7 +970,10 @@
                 _publish(this, '', { name: '', object: this, value: this, oldValue: old, type: 'update' });
             }
         }
-    };
+    });
+
+    _arrayDef._publishId = null;
+    _arrayDef._oldValue = null;
     Array.prototype.bgDefProps(_arrayDef);
 
     var _ArrayEquals = function (arr1, arr2) {
@@ -978,7 +1006,8 @@
             /// observe(function(){return value;}, function(c){}) <br />
             /// </summary>
 
-            if (bingo.isArgs(arguments, 'fun', 'fun')) {
+            //if (bingo.isArgs(arguments, 'fun', 'fun')) {
+            if (bingo.isFunction(obj) && bingo.isFunction(prop)) {
                 var colFn = obj, isAutoInit = arguments[2] !== false;
                 fn = prop;
                 var obs, tid, cList = [], old, publish = function (isPub, org, orgVal) {
@@ -1012,13 +1041,13 @@
                     ret.isSucc = _obsSucc && !_obsErr;
                     if (ret.isSucc) {
                         //观察绑定变量
-                        bingo.each(obs.w, function (item) {
+                        obs.w.forEach(function (item) {
                             item.object.bgObServe(item.name, ft);
                         });
                         //是否有可观察变量
                         ret.isObs = obs.w.length > 0;
                         //观察绑定变量的父节点, 重新发现绑定
-                        bingo.each(obs.p, function (item) {
+                        obs.p.forEach(function (item) {
                             if ('toObsObj' in item) {
                                 item.value && item.value.bgObServe(ftw);
                             }
@@ -1035,10 +1064,10 @@
                         ret.check();
                 }, _unObserve = function () {
                     if (!obs) return;
-                    bingo.each(obs.w, function (item) {
+                    obs.w.forEach(function (item) {
                         item.object.bgUnObServe(item.name, ft);
                     });
-                    bingo.each(obs.p, function (item) {
+                    obs.p.forEach(function (item) {
                         if ('toObsObj' in item) {
                             item.value && item.value.bgUnObServe(ftw);
                         }
@@ -1111,7 +1140,7 @@
         //分析收集到的观察变量
         var list = [];
         //取出可观察的属性
-        bingo.each(_obsList, function (item, index, array) {
+        _obsList.forEach(function (item, index, array) {
             var nextIndex = index + 1, isEnd = array.length == nextIndex;
             if (isEnd) {
                 list.push(item);
@@ -1123,14 +1152,14 @@
         });
         //可观察的属性去重
         var wList = [];
-        bingo.each(list, function (item) {
+        list.forEach(function (item) {
             var has = wList.some(function (item1) { return item.name == item1.name && item.object == item1.object; });
             has || wList.push(item);
         });
 
         //取出可观察的属性节点并去重， 用于变动
         var pList = [];
-        bingo.each(_obsList, function (item) {
+        _obsList.forEach(function (item) {
             var tmp = item.value;
             var hasU = true;
             if (bingo.isNull(tmp) || bingo.isArray(tmp)) {
@@ -1160,7 +1189,7 @@
         }).replace(/\.$/, '');
         var l = prop.split('.'), nreg = /[^0-9]/,
             end = l.length - 2, last = obj, name = prop, has = true;
-        end >= 0 && bingo.each(l, function (item, index) {
+        end >= 0 && l.forEach(function (item, index) {
             item = item.replace(dot, '.');
             if (item == 'this') return;
             //测试模式
@@ -1192,7 +1221,7 @@
 ; (function (bingo) {
     "use strict";
 
-    var _newApp = function (name) {
+    var _slice = Array.prototype.slice, _newApp = function (name) {
         return bingo.extend({
             name: name, bgNoObserve: true,
             controller: _controllerFn, _controller: {},
@@ -1217,13 +1246,13 @@
         if (bingo.isFunction(name) || bingo.isArray(name)) {
             return name;
         };
-        var args = [this, '_controller'].concat(bingo.sliceArray(arguments));
+        var args = [this, '_controller'].concat(_slice.call(arguments));
         return _appMType.apply(this, args);
     }, _serviceFn = function (name, fn) {
-        var args = [this, '_service'].concat(bingo.sliceArray(arguments));
+        var args = [this, '_service'].concat(_slice.call(arguments));
         return _appMType.apply(this, args);
     }, _commandFn = function (name, fn) {
-        var args = [this, '_command'].concat(bingo.sliceArray(arguments));
+        var args = [this, '_command'].concat(_slice.call(arguments));
         return _appMType.apply(this, args);
     }
 
@@ -1259,7 +1288,7 @@
 
         var fn = _injectNoop;
         if (bingo.isArray(p)) {
-            var list = bingo.sliceArray(p);
+            var list = _slice.call(p);
             fn = p.$fn = list.pop();
             fn.$injects = list;
             fn.$owner = p.$owner;
@@ -2124,7 +2153,7 @@
         }, _aFrameCK = function () {
             var list = [], orgs = _aFrameList;
             _aFrameList = [];
-            bingo.each(orgs, function (item) {
+            orgs.forEach(function (item) {
                 if (!item._stop) {
                     item.n--;
                     if (item.n < 0)
@@ -2272,13 +2301,14 @@
             _isPromise(p) && promises.push(p);
             return p;
         }, _promisePushList = function (promises, list) {
-            bingo.each(list, function (item) { _promisePush(promises, item); });
+            list && list.forEach(function (item) { _promisePush(promises, item); });
             return list;
         }, _retPromiseAll = function (promises, must) {
             return must || promises.length > 0 ? _Promise.always(promises) : undefined;
         }, _promiseAlways = function (promises, then) {
             return promises.length > 0 ? _Promise.always(promises).then(then) : then();
-        };
+        },
+        _slice = Array.prototype.slice;
 
     //var _isLinkNodeType = function (type) {
     //    return type == 1 || type == 8;
@@ -2312,8 +2342,15 @@
     //};
 
     var _vm = {
+        _withMd: function (withData) {
+            var vList = [], kList = withData ? Object.keys(withData) : [];
+            kList.forEach(function (item) {
+                vList.push([item, ' = $withData.', item].join(''));
+            });
+            return kList.length > 0 ? ['var ',  vList.join(','), ';'].join('') : '';
+        },
         _cacheName: '__contextFun__',
-        bindContext: function (cacheobj, content, hasRet, hasWith) {
+        bindContext: function (cacheobj, content, hasRet, hasWith, withData) {
 
             var cacheName = [content, hasRet].join('_'), cT;
             var contextCache = (cacheobj[_vm._cacheName] || (cacheobj[_vm._cacheName] = {}));
@@ -2326,25 +2363,31 @@
             }
 
             content = ['var fn = function(){ ', (hasRet ? 'return ' : ''), content, ';}.bind(_this_);'].join('');
+            //console.log(content);
             var fnDef = [
                         'return function (_this_, $view, $withData, node, bingo, event) {',
                             hasWith ? 'with ($view) {' : '',
+                             _vm._withMd(withData),
                                 //如果有withData, 影响性能
-                                'if ($withData) {',
-                                    'with ($withData) {',
-                                            content,
-                                        'try { return fn();} catch (e) {bingo.observe.error(e);}',
-                                    '}',
-                                '} else {',
+                                //'if ($withData) {',
+                                //    //'with ($withData) {',
+                                //            content,
+                                //        'try { return fn();} catch (e) {bingo.observe.error(e);}',
+                                //    //'}',
+                                //'} else {',
                                     content,
                                     'try { return fn(); } catch (e) {bingo.observe.error(e);}',
-                                '}',
+                                //'}',
                             hasWith ? '}':'',
                         '};'].join('');
-            try {
+            var retFn = function () {
+                //console.log(fnDef);
                 cT = contextCache[cacheName] = (new Function(fnDef))();//bingo(多版本共存)
                 bingo.cache(_vm, cacheName, cT, 36);
                 return cT;
+            };
+            try {
+                return retFn();
             } catch (e) {
                 bingo.trace(content);
                 //throw e;
@@ -2396,7 +2439,7 @@
                 }
             },
             $bindContext: function (contents, isRet) {
-                return function (event) { return _vm.bindContext(this, contents, isRet, this.$view.$hasWith)(this.$view || this.$node, this.$view, _pri.withData, this.$node, bingo, event); }.bind(this);
+                return function (event) { return _vm.bindContext(this, contents, isRet, this.$view.$hasWith, _pri.withData)(this.$view || this.$node, this.$view, _pri.withData, this.$node, bingo, event); }.bind(this);
             },
             $hasProps: function () {
                 return _pri.valueObj(this)[0].bgTestProps(this.$contents);
@@ -2480,7 +2523,7 @@
         }).$extend(p);
 
         bind.bgOnDispose(function () {
-            bingo.each(_pri.obsList, function (obs) {
+            _pri.obsList.forEach(function (obs) {
                 obs.bgIsDispose || obs.unObserve();
             });
         });
@@ -2493,7 +2536,7 @@
             var list = _pri[type], promises = [];
             if (list.length > 0) {
                 _pri[type] = [];
-                bingo.each(list, function (item) {
+                list.forEach(function (item) {
                     _promisePush(promises, item && item.call(this, this));
                 }, this);
             }
@@ -2650,11 +2693,11 @@
 
         view.bgOnDispose(function () {
 
-            bingo.each(_pri.obsList, function (item) {
+            _pri.obsList.forEach(function (item) {
                 item[0].bgIsDispose || item[0].unObserve();
             });
 
-            bingo.each(_pri.obsListUn, function (item) {
+            _pri.obsListUn.forEach(function (item) {
                 item[0].bgIsDispose || item[0].unObserve();
             });
             _removeView(this.$app, this);
@@ -2675,7 +2718,7 @@
                 var ctrls = _pri.ctrls, promises = [];
                 if (ctrls.length > 0) {
                     _pri.ctrls = [];
-                    bingo.each(ctrls, function (item) {
+                    ctrls.forEach(function (item) {
                         _promisePush(promises, this.$inject(item));
                     }, this);
                 }
@@ -2694,7 +2737,7 @@
     }, _removeCPNodes = function (nodes) {
         if (nodes) {
             //_unLinkNodes('_cpLinkC', nodes);
-            bingo.each(nodes, function (item) {
+            nodes.forEach(function (item) {
                 item[_cpNodeName] = null;
                 _removeNode(item);
             });
@@ -2713,8 +2756,8 @@
         return len > 0 ? cp.$nodes[last ? len - 1 : 0] : null;
     }, _bakClearCP = function (cp) {
         var bak = {
-            $children: bingo.sliceArray(cp.$children),
-            $virtualNodes: bingo.sliceArray(cp.$virtualNodes),
+            $children: _slice.call(cp.$children),
+            $virtualNodes: _slice.call(cp.$virtualNodes),
             $ownerView: cp.$ownerView
         };
         return cp._bgbak_ = bak;
@@ -2741,8 +2784,8 @@
             if (cNode.parentNode != parent)
                 return node;
             else {
-                childNodes || (childNodes = bingo.sliceArray(parent.childNodes));
-                var childNodes = bingo.sliceArray(parent.childNodes);
+                childNodes || (childNodes = _slice.call(parent.childNodes));
+                var childNodes = _slice.call(parent.childNodes);
                 if (bingo.inArray(node, childNodes) < bingo.inArray(cNode, childNodes))
                     return node;
                 else
@@ -2762,7 +2805,7 @@
             if (cNode.parentNode != parent)
                 return node;
             else {
-                childNodes || (childNodes = bingo.sliceArray(parent.childNodes));
+                childNodes || (childNodes = _slice.call(parent.childNodes));
                 if (bingo.inArray(node, childNodes) > bingo.inArray(cNode, childNodes))
                     return node;
                 else
@@ -2799,10 +2842,10 @@
                 var ret = this.getContent(cp);
                 if (_isPromise(ret))
                     ret.then(function (s) {
-                        _traverseCmd(bingo.trim(s), cp, bd);
+                        _traverseCmd(s, cp, bd);
                     });
                 else
-                    _traverseCmd(bingo.trim(ret), cp, bd);
+                    _traverseCmd(ret, cp, bd);
                 _promisePush(_renderPromise, ret);
             }
         };
@@ -2815,11 +2858,11 @@
             $attrs: null,
             $nodes: null,
             $virtualNodes: [],
-            $isAFrame:true,
+            //$isAFrame:true,
             $setNodes: function (nodes) {
                 _removeCPNodes(this.$nodes);
                 this.$nodes = nodes;
-                bingo.each(nodes, function (item) {
+                nodes && nodes.forEach(function (item) {
                     item[_cpNodeName] = this;
                 }, this);
                 //_linkNodes('_cpLinkC', nodes, function () {
@@ -2837,7 +2880,7 @@
                 bingo.each(this.$nodes, function (node) {
                     if (node.nodeType == 1) {
                         if (isSel)
-                            list = list.concat(bingo.sliceArray(_queryAll(selector, node)));
+                            list = list.concat(_slice.call(_queryAll(selector, node)));
                         else
                             list.push(node);
                         if (isFirst && list.length > 0)
@@ -3045,7 +3088,7 @@
         extendWith && cp.$parent && cp.$withData(bingo.extend({}, cp.$parent.$withData()));
         if (cp.$attrs) {
             cp.$attrs._setCP(cp);
-            cp.$name = bingo.trim(cp.$attrs.$getAttr('name'));
+            cp.$name = cp.$attrs.$getAttr('name');
         }
 
         //处理else
@@ -3102,10 +3145,10 @@
             //处理$view.$init('cp', fn), $view.$ready('cp', fn)
             var view = this.$view;
             var e = view.$init(this.$name + '');
-            e && bingo.each(e, function (item) { this.$init(item); }, this);
+            e && e.forEach(function (item) { this.$init(item); }, this);
 
             e = view.$ready(this.$name + '');
-            e && bingo.each(e, function (item) { this.$ready(item); }, this);
+            e && e.forEach(function (item) { this.$ready(item); }, this);
 
             return [];
         }.bind(cp));
@@ -3156,7 +3199,7 @@
                     this.$cp = cp;
                     this.$withData(cp.$withData());
                     var aT;
-                    bingo.each(_names, function (item) {
+                    _names.forEach(function (item) {
                         aT = this[item];
                         aT.$cp = cp;
                         aT.$app = cp.$app;
@@ -3166,7 +3209,7 @@
                 }
             });
         _attrs.bgOnDispose(function () {
-            bingo.each(_names, function (item) {
+            _names.forEach(function (item) {
                 this[item].bgDispose();
             }, this);
         });
@@ -3216,11 +3259,11 @@
                 _hide(this.$node);
             },
             $on: function (name, fn, useCaptrue) {
-                _eventList.push(bingo.sliceArray(arguments));
+                _eventList.push(_slice.call(arguments));
                 _on.apply(this.$node, arguments);
             },
             $one: function (name, fn, useCaptrue) {
-                var args = bingo.sliceArray(arguments),
+                var args = _slice.call(arguments),
                     node = this.$node;
                 args[2] = function () {
                     fn && fn.apply(this, arguments);
@@ -3243,9 +3286,9 @@
         var _eventList = [];
 
         dom.bgOnDispose(function () {
-            bingo.each(_eventList, function (item) {
+            _eventList.forEach(function (item) {
                 _off.apply(this.$node, item);
-            }.bind(this));
+            }, this);
         });
         return dom;
     }, _vNodeName = '_bgvn_', _setVNode = function (vn, node) {
@@ -3384,12 +3427,12 @@
         var tmplContext = _traverseTmpl(tmpl);
 
         tmpl = tmplContext.contents;
-        bingo.each(tmplContext.regs, function (reg) {
+        tmplContext.regs.forEach(function (reg) {
 
             var elseList, whereList, item,
                 cmd = reg.tag,
                 contents = reg.contents;
-            contents && (contents = bingo.trim(contents));
+            contents && (contents = contents);
             if (cmd == 'if') {
                 var elseContent = _traverseElse(contents);
                 contents = elseContent.contents;
@@ -3413,7 +3456,7 @@
             app = bingo.app(view.$attrs.$getAttr('app'));
             app == bingo.defualtApp && (app = cp.$app);
             view = _newView({
-                $name: bingo.trim(view.$attrs.$getAttr('name')),
+                $name: view.$attrs.$getAttr('name'),
                 $app: app,
                 $parent: cp.$view,
                 $ownerCP: cp,
@@ -3426,7 +3469,7 @@
         }
 
         var children = [], tempCP;
-        bingo.each(list, function (item) {
+        list.forEach(function (item) {
             tempCP = _newCP(bingo.extend(item, {
                 $view: view,
                 $app: app,
@@ -3445,7 +3488,7 @@
         var elseList = [], whereList = [], wh;
         while (item = _checkElse.exec(contents)) {
             cmd = item[1];
-            wh = bingo.trim(item[2]);
+            wh = item[2];
             switch (cmd) {
                 case 'if':
                     lv++;
@@ -3484,22 +3527,14 @@
         return _Promise.always(promises).then(function () {
             if (_renderPromise.length > 0) return _renderThread();
         });
-    }, _newBuild = function (isAFrame) {
+    }, _newBuild = function () {
         var _stepObj = {}, _doneStep = function (stepList, name) {
-            
-            var isFr = isAFrame !== false && (name.indexOf('Ready') > 0 || name.indexOf('Init') > 0),
-                fn = function () {
-                    var promises = [];
-                    bingo.each(stepList, function (fn) {
-                        _promisePushList(promises, fn());
-                    });
-                    return _retPromiseAll(promises, true).then(bd.doneStep(name));
-                };
 
-            if (isFr)
-                return bingo.aFramePromise().then(fn);
-            else
-                return fn();
+            var promises = [];
+            stepList.forEach(function (fn) {
+                _promisePushList(promises, fn());
+            });
+            return _retPromiseAll(promises, true).then(bd.doneStep(name));
         }, end = false,bd;
         return bd = {
             pushStep: function (name, fn) {
@@ -3568,7 +3603,7 @@
             }
         }
     }, _parseSrcipt = function (container, script) {
-        bingo.each(container.querySelectorAll('script'), function (node) {
+        _slice.call(container.querySelectorAll('script')).forEach(function (node) {
             if (!node.type || _scriptType.test(node.type)) {
                 _removeNode(node);
                 script && _globalEval(node);
@@ -3591,7 +3626,7 @@
             container = container.lastChild;
         }
         _parseSrcipt(container, script);
-        return bingo.sliceArray(container.childNodes);
+        return _slice.call(container.childNodes);
     }, _insertDom = function (nodes, refNode, fName) {
         //fName:appendTo, insertBefore
         var p;
@@ -3614,12 +3649,10 @@
         //取得cp空白节点
         _getCpEmptyNode = function (cp) {
             //var html = (_isComment) ?
-            //    ['<!--', _commentPrefix, cp.$id, '-->'].join('') :
+            //    '<!--bg-virtual-->' :
             //    _getScriptTag(cp.$id);
-            var html = (_isComment) ?
-                ['<!--bg-virtual-->'].join('') :
-                _getScriptTag(cp.$id);
-            return _parseHTML(html)[0];
+
+            return (_isComment) ? _doc.createComment('bg-virtual') : _parseHTML(_getScriptTag(cp.$id))[0];
         },
         _isScriptTag = /script/i,
         //取得render cp标签节点
@@ -3659,7 +3692,7 @@
             _virtualNodes(cp, nodes, bd);
             _traverseNodes(nodes, cp, bd);
             //重新读取childNodes，原因可以处理子级过程中有删除或增加节点
-            nodes = bingo.sliceArray(pNode.childNodes);
+            nodes = _slice.call(pNode.childNodes);
         }
 
         //检查是否空内容， 如果空，增加一个临时节点
@@ -3675,7 +3708,7 @@
     }, _traverseNodes = function (nodes, cp, bd) {
 
         var id, tempCP;
-        bingo.each(nodes, function (item) {
+        nodes.forEach(function (item) {
             if (item.nodeType == 1) {
                 //script的bg-id
                 id = _getEmptyRenderId(item);
@@ -3690,7 +3723,7 @@
                     }
                 } else {
                     //分析所有script节点， script临时节点
-                    _traverseNodes(_queryAll('script', item), cp, bd);
+                    _traverseNodes(_slice.call(_queryAll('script', item)), cp, bd);
                 }
             }
         });
@@ -3700,7 +3733,7 @@
     //_compile({cp:cp, context:node, opName:'insertBefore'});
     var _compile = function (p, ctrl) {
         var view = p.view;
-        var bd = _newBuild(!p.cp || p.cp.$isAFrame);
+        var bd = _newBuild();
         bd.ctrl = ctrl;
         var cp = p.cp || _newCP({
             $app: view.$app || bingo.defualtApp,
@@ -3733,7 +3766,7 @@
                 if (isAppend)
                     _insertDom(tmNode.childNodes, node, 'appendTo');
                 else {
-                    _insertDom(bingo.sliceArray(tmNode.childNodes, 0, -1), nextNode, 'insertBefore');
+                    _insertDom(_slice.call(tmNode.childNodes, 0, -1), nextNode, 'insertBefore');
                     _removeNode(nextNode);
                 }
                 tmNode = nextNode = null;
@@ -4275,7 +4308,7 @@
     });
 
     defualtApp.command('if', function (cp) {
-        cp.$isAFrame = false;
+        //cp.$isAFrame = false;
 
         var _contents = cp.$contents,
             _elseList = cp.$elseList, _getContent = function (index, val) {

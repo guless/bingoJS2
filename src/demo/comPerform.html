@@ -64,17 +64,18 @@
                     datas = datas.slice();
                     $view.list = datas;
                     console.time('list');
-                    //console.profile('list');
+                    console.profile('list');
                     //$view.inc1.src = '#tmpl2';
                     $view.inc1.$loadTmpl('#tmpl2').then(function (s) {
                         $view.inc1.$html(s).then(function (cp) {
-                            //console.profileEnd('list');
+                            console.profileEnd('list');
                             console.timeEnd('list');
                         });
                     });
                 };
 
             });
+
 
             bingo.ready(function () {
                 console.time('boot');

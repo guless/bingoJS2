@@ -469,9 +469,9 @@ describe('core --- bingoJS ' + bingo.version , function () {
         //});
 
         it('other', function () {
-            expect(bingo._splitEvName(['aaa'])).toEqual(['aaa']);
-            expect(bingo._splitEvName(true)).toEqual(true);
-            expect(bingo._splitEvName('')).toEqual(null);
+            //expect(bingo._splitEvName(['aaa'])).toEqual(['aaa']);
+            //expect(bingo._splitEvName(true)).toEqual(true);
+            //expect(bingo._splitEvName('')).toEqual(null);
             expect(bingo._splitEvName(' a  aaa  ')).toEqual(['a', 'aaa']);
             expect(bingo._splitEvName('aaa')).toEqual(['aaa']);
         });

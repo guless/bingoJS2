@@ -18,7 +18,7 @@
                             if (ods.length > 0) {
                                 tid = setTimeout(function () {
                                     try {
-                                        bingo.each(ods, function (ob) {
+                                        ods.forEach(function (ob) {
                                             ob.fn && ob.fn.call(this, changes);
                                         }, obj);
                                     } finally {
@@ -33,7 +33,7 @@
             }
             var obd = obj[_obsDName];
             deep = (deep !== false) || obd.deep;
-            bingo.each(props, function (pname, index) {
+            props.forEach(function (pname, index) {
                 //如果以下划画开始， 认为私用变量， 不给予处理
                 if (pname.indexOf('_') == 0) return;
                 var item = obj[pname];
@@ -76,11 +76,11 @@
         }, _getObserveData = function (obj, prop) {
             //取得observe数据
             var obd = obj[_obsDName];
-            return obd && (bingo.isNull(prop) ? obd.sobs : obd.obs[prop]);
+            return obd && (!prop ? obd.sobs : obd.obs[prop]);
         }, _publish = function (obj, prop, change) {
             //发送请求Observe
             var ods = _getObserveData(obj, prop);
-            bingo.each(ods, function (ob) {
+            bingo.isArray(ods) && ods.forEach(function (ob) {
                 ob.fn && ob.fn.call(this, [change]);
             }, obj);
 
@@ -91,7 +91,6 @@
             if (!_isObserve(obj, prop)) {
                 _defObserve(obj, bingo.isNull(prop) ? null : [prop]);
             }
-            //aaaaa++;
             var obs = _getObserveData(obj, prop);
             obs && obs.push({ fn: fn });
             return obs;
@@ -104,16 +103,16 @@
                         obd.sobs = [];
                     else {
                         //注意只会释放一次
-                        _removeFn(obd.sobs, fn);
                         obd.sobs = obd.sobs.slice();
+                        _removeFn(obd.sobs, fn);
                         //obd.sobs = obd.sobs.filter(function (item) { return item.fn != fn; });
                     }
                 } else if (obs[prop]) {
                     if (!fn)
                         obs[prop] = [];
                     else {
-                        _removeFn(obs[prop], fn);
                         obs[prop] = obs[prop].slice();
+                        _removeFn(obs[prop], fn);
                         //obs[prop] = obs[prop].filter(function (item) { return item.fn != fn; });
                     }
                 }
@@ -132,7 +131,6 @@
             }
         };
 
-    //window.aaaaa = 0;
     Object.prototype.bgDefProps({
         _bg_clsobd: function () {
             var de = this[_obsDName];
@@ -167,7 +165,7 @@
                 this.bgToObserve();
                 _addObs(this, null, prop || fn);
             } else {
-                bingo.each(prop ? (bingo.isArray(prop) ? prop : [prop]) : Object.keys(this), function (item) {
+                (prop ? (bingo.isArray(prop) ? prop : [prop]) : Object.keys(this)).forEach(function (item) {
                     _addObs(this, item, fn);
                 }, this);
             }
@@ -183,7 +181,7 @@
             if (bingo.isNull(prop) || bingo.isFunction(prop)) {
                 _delObs(this, null, prop || fn);
             } else {
-                bingo.each(prop ? (bingo.isArray(prop) ? prop : [prop]) : Object.keys(this), function (item) {
+                (prop ? (bingo.isArray(prop) ? prop : [prop]) : Object.keys(this)).forEach(function (item) {
                     _delObs(this, item, fn);
                 }, this);
             }
@@ -215,30 +213,43 @@
 
     //数组观察方法， length不能观察有些浏览器会报错
     var _arrayProps = ['reverse', 'splice', 'push', 'pop', 'copyWithin', 'fill', 'shift', 'unshift', 'sort'];
-    var _arrayDef = {}, _arrayProtoOld = {};
-    bingo.each(_arrayProps, function (prop) {
-        var oldPro = Array.prototype[prop];
-        _arrayDef[prop] = function () {
+    var _arrayDef = {}, _arrayProtoOld = {}, _arrayPublish = function (array, prop) {
+        var publishId = array._publishId;
+        publishId && clearTimeout(publishId);
+        array._publishId = setTimeout(function () {
+            var old = array._oldValue;
+            var noC = old.length == array.length && array.every(function (item, index) {
+                return item === old[index];
+            });
+            if (!noC) {
+                _resObs(array);
+                _publish(array, prop, { name: prop, object: array, value: array, oldValue: old, type: 'update' });
+            }
+
+            array._publishId = array._oldValue = null;
+        },1);
+    };
+    _arrayProps.forEach(function (prop) {
+        var oldPro = Array.prototype[prop],
+            newName = ['bg', prop.replace(/^.?/, function (s) { return s.toUpperCase(); })].join('');
+        _arrayDef[newName] = function () {
             if (_isObserve(this)) {
-                var old = this.slice();
+                this._oldValue || (this._oldValue = this.slice());
                 var ret = oldPro.apply(this, arguments);
-                var noC = old.length == this.length && this.every(function (item, index) {
-                    return item === old[index];
-                });
-                if (!noC) {
-                    _resObs(this);
-                    //this.bgToObserve();
-                    _publish(this, prop, { name: prop, object: this, value: this, oldValue: old, type: 'update' });
-                }
+                _arrayPublish(this, prop);
                 return ret;
             } else
                 return oldPro.apply(this, arguments);
         };
     });
-    _arrayDef.size = function (size) {
-        if (arguments.length == 0)
+    
+    Object.defineProperty(Array.prototype, 'bgLength', {
+        configurable: false,
+        enumerable: false,
+        get: function () {
             return this.length;
-        else {
+        },
+        set: function (size) {
             var old = this.length;
             if (this.length != size) {
                 old = this.slice();
@@ -247,7 +258,10 @@
                 _publish(this, '', { name: '', object: this, value: this, oldValue: old, type: 'update' });
             }
         }
-    };
+    });
+
+    _arrayDef._publishId = null;
+    _arrayDef._oldValue = null;
     Array.prototype.bgDefProps(_arrayDef);
 
     var _ArrayEquals = function (arr1, arr2) {
@@ -280,7 +294,8 @@
             /// observe(function(){return value;}, function(c){}) <br />
             /// </summary>
 
-            if (bingo.isArgs(arguments, 'fun', 'fun')) {
+            //if (bingo.isArgs(arguments, 'fun', 'fun')) {
+            if (bingo.isFunction(obj) && bingo.isFunction(prop)) {
                 var colFn = obj, isAutoInit = arguments[2] !== false;
                 fn = prop;
                 var obs, tid, cList = [], old, publish = function (isPub, org, orgVal) {
@@ -314,13 +329,13 @@
                     ret.isSucc = _obsSucc && !_obsErr;
                     if (ret.isSucc) {
                         //观察绑定变量
-                        bingo.each(obs.w, function (item) {
+                        obs.w.forEach(function (item) {
                             item.object.bgObServe(item.name, ft);
                         });
                         //是否有可观察变量
                         ret.isObs = obs.w.length > 0;
                         //观察绑定变量的父节点, 重新发现绑定
-                        bingo.each(obs.p, function (item) {
+                        obs.p.forEach(function (item) {
                             if ('toObsObj' in item) {
                                 item.value && item.value.bgObServe(ftw);
                             }
@@ -337,10 +352,10 @@
                         ret.check();
                 }, _unObserve = function () {
                     if (!obs) return;
-                    bingo.each(obs.w, function (item) {
+                    obs.w.forEach(function (item) {
                         item.object.bgUnObServe(item.name, ft);
                     });
-                    bingo.each(obs.p, function (item) {
+                    obs.p.forEach(function (item) {
                         if ('toObsObj' in item) {
                             item.value && item.value.bgUnObServe(ftw);
                         }
@@ -413,7 +428,7 @@
         //分析收集到的观察变量
         var list = [];
         //取出可观察的属性
-        bingo.each(_obsList, function (item, index, array) {
+        _obsList.forEach(function (item, index, array) {
             var nextIndex = index + 1, isEnd = array.length == nextIndex;
             if (isEnd) {
                 list.push(item);
@@ -425,14 +440,14 @@
         });
         //可观察的属性去重
         var wList = [];
-        bingo.each(list, function (item) {
+        list.forEach(function (item) {
             var has = wList.some(function (item1) { return item.name == item1.name && item.object == item1.object; });
             has || wList.push(item);
         });
 
         //取出可观察的属性节点并去重， 用于变动
         var pList = [];
-        bingo.each(_obsList, function (item) {
+        _obsList.forEach(function (item) {
             var tmp = item.value;
             var hasU = true;
             if (bingo.isNull(tmp) || bingo.isArray(tmp)) {
@@ -462,7 +477,7 @@
         }).replace(/\.$/, '');
         var l = prop.split('.'), nreg = /[^0-9]/,
             end = l.length - 2, last = obj, name = prop, has = true;
-        end >= 0 && bingo.each(l, function (item, index) {
+        end >= 0 && l.forEach(function (item, index) {
             item = item.replace(dot, '.');
             if (item == 'this') return;
             //测试模式

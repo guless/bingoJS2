@@ -2,7 +2,7 @@
 ; (function (bingo) {
     "use strict";
 
-    var _newApp = function (name) {
+    var _slice = Array.prototype.slice, _newApp = function (name) {
         return bingo.extend({
             name: name, bgNoObserve: true,
             controller: _controllerFn, _controller: {},
@@ -27,13 +27,13 @@
         if (bingo.isFunction(name) || bingo.isArray(name)) {
             return name;
         };
-        var args = [this, '_controller'].concat(bingo.sliceArray(arguments));
+        var args = [this, '_controller'].concat(_slice.call(arguments));
         return _appMType.apply(this, args);
     }, _serviceFn = function (name, fn) {
-        var args = [this, '_service'].concat(bingo.sliceArray(arguments));
+        var args = [this, '_service'].concat(_slice.call(arguments));
         return _appMType.apply(this, args);
     }, _commandFn = function (name, fn) {
-        var args = [this, '_command'].concat(bingo.sliceArray(arguments));
+        var args = [this, '_command'].concat(_slice.call(arguments));
         return _appMType.apply(this, args);
     }
 
@@ -69,7 +69,7 @@
 
         var fn = _injectNoop;
         if (bingo.isArray(p)) {
-            var list = bingo.sliceArray(p);
+            var list = _slice.call(p);
             fn = p.$fn = list.pop();
             fn.$injects = list;
             fn.$owner = p.$owner;
