@@ -1512,15 +1512,14 @@
                 nhtml = wrap[1] + html + wrap[2];
             container = _doc.createElement('div');
             container.innerHTML = nhtml;
+            while (depth--) {
+                container = container.lastChild;
+            }
             isCache && bingo.cache(_parseHTMLCache, html, container, 36);
         }
         isCache && (container = container.cloneNode(true));
         //console.log(isCache, html);
         //console.log(container);
-
-        while (depth--) {
-            container = container.lastChild;
-        }
         _parseSrcipt(container, script);
         return _slice.call(container.childNodes);
     }, _insertDom = function (nodes, refNode, fName) {

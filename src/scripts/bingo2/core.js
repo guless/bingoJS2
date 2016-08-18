@@ -174,12 +174,12 @@
         extend: function (obj) {
             var len = arguments.length;
             if (len == 1) {
-                obj && Object.keys(obj).some(function (n) { this[n] = obj[n]; }, this);
+                obj && Object.keys(obj).forEach(function (n) { this[n] = obj[n]; }, this);
                 return this;
             }
             var args = slice.call(arguments, 1);
-            args.some(function (ot) {
-                ot && Object.keys(ot).some(function (n) { obj[n] = this[n]; }, ot);
+            args.forEach(function (ot) {
+                ot && Object.keys(ot).forEach(function (n) { obj[n] = this[n]; }, ot);
             });
             return obj;
         },
