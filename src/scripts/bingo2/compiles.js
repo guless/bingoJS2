@@ -1442,6 +1442,18 @@
         node.parentNode && node.parentNode.removeChild(node);
     }, _injWithName = 'bingo_cmpwith_';
 
+    var _checkClone = (function () {
+        var div = _doc.createElement("div");
+        div.innerHTML = "<input type='checkbox'/>";
+        var input = div.getElementsByTagName("input")[0],
+            fragment = document.createDocumentFragment();
+        input.checked = true;
+
+        fragment.appendChild(input);
+
+        return  fragment.cloneNode(true).cloneNode(true).lastChild.checked;
+    })();
+
     var _spTags = 'html,body,head', _wrapMap = {
         select: [1, "<select multiple='multiple'>", "</select>"],
         fieldset: [1, "<fieldset>", "</fieldset>"],
@@ -1470,7 +1482,20 @@
                 script && _globalEval(node);
             }
         });
-    }, _parseHTML = function (html, p, script) {
+    },
+   	_rnocache = /<(?:object|embed|option|style)/i,
+	_rchecked = /checked\s*(?:[^=]|=\s*.checked.)/i,
+    _nodeNames = "abbr|article|aside|audio|bdi|canvas|data|datalist|details|figcaption|figure|footer|" +
+		"header|hgroup|mark|meter|nav|output|progress|section|summary|time|video",
+	_rnoshimcache = new RegExp("<(?:" + _nodeNames + ")[\\s/>]", "i"),
+    _html5Clone = _doc.createElement("nav").cloneNode(true).outerHTML !== "<:nav></:nav>",
+    _isCacheHtml = function (html) {
+        return html.indexOf('<') >= 0 && !_rnocache.test(html) &&
+            (_checkClone || !_rchecked.test(html)) &&
+            (_html5Clone || !_rnoshimcache.test(html));
+    },
+    _parseHTMLCache = {},
+    _parseHTML = function (html, p, script) {
         /// <summary>
         /// 
         /// </summary>
@@ -1478,11 +1503,21 @@
         /// <param name="p">可以父节点或父节点tagName</param>
         /// <param name="script">是否运行script</param>
         /// <returns value=''></returns>
-        var tagName = p ? (bingo.isString(p) ? p : p.tagName.toLowerCase()) : '';
-        var wrap = _wrapMap[tagName] || _wrapMap.div, depth = wrap[0];
-        html = wrap[1] + html + wrap[2];
-        var container = _doc.createElement('div');
-        container.innerHTML = html;
+
+        var isCache = _isCacheHtml(html),
+            container = isCache ? bingo.cache(_parseHTMLCache, html) : null;
+        if (!container) {
+            var tagName = p ? (bingo.isString(p) ? p : p.tagName.toLowerCase()) : '',
+                wrap = _wrapMap[tagName] || _wrapMap.div, depth = wrap[0],
+                nhtml = wrap[1] + html + wrap[2];
+            container = _doc.createElement('div');
+            container.innerHTML = nhtml;
+            isCache && bingo.cache(_parseHTMLCache, html, container, 36);
+        }
+        isCache && (container = container.cloneNode(true));
+        //console.log(isCache, html);
+        //console.log(container);
+
         while (depth--) {
             container = container.lastChild;
         }
