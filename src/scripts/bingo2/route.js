@@ -7,7 +7,8 @@
           doc.getElementsByTagName('head')[0] ||
           doc.documentElement,
        baseElement = head.getElementsByTagName('base')[0],
-       READY_STATE_RE = /loaded|complete|undefined/i;
+       READY_STATE_RE = /loaded|complete|undefined/i,
+        slice = Array.prototype.slice;
 
     var _fetch = function (url, callback, charset) {
 

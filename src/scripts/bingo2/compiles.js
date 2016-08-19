@@ -226,7 +226,6 @@
             content = ['var fn = function(){ ', (hasRet ? 'return ' : ''), content, ';}.bind(_this_);'].join('');
             //console.log(content);
             var fnDef = [
-                        'return function (_this_, $view, $withData, node, bingo, event) {',
                             hasWith ? 'with ($view) {' : '',
                              _vm._withMd(withData),
                                 //如果有withData, 影响性能
@@ -239,12 +238,11 @@
                                     content,
                                     'try { return fn(); } catch (e) {bingo.observe.error(e);}',
                                 //'}',
-                            hasWith ? '}':'',
-                        '};'].join('');
+                            hasWith ? '}':''].join('');
             var retFn = function () {
                 //console.log(fnDef);
-                cT = contextCache[cacheName] = (new Function(fnDef))();//bingo(多版本共存)
-                bingo.cache(_vm, cacheName, cT, 36);
+                cT = contextCache[cacheName] = new Function('_this_', '$view', '$withData', 'node', 'bingo', 'event', fnDef);//bingo(多版本共存)
+                bingo.cache(_vm, cacheName, cT, 500);
                 return cT;
             };
             try {
@@ -1229,7 +1227,7 @@
             return index > -1 ? app._view[index] : null;
         };
 
-    var _traverseTmpl = function (tmpl) {
+    var _traverseTmpl = function (tmpl,bd) {
         var item, isSingle, isEnd, tag, attrs, find, contents,
             list = [], strAll = [], lastIndex = 0,
             strIndex = 0,
@@ -1252,7 +1250,9 @@
                     contents = tmpl.substr(lastIndex, index - lastIndex);
                     strAll.push(contents);
 
-                    id = bingo.makeAutoId();
+                    //bd.id++;
+                    id = (bd.id++)+'';//bingo.makeAutoId();
+                    //console.log(id);
                     strAll.push(_getScriptTag(id));
                     list.push({
                         id: id,
@@ -1285,7 +1285,7 @@
     var _traverseCmd = function (tmpl, cp, bd) {
         var list = [], view, app;
         bingo.isString(tmpl) || (tmpl = bingo.toStr(tmpl));
-        var tmplContext = _traverseTmpl(tmpl);
+        var tmplContext = _traverseTmpl(tmpl, bd);
 
         tmpl = tmplContext.contents;
         tmplContext.regs.forEach(function (reg) {
@@ -1398,6 +1398,7 @@
             return _retPromiseAll(promises, true).then(bd.doneStep(name));
         }, end = false,bd;
         return bd = {
+            id:0,
             pushStep: function (name, fn) {
                 if (_stepObj[name])
                     _stepObj[name].push(fn);
@@ -1479,7 +1480,7 @@
         _slice.call(container.querySelectorAll('script')).forEach(function (node) {
             if (!node.type || _scriptType.test(node.type)) {
                 _removeNode(node);
-                script && _globalEval(node);
+                _globalEval(node);
             }
         });
     },
@@ -1490,7 +1491,7 @@
 	_rnoshimcache = new RegExp("<(?:" + _nodeNames + ")[\\s/>]", "i"),
     _html5Clone = _doc.createElement("nav").cloneNode(true).outerHTML !== "<:nav></:nav>",
     _isCacheHtml = function (html) {
-        return html.indexOf('<') >= 0 && !_rnocache.test(html) &&
+        return !_rnocache.test(html) &&
             (_checkClone || !_rchecked.test(html)) &&
             (_html5Clone || !_rnoshimcache.test(html));
     },
@@ -1507,6 +1508,7 @@
         var isCache = _isCacheHtml(html),
             container = isCache ? bingo.cache(_parseHTMLCache, html) : null;
         if (!container) {
+            //console.log(html);
             var tagName = p ? (bingo.isString(p) ? p : p.tagName.toLowerCase()) : '',
                 wrap = _wrapMap[tagName] || _wrapMap.div, depth = wrap[0],
                 nhtml = wrap[1] + html + wrap[2];
@@ -1515,12 +1517,12 @@
             while (depth--) {
                 container = container.lastChild;
             }
-            isCache && bingo.cache(_parseHTMLCache, html, container, 36);
+            isCache && bingo.cache(_parseHTMLCache, html, container, 150);
         }
         isCache && (container = container.cloneNode(true));
         //console.log(isCache, html);
         //console.log(container);
-        _parseSrcipt(container, script);
+        script && _parseSrcipt(container, script);
         return _slice.call(container.childNodes);
     }, _insertDom = function (nodes, refNode, fName) {
         //fName:appendTo, insertBefore

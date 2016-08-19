@@ -14,7 +14,7 @@
     _getHtmlDivTarget = function () {
         return _htmlDivTarget || (_htmlDivTarget = document.createElement('div'));
     };
-
+    window.aaaa = 0;
     var _makeAutoIdTemp = 0, _makeAutoIdTempPointer = 0;
 
     var _config = {};
