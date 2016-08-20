@@ -8,20 +8,19 @@
         noop = function () { },
         slice = Array.prototype.slice;
 
-    var fpName = '_bg_ifFn_',spName = '_bg_ifStr_';
 
     var _htmlDivTarget = null,
     _getHtmlDivTarget = function () {
         return _htmlDivTarget || (_htmlDivTarget = document.createElement('div'));
     };
-    window.aaaa = 0;
+    //window.aaaa = 0;
     var _makeAutoIdTemp = 0, _makeAutoIdTempPointer = 0;
 
     var _config = {};
 
     var bingo = window.bingo = {
         //主版本号.子版本号.修正版本号.编译版本号(日期)
-        version: { major: 2, minor: 0, rev: 2, build: 160817, toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
+        version: { major: 2, minor: 0, rev: 3, build: 160820, toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
         bgNoObserve: true,//防止observe
         isDebug: false,
         prdtVersion: '',
@@ -62,7 +61,6 @@
             return (this.isNull(s) || s === stringEmpty);
         },
         isFunction: function (fun) {
-            (fpName in Function.prototype) || (Function.prototype[fpName] = true);
             return !this.isNull(fun) && fun[fpName] === true;
         },
         isNumeric: function (n) {
@@ -70,7 +68,6 @@
             return !isNaN(parseFloat(n)) && isFinite(n);
         },
         isString: function (obj) {
-            (spName in String.prototype) || (String.prototype[spName] = true);
             return !this.isNull(obj) && obj[spName] === true;
             //return this.isType("String", obj);
         },
@@ -229,66 +226,6 @@
         },
         _splitEvName: function (eventName) {
             return !eventName ? [] : eventName.replace(/(^\s*)|(\s*$)/g, '').split(/\s+/g);
-        },
-        isArgs: function (args, p) {
-            /// <summary>
-            /// isArgs(arguments, 'str', 'fun|bool') <br />
-            /// isArgs(arguments, '@@title', null, 1)
-            /// 注意如果arguments超出部分不判断
-            /// </summary>
-            /// <param name="args"></param>
-            /// <param name="p">obj, str, array, bool, num, null, empty, undef, fun, *, regex, window, element</param>
-            var types = slice.call(arguments, 1), isOk = true,val;
-            bingo.each(types, function (item, index) {
-                val = args[index];
-                if (bingo.isString(item)) {
-                    if (item.indexOf('@@') == 0)
-                        isOk = (item.substr(2) === val);
-                    else {
-                        bingo.each(item.split('|'), function (sItem) {
-                            isOk = _isType(sItem, val);
-                            if (!isOk) return false;
-                        });
-                    }
-                } else
-                    isOk = _isType(item, val);
-                    
-                if (!isOk) return false;
-            });
-            return isOk;
-        }
-    };
-
-    var _isType = function (type, p) {
-        switch (type) {
-            case 'obj':
-                return bingo.isObject(p);
-            case 'str':
-                return bingo.isString(p);
-            case 'array':
-                return bingo.isArray(p);
-            case 'bool':
-                return bingo.isBoolean(p);
-            case 'num':
-                return bingo.isNumeric(p);
-            case 'null':
-                return bingo.isNull(p);
-            case 'empty':
-                return bingo.isNullEmpty(p);
-            case 'undef':
-                return bingo.isUndefined(p);
-            case 'fun':
-                return bingo.isFunction(p);
-            case 'regex':
-                return !bingo.isNull(p) && (p instanceof RegExp);
-            case 'window':
-                return bingo.isWindow(p);
-            case 'element':
-                return bingo.isElement(p);
-            case '*':
-                return true;
-            default:
-                return type === p;
         }
     };
 
@@ -314,6 +251,10 @@
             return this;
         })
     });
+
+    var fpName = '_bg_ifFn_', spName = '_bg_ifStr_';
+    Function.prototype.bgDefProp(fpName, true, false);
+    String.prototype.bgDefProp(spName, true, false);
 
     //解决多版共存问题
     var majVer = ['bingoV' + bingo.version.major].join(''),

@@ -294,7 +294,6 @@
             /// observe(function(){return value;}, function(c){}) <br />
             /// </summary>
 
-            //if (bingo.isArgs(arguments, 'fun', 'fun')) {
             if (bingo.isFunction(obj) && bingo.isFunction(prop)) {
                 var colFn = obj, isAutoInit = arguments[2] !== false;
                 fn = prop;

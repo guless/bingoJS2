@@ -33,11 +33,11 @@
             {{tmpl id="tmpl2"}}
             {{for item in this.list}}
             <tr>
-                <td>{{text item[0] /}}</td>
-                <td>{{text item[1] /}}</td>
-                <td>{{text item[2] /}}</td>
-                <td>{{text item[3] /}}</td>
-                <td>{{text item[4] /}}{{if $odd}} ok{{/if}} </td>
+                <td>{{text item[0] /}} | </td>
+                <td>{{text item[1] /}} | </td>
+                <td>{{text item[2] /}} | </td>
+                <td>{{text item[3] /}} | </td>
+                <td>{{text item[4] /}}{{if $odd}} ok {{else}} no {{/if}} </td>
             </tr>
             {{/for}}
             {{/tmpl}}
@@ -68,7 +68,7 @@
                     //$view.inc1.src = '#tmpl2';
                     $view.inc1.$loadTmpl('#tmpl2').then(function (s) {
                         $view.inc1.$html(s).then(function (cp) {
-                            ////console.profileEnd('list');
+                            //console.profileEnd('list');
                             console.timeEnd('list');
                         });
                     });

@@ -203,8 +203,8 @@
     //};
 
     var _vm = {
-        _withMd: function (withData) {
-            var vList = [], kList = withData ? Object.keys(withData) : [];
+        _withMd: function (kList) {
+            var vList = [];
             kList.forEach(function (item) {
                 vList.push([item, ' = $withData.', item].join(''));
             });
@@ -213,7 +213,15 @@
         _cacheName: '__contextFun__',
         bindContext: function (cacheobj, content, hasRet, hasWith, withData) {
 
-            var cacheName = [content, hasRet].join('_'), cT;
+            var withP = cacheobj._bg_withP;
+            if (withData && !withP) {
+                cacheobj._bg_withP = withP = {
+                    w: Object.keys(withData)
+                }
+                withP.ws = withP.w.join(',');
+            }
+
+            var cacheName = [content, hasRet, withP ? withP.ws : ''].join('_'), cT;
             var contextCache = (cacheobj[_vm._cacheName] || (cacheobj[_vm._cacheName] = {}));
 
             if (contextCache[cacheName])
@@ -227,7 +235,7 @@
             //console.log(content);
             var fnDef = [
                             hasWith ? 'with ($view) {' : '',
-                             _vm._withMd(withData),
+                             withP? _vm._withMd(withP.w):'',
                                 //如果有withData, 影响性能
                                 //'if ($withData) {',
                                 //    //'with ($withData) {',
@@ -242,7 +250,7 @@
             var retFn = function () {
                 //console.log(fnDef);
                 cT = contextCache[cacheName] = new Function('_this_', '$view', '$withData', 'node', 'bingo', 'event', fnDef);//bingo(多版本共存)
-                bingo.cache(_vm, cacheName, cT, 500);
+                bingo.cache(_vm, cacheName, cT, 200);
                 return cT;
             };
             try {
@@ -956,10 +964,11 @@
         if (elseList) {
             var cpT, whereList = cp.$whereList;
             bingo.each(elseList, function (item, index) {
+                var as = _traverseAttr(whereList[index]), attrs = _newCPAttrs(as[0], bd)._setAS(as[1]);
                 cpT = _newCP({
                     $cmd: 'else',
                     $app: app,
-                    $attrs: _traverseAttr(whereList[index]),
+                    $attrs: attrs,// _traverseAttr(whereList[index]),
                     $view: cp.$view, $contents: item,
                     $parent: cp
                 }, false, bd);
@@ -1052,6 +1061,12 @@
                         _names.push(name);
                         this[name] = _newCPAttr(contents, bd);
                     }
+                },
+                _setAS: function (list) {
+                    list.forEach(function (item) {
+                        this.$setAttr(item[0], item[1]);
+                    }, this);
+                    return this;
                 },
                 _setCP: function (cp) {
                     this.$view = cp.$view;
@@ -1282,35 +1297,58 @@
         return { contents: strAll.join(''), regs: list };
     };
 
-    var _traverseCmd = function (tmpl, cp, bd) {
-        var list = [], view, app;
-        bingo.isString(tmpl) || (tmpl = bingo.toStr(tmpl));
-        var tmplContext = _traverseTmpl(tmpl, bd);
+    var _traverseCahce ={}, _traverseCmd = function (tmpl, cp, bd) {
+        var list, view, app, tmplTag,
+            cache = bingo.cache(_traverseCahce, tmpl);
 
-        tmpl = tmplContext.contents;
-        tmplContext.regs.forEach(function (reg) {
+        if (cache) {
+            list = cache.list;
+            tmplTag = cache.tmplTag;
+        } else {
+            list = [];
+            bingo.isString(tmpl) || (tmpl = bingo.toStr(tmpl));
+            var tmplContext = _traverseTmpl(tmpl, bd);
 
-            var elseList, whereList, item,
-                cmd = reg.tag,
-                contents = reg.contents;
-            contents && (contents = contents);
-            if (cmd == 'if') {
-                var elseContent = _traverseElse(contents);
-                contents = elseContent.contents;
-                elseList = elseContent.elseList;
-                whereList = elseContent.whereList;
-            }
-            item = {
-                $id: reg.id,
-                $cmd: cmd,
-                $attrs: _traverseAttr(reg.attrs, bd),
-                $contents: contents,
-                $elseList: elseList,
-                $whereList: whereList
-            };
+            tmplTag = tmplContext.contents;
+            tmplContext.regs.forEach(function (reg) {
+
+                var elseList, whereList, item,
+                    cmd = reg.tag,
+                    contents = reg.contents;
+                contents && (contents = contents);
+                if (cmd == 'if') {
+                    var elseContent = _traverseElse(contents);
+                    contents = elseContent.contents;
+                    elseList = elseContent.elseList;
+                    whereList = elseContent.whereList;
+                    //console.log(elseContent);
+                }
+                item = {
+                    $id: reg.id,
+                    $cmd: cmd,
+                    $attrs: _traverseAttr(reg.attrs),
+                    $contents: contents,
+                    $elseList: elseList,
+                    $whereList: whereList
+                };
+                list.push(item);
+
+            });
+
+            bingo.cache(_traverseCahce, tmpl, {
+                list: list,
+                tmplTag: tmplTag
+            }, 200);
+        }
+
+        list = list.map(function (item) {
+            item = bingo.extend({}, item);
+            item.$elseList && (item.$elseList = item.$elseList.slice());
+            item.$whereList && (item.$whereList = item.$whereList.slice());
+            var as = item.$attrs;
+            item.$attrs = _newCPAttrs(as[0], bd)._setAS(as[1]);
             (item.$cmd == 'view') && (view = item);
-            list.push(item);
-
+            return item;
         });
 
         if (view) {
@@ -1331,7 +1369,7 @@
 
         var children = [], tempCP;
         list.forEach(function (item) {
-            tempCP = _newCP(bingo.extend(item, {
+            tempCP = _newCP(bingo.extend({}, item, {
                 $view: view,
                 $app: app,
                 $parent: cp
@@ -1341,7 +1379,7 @@
         });
 
         cp.$children = children;
-        cp.tmplTag = tmpl;
+        cp.tmplTag = tmplTag;
         //return _retPromiseAll(promises);
     }, _traverseElse = function (contents) {
         var lv = 0, item, cmd, index = -1, start = -1;
@@ -1375,13 +1413,17 @@
         }
 
         return { contents: start > -1 ? contents.substr(0, start) : contents, elseList: elseList, whereList: whereList };
-    }, _traverseAttr = function (s, bd) {
+    }, _traverseAttr = function (s) {
         _cmdAttrReg.lastIndex = 0;
-        var item, attrs = _newCPAttrs(s, bd);
+        var item, //attrs = _newCPAttrs(s, bd);
+            aList = [];
         while (item = _cmdAttrReg.exec(s)) {
-            attrs.$setAttr(item[1], item[2] || item[3]);
+            aList.push([item[1], item[2] || item[3]]);
+            //attrs.$setAttr(item[1], item[2] || item[3]);
         }
-        return attrs;
+        //console.log(aList);
+        return [s, aList];
+        //return attrs;
     }, _renderPromise = [], _renderThread = function () {
         var promises = _renderPromise;
         _renderPromise = [];
@@ -1484,18 +1526,16 @@
             }
         });
     },
-   	_rnocache = /<(?:object|embed|option|style)/i,
 	_rchecked = /checked\s*(?:[^=]|=\s*.checked.)/i,
     _nodeNames = "abbr|article|aside|audio|bdi|canvas|data|datalist|details|figcaption|figure|footer|" +
 		"header|hgroup|mark|meter|nav|output|progress|section|summary|time|video",
 	_rnoshimcache = new RegExp("<(?:" + _nodeNames + ")[\\s/>]", "i"),
     _html5Clone = _doc.createElement("nav").cloneNode(true).outerHTML !== "<:nav></:nav>",
     _isCacheHtml = function (html) {
-        return !_rnocache.test(html) &&
-            (_checkClone || !_rchecked.test(html)) &&
+        return (_checkClone || !_rchecked.test(html)) &&
             (_html5Clone || !_rnoshimcache.test(html));
     },
-    _parseHTMLCache = {},
+    _parseHTMLCache = {},_rempty = /^\s*$/,
     _parseHTML = function (html, p, script) {
         /// <summary>
         /// 
@@ -1504,6 +1544,7 @@
         /// <param name="p">可以父节点或父节点tagName</param>
         /// <param name="script">是否运行script</param>
         /// <returns value=''></returns>
+        if (_rempty.test(html)) return [];
 
         var isCache = _isCacheHtml(html),
             container = isCache ? bingo.cache(_parseHTMLCache, html) : null;
@@ -1517,7 +1558,7 @@
             while (depth--) {
                 container = container.lastChild;
             }
-            isCache && bingo.cache(_parseHTMLCache, html, container, 150);
+            isCache && bingo.cache(_parseHTMLCache, html, container, 200);
         }
         isCache && (container = container.cloneNode(true));
         //console.log(isCache, html);
