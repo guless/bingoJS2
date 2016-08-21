@@ -41,7 +41,7 @@
             this._thenH = null;
         },
         _doNext: function (res, type) {
-            if (res && bingo.isFunction(res.then)) {
+            if (res && res.then) {
                 if (res.state == _rejected && !res._thenH) {
                     this.state = type;
                     this._result = null;
@@ -153,8 +153,8 @@
             return this.all(args, fn, true);
         }
     });
-    var _makeArgs = function (args, fn) {
-        args = bingo.sliceArray(args);
+    var _slice = Array.prototype.slice, _makeArgs = function (args, fn) {
+        args = _slice.call(args);
         args.length == 0 && (args = [args]);
         if (!fn) return args;
         var list = [];

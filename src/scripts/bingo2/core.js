@@ -8,18 +8,19 @@
         noop = function () { },
         slice = Array.prototype.slice;
 
+
     var _htmlDivTarget = null,
     _getHtmlDivTarget = function () {
         return _htmlDivTarget || (_htmlDivTarget = document.createElement('div'));
     };
-
+    //window.aaaa = 0;
     var _makeAutoIdTemp = 0, _makeAutoIdTempPointer = 0;
 
     var _config = {};
 
     var bingo = window.bingo = {
         //主版本号.子版本号.修正版本号.编译版本号(日期)
-        version: { major: 2, minor: 0, rev: 1, build: '160806', toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
+        version: { major: 2, minor: 1, rev: 'beta', build: 160821, toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
         bgNoObserve: true,//防止observe
         isDebug: false,
         prdtVersion: '',
@@ -60,14 +61,15 @@
             return (this.isNull(s) || s === stringEmpty);
         },
         isFunction: function (fun) {
-            return this.isType("Function", fun);
+            return !this.isNull(fun) && fun[fpName] === true;
         },
         isNumeric: function (n) {
             //return this.isType("Number", n) && !isNaN(n) && isFinite(n);;
             return !isNaN(parseFloat(n)) && isFinite(n);
         },
         isString: function (obj) {
-            return this.isType("String", obj);
+            return !this.isNull(obj) && obj[spName] === true;
+            //return this.isType("String", obj);
         },
         isObject: function (obj) {
             return !this.isNull(obj) && this.isType("Object", obj)
@@ -138,7 +140,7 @@
             //callback(element, index, array){this === data;}
             //过程中改变list长度， 不会影响遍历长度, 但内容会变
             if (!list || !callback) return;
-            bingo.isArray(list) || (list = this.sliceArray(list));
+            bingo.isArray(list) || (list = slice.apply(list));
             list.some(function (item) {
                 return (callback.apply(thisArg || item, arguments) === false);
             });
@@ -169,17 +171,13 @@
         extend: function (obj) {
             var len = arguments.length;
             if (len == 1) {
-                this.eachProp(obj, function (item, n0) {
-                    this[n0] = item;
-                }, this);
+                obj && Object.keys(obj).forEach(function (n) { this[n] = obj[n]; }, this);
                 return this;
             }
-            var args = this.sliceArray(arguments, 1);
-            bingo.each(args, function (ot) {
-                ot && this.eachProp(ot, function (item, n) {
-                    obj[n] = item;
-                });
-            }, this);
+            var args = slice.call(arguments, 1);
+            args.forEach(function (ot) {
+                ot && Object.keys(ot).forEach(function (n) { obj[n] = this[n]; }, ot);
+            });
             return obj;
         },
         Class: function (fn) {
@@ -227,69 +225,7 @@
             return function() { return fn && fn.apply(thisArg, arguments); };
         },
         _splitEvName: function (eventName) {
-            return bingo.isString(eventName)
-                ? (bingo.isNullEmpty(eventName) ? null : bingo.trim(eventName).split(/\s+/g).map(function (item) { return bingo.trim(item); }))
-                : eventName;
-        },
-        isArgs: function (args, p) {
-            /// <summary>
-            /// isArgs(arguments, 'str', 'fun|bool') <br />
-            /// isArgs(arguments, '@@title', null, 1)
-            /// 注意如果arguments超出部分不判断
-            /// </summary>
-            /// <param name="args"></param>
-            /// <param name="p">obj, str, array, bool, num, null, empty, undef, fun, *, regex, window, element</param>
-            var types = bingo.sliceArray(arguments, 1), isOk = true,val;
-            bingo.each(types, function (item, index) {
-                val = args[index];
-                if (bingo.isString(item)) {
-                    if (item.indexOf('@@') == 0)
-                        isOk = (item.substr(2) === val);
-                    else {
-                        bingo.each(item.split('|'), function (sItem) {
-                            isOk = _isType(sItem, val);
-                            if (!isOk) return false;
-                        });
-                    }
-                } else
-                    isOk = _isType(item, val);
-                    
-                if (!isOk) return false;
-            });
-            return isOk;
-        }
-    };
-
-    var _isType = function (type, p) {
-        switch (type) {
-            case 'obj':
-                return bingo.isObject(p);
-            case 'str':
-                return bingo.isString(p);
-            case 'array':
-                return bingo.isArray(p);
-            case 'bool':
-                return bingo.isBoolean(p);
-            case 'num':
-                return bingo.isNumeric(p);
-            case 'null':
-                return bingo.isNull(p);
-            case 'empty':
-                return bingo.isNullEmpty(p);
-            case 'undef':
-                return bingo.isUndefined(p);
-            case 'fun':
-                return bingo.isFunction(p);
-            case 'regex':
-                return !bingo.isNull(p) && (p instanceof RegExp);
-            case 'window':
-                return bingo.isWindow(p);
-            case 'element':
-                return bingo.isElement(p);
-            case '*':
-                return true;
-            default:
-                return type === p;
+            return !eventName ? [] : eventName.replace(/(^\s*)|(\s*$)/g, '').split(/\s+/g);
         }
     };
 
@@ -315,6 +251,10 @@
             return this;
         })
     });
+
+    var fpName = '_bg_ifFn_', spName = '_bg_ifStr_';
+    Function.prototype.bgDefProp(fpName, true, false);
+    String.prototype.bgDefProp(spName, true, false);
 
     //解决多版共存问题
     var majVer = ['bingoV' + bingo.version.major].join(''),

@@ -41,7 +41,7 @@
             },
             trigger: function (args, owner, isHandler) {
                 var list = this.list, hasOne = false, ret;
-                bingo.each(list, function (item) {
+                list.forEach(function (item) {
                     if (item.one === true)
                         hasOne = true;
                     if ((ret = item.callback.apply(owner, args || [])) === false) return false;
@@ -65,14 +65,14 @@
     Object.prototype.bgDefProps({
         //bgOn('ready init', fn)
         bgOn: function (eventName, callback) {
-            bingo.each(_splitEvName(eventName), function (item) {
+            _splitEvName(eventName).forEach(function (item) {
                 _getEvent(this, item, true).on(callback, this);
             }, this);
             return this;
         },
         //bgOn('ready init', fn)
         bgOne: function (eventName, callback) {
-            bingo.each(_splitEvName(eventName), function (item) {
+            _splitEvName(eventName).forEach(function (item) {
                 _getEvent(this, item, true).on(callback, this, true);
             }, this);
             return this;
@@ -84,14 +84,14 @@
             if (arguments.length == 0)
                 _rmEvent(this);
             else
-                bingo.each(_splitEvName(eventName), function (item) {
+                _splitEvName(eventName).forEach(function (item) {
                     _getEvent(this, item).off(callback);
                 }, this);
             return this;
         },
         //bgEnd('ready init')
         bgEnd: function (eventName) {
-            bingo.each(_splitEvName(eventName), function (item) {
+            _splitEvName(eventName).forEach(function (item) {
                 _getEvent(this, item, true).end(this);
             }, this);
             return this;
@@ -101,14 +101,14 @@
         //bgTrigger('ready init', [arg1, arg2], this)
         bgTrigger: function (eventName, args, thisArg) {
             var ret;
-            bingo.each(_splitEvName(eventName), function (item) {
+            _splitEvName(eventName).forEach(function (item) {
                 ret = _getEvent(this, item).trigger(args, thisArg || this);
             }, this);
             return ret;
         },
         bgTriggerHandler: function (eventName, args, thisArg) {
             var ret;
-            bingo.each(_splitEvName(eventName), function (item) {
+            _splitEvName(eventName).forEach(function (item) {
                 ret = _getEvent(this, item).trigger(args, thisArg || this, true);
             }, this);
             return ret;
@@ -118,7 +118,7 @@
             /// <summary>
             /// bgEventDef('onOk onError')
             /// </summary>
-            bingo.each(_splitEvName(eventName), function (item) {
+            _splitEvName(eventName).forEach(function (item) {
                 this[item] = function (callback) {
                     return this.bgOn(item, callback);
                 };
@@ -144,7 +144,8 @@
                 bingo.each(this._bg_dispose, function (item) { item.bgDispose(); });
             } finally {
                 this._bg_clsobd();
-                bingo.eachProp(this, function (item, n) {
+                Object.keys(this).forEach(function (n) {
+                    var item = this[n];
                     if (item && item.bgAutoDispose === true)
                         item.bgDispose();
                     this[n] = null;

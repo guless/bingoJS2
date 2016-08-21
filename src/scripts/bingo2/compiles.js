@@ -14,7 +14,7 @@
         }, _aFrameCK = function () {
             var list = [], orgs = _aFrameList;
             _aFrameList = [];
-            bingo.each(orgs, function (item) {
+            orgs.forEach(function (item) {
                 if (!item._stop) {
                     item.n--;
                     if (item.n < 0)
@@ -162,13 +162,14 @@
             _isPromise(p) && promises.push(p);
             return p;
         }, _promisePushList = function (promises, list) {
-            bingo.each(list, function (item) { _promisePush(promises, item); });
+            list && list.forEach(function (item) { _promisePush(promises, item); });
             return list;
         }, _retPromiseAll = function (promises, must) {
             return must || promises.length > 0 ? _Promise.always(promises) : undefined;
         }, _promiseAlways = function (promises, then) {
             return promises.length > 0 ? _Promise.always(promises).then(then) : then();
-        };
+        },
+        _slice = Array.prototype.slice;
 
     //var _isLinkNodeType = function (type) {
     //    return type == 1 || type == 8;
@@ -202,11 +203,27 @@
     //};
 
     var _vm = {
+        _withMd: function (kList) {
+            var vList = [];
+            kList.forEach(function (item) {
+                vList.push([item, ' = $withData.', item].join(''));
+            });
+            return kList.length > 0 ? ['var ',  vList.join(','), ';'].join('') : '';
+        },
         _cacheName: '__contextFun__',
-        bindContext: function (cacheobj, content, hasRet) {
+        bindContext: function (cacheobj, content, hasRet, hasWith, withData) {
 
-            var cacheName = [content, hasRet].join('_'), cT;
+            var withP = cacheobj._bg_withP;
+            if (withData && !withP) {
+                cacheobj._bg_withP = withP = {
+                    w: Object.keys(withData)
+                }
+                withP.ws = withP.w.join(',');
+            }
+
+            var cacheName = [content, hasRet, withP ? withP.ws : ''].join('_'), cT;
             var contextCache = (cacheobj[_vm._cacheName] || (cacheobj[_vm._cacheName] = {}));
+
             if (contextCache[cacheName])
                 return contextCache[cacheName];
             else {
@@ -214,20 +231,30 @@
                 if (cT) return cT;
             }
 
-            hasRet && (content = ['try { return ', content, ';} catch (e) {bingo.observe.error(e);}'].join(''));
+            content = ['var fn = function(){ ', (hasRet ? 'return ' : ''), content, ';}.bind(_this_);'].join('');
+            //console.log(content);
             var fnDef = [
-                        'return function (_this_, $view, $withData, bingo, event) {',
-                            'with ($view) {',
+                            hasWith ? 'with ($view) {' : '',
+                             withP? _vm._withMd(withP.w):'',
                                 //如果有withData, 影响性能
-                                'with ($withData) {',
-                                        content,
-                                '}',
-                            '}',
-                        '};'].join('');
-            try {
-                cT = contextCache[cacheName] = (new Function(fnDef))();//bingo(多版本共存)
-                bingo.cache(_vm, cacheName, cT, 36);
+                                //'if ($withData) {',
+                                //    //'with ($withData) {',
+                                //            content,
+                                //        'try { return fn();} catch (e) {bingo.observe.error(e);}',
+                                //    //'}',
+                                //'} else {',
+                                    content,
+                                    'try { return fn(); } catch (e) {bingo.observe.error(e);}',
+                                //'}',
+                            hasWith ? '}':''].join('');
+            var retFn = function () {
+                //console.log(fnDef);
+                cT = contextCache[cacheName] = new Function('_this_', '$view', '$withData', 'node', 'bingo', 'event', fnDef);//bingo(多版本共存)
+                bingo.cache(_vm, cacheName, cT, 200);
                 return cT;
+            };
+            try {
+                return retFn();
             } catch (e) {
                 bingo.trace(content);
                 //throw e;
@@ -237,21 +264,13 @@
             cacheObj[_vm._cacheName] = {};
         }
     }; //end _vm
-
-    //bingo.bindContext = function (owner, content, view, node, withData, event, hasRet) {
-    //    var fn = _vm.bindContext(owner, content, hasRet, view, node, withData);
-    //    return fn(event);
-    //};
-
-
+    
     var _newBase = function (p) {
         //基础
-        var o = {
-            $extend: function (p) {
-                return bingo.extend(this, p);
-            }
-        };
-        return o.$extend(p);
+        p && (p.$extend = function (p) {
+            return bingo.extend(this, p);
+        });
+        return p;
     }, _newBindContext = function (p, bd) {
         //绑定上下文
         var _pri = {
@@ -285,7 +304,7 @@
                 }
             },
             $bindContext: function (contents, isRet) {
-                return function (event) { return _vm.bindContext(this, contents, isRet)(this.$node || this.$view, this.$view, _pri.withData || {}, bingo, event); }.bind(this);
+                return function (event) { return _vm.bindContext(this, contents, isRet, this.$view.$hasWith, _pri.withData)(this.$view || this.$node, this.$view, _pri.withData, this.$node, bingo, event); }.bind(this);
             },
             $hasProps: function () {
                 return _pri.valueObj(this)[0].bgTestProps(this.$contents);
@@ -369,7 +388,7 @@
         }).$extend(p);
 
         bind.bgOnDispose(function () {
-            bingo.each(_pri.obsList, function (obs) {
+            _pri.obsList.forEach(function (obs) {
                 obs.bgIsDispose || obs.unObserve();
             });
         });
@@ -382,7 +401,7 @@
             var list = _pri[type], promises = [];
             if (list.length > 0) {
                 _pri[type] = [];
-                bingo.each(list, function (item) {
+                list.forEach(function (item) {
                     _promisePush(promises, item && item.call(this, this));
                 }, this);
             }
@@ -403,6 +422,8 @@
 
         //新建view
         var view = _newBase({
+            //是否有with
+            $hasWith:true,
             $ownerCP: null,
             $parent: null,
             $children: [],
@@ -537,11 +558,11 @@
 
         view.bgOnDispose(function () {
 
-            bingo.each(_pri.obsList, function (item) {
+            _pri.obsList.forEach(function (item) {
                 item[0].bgIsDispose || item[0].unObserve();
             });
 
-            bingo.each(_pri.obsListUn, function (item) {
+            _pri.obsListUn.forEach(function (item) {
                 item[0].bgIsDispose || item[0].unObserve();
             });
             _removeView(this.$app, this);
@@ -562,7 +583,7 @@
                 var ctrls = _pri.ctrls, promises = [];
                 if (ctrls.length > 0) {
                     _pri.ctrls = [];
-                    bingo.each(ctrls, function (item) {
+                    ctrls.forEach(function (item) {
                         _promisePush(promises, this.$inject(item));
                     }, this);
                 }
@@ -581,7 +602,7 @@
     }, _removeCPNodes = function (nodes) {
         if (nodes) {
             //_unLinkNodes('_cpLinkC', nodes);
-            bingo.each(nodes, function (item) {
+            nodes.forEach(function (item) {
                 item[_cpNodeName] = null;
                 _removeNode(item);
             });
@@ -600,8 +621,8 @@
         return len > 0 ? cp.$nodes[last ? len - 1 : 0] : null;
     }, _bakClearCP = function (cp) {
         var bak = {
-            $children: bingo.sliceArray(cp.$children),
-            $virtualNodes: bingo.sliceArray(cp.$virtualNodes),
+            $children: _slice.call(cp.$children),
+            $virtualNodes: _slice.call(cp.$virtualNodes),
             $ownerView: cp.$ownerView
         };
         return cp._bgbak_ = bak;
@@ -628,8 +649,8 @@
             if (cNode.parentNode != parent)
                 return node;
             else {
-                childNodes || (childNodes = bingo.sliceArray(parent.childNodes));
-                var childNodes = bingo.sliceArray(parent.childNodes);
+                childNodes || (childNodes = _slice.call(parent.childNodes));
+                var childNodes = _slice.call(parent.childNodes);
                 if (bingo.inArray(node, childNodes) < bingo.inArray(cNode, childNodes))
                     return node;
                 else
@@ -649,7 +670,7 @@
             if (cNode.parentNode != parent)
                 return node;
             else {
-                childNodes || (childNodes = bingo.sliceArray(parent.childNodes));
+                childNodes || (childNodes = _slice.call(parent.childNodes));
                 if (bingo.inArray(node, childNodes) > bingo.inArray(cNode, childNodes))
                     return node;
                 else
@@ -686,10 +707,10 @@
                 var ret = this.getContent(cp);
                 if (_isPromise(ret))
                     ret.then(function (s) {
-                        _traverseCmd(bingo.trim(s), cp, bd);
+                        _traverseCmd(s, cp, bd);
                     });
                 else
-                    _traverseCmd(bingo.trim(ret), cp, bd);
+                    _traverseCmd(ret, cp, bd);
                 _promisePush(_renderPromise, ret);
             }
         };
@@ -702,11 +723,11 @@
             $attrs: null,
             $nodes: null,
             $virtualNodes: [],
-            $isAFrame:true,
+            //$isAFrame:true,
             $setNodes: function (nodes) {
                 _removeCPNodes(this.$nodes);
                 this.$nodes = nodes;
-                bingo.each(nodes, function (item) {
+                nodes && nodes.forEach(function (item) {
                     item[_cpNodeName] = this;
                 }, this);
                 //_linkNodes('_cpLinkC', nodes, function () {
@@ -724,7 +745,7 @@
                 bingo.each(this.$nodes, function (node) {
                     if (node.nodeType == 1) {
                         if (isSel)
-                            list = list.concat(bingo.sliceArray(_queryAll(selector, node)));
+                            list = list.concat(_slice.call(_queryAll(selector, node)));
                         else
                             list.push(node);
                         if (isFirst && list.length > 0)
@@ -932,7 +953,7 @@
         extendWith && cp.$parent && cp.$withData(bingo.extend({}, cp.$parent.$withData()));
         if (cp.$attrs) {
             cp.$attrs._setCP(cp);
-            cp.$name = bingo.trim(cp.$attrs.$getAttr('name'));
+            cp.$name = cp.$attrs.$getAttr('name');
         }
 
         //处理else
@@ -941,10 +962,11 @@
         if (elseList) {
             var cpT, whereList = cp.$whereList;
             bingo.each(elseList, function (item, index) {
+                var as = _traverseAttr(whereList[index]), attrs = _newCPAttrs(as[0], bd)._setAS(as[1]);
                 cpT = _newCP({
                     $cmd: 'else',
                     $app: app,
-                    $attrs: _traverseAttr(whereList[index]),
+                    $attrs: attrs,// _traverseAttr(whereList[index]),
                     $view: cp.$view, $contents: item,
                     $parent: cp
                 }, false, bd);
@@ -989,10 +1011,10 @@
             //处理$view.$init('cp', fn), $view.$ready('cp', fn)
             var view = this.$view;
             var e = view.$init(this.$name + '');
-            e && bingo.each(e, function (item) { this.$init(item); }, this);
+            e && e.forEach(function (item) { this.$init(item); }, this);
 
             e = view.$ready(this.$name + '');
-            e && bingo.each(e, function (item) { this.$ready(item); }, this);
+            e && e.forEach(function (item) { this.$ready(item); }, this);
 
             return [];
         }.bind(cp));
@@ -1038,12 +1060,18 @@
                         this[name] = _newCPAttr(contents, bd);
                     }
                 },
+                _setAS: function (list) {
+                    list.forEach(function (item) {
+                        this.$setAttr(item[0], item[1]);
+                    }, this);
+                    return this;
+                },
                 _setCP: function (cp) {
                     this.$view = cp.$view;
                     this.$cp = cp;
                     this.$withData(cp.$withData());
                     var aT;
-                    bingo.each(_names, function (item) {
+                    _names.forEach(function (item) {
                         aT = this[item];
                         aT.$cp = cp;
                         aT.$app = cp.$app;
@@ -1053,7 +1081,7 @@
                 }
             });
         _attrs.bgOnDispose(function () {
-            bingo.each(_names, function (item) {
+            _names.forEach(function (item) {
                 this[item].bgDispose();
             }, this);
         });
@@ -1103,11 +1131,11 @@
                 _hide(this.$node);
             },
             $on: function (name, fn, useCaptrue) {
-                _eventList.push(bingo.sliceArray(arguments));
+                _eventList.push(_slice.call(arguments));
                 _on.apply(this.$node, arguments);
             },
             $one: function (name, fn, useCaptrue) {
-                var args = bingo.sliceArray(arguments),
+                var args = _slice.call(arguments),
                     node = this.$node;
                 args[2] = function () {
                     fn && fn.apply(this, arguments);
@@ -1130,9 +1158,9 @@
         var _eventList = [];
 
         dom.bgOnDispose(function () {
-            bingo.each(_eventList, function (item) {
+            _eventList.forEach(function (item) {
                 _off.apply(this.$node, item);
-            }.bind(this));
+            }, this);
         });
         return dom;
     }, _vNodeName = '_bgvn_', _setVNode = function (vn, node) {
@@ -1212,7 +1240,7 @@
             return index > -1 ? app._view[index] : null;
         };
 
-    var _traverseTmpl = function (tmpl) {
+    var _traverseTmpl = function (tmpl,bd) {
         var item, isSingle, isEnd, tag, attrs, find, contents,
             list = [], strAll = [], lastIndex = 0,
             strIndex = 0,
@@ -1235,7 +1263,9 @@
                     contents = tmpl.substr(lastIndex, index - lastIndex);
                     strAll.push(contents);
 
-                    id = bingo.makeAutoId();
+                    //bd.id++;
+                    id = (bd.id++)+'';//bingo.makeAutoId();
+                    //console.log(id);
                     strAll.push(_getScriptTag(id));
                     list.push({
                         id: id,
@@ -1265,45 +1295,69 @@
         return { contents: strAll.join(''), regs: list };
     };
 
-    var _traverseCmd = function (tmpl, cp, bd) {
-        var list = [], view, app;
-        bingo.isString(tmpl) || (tmpl = bingo.toStr(tmpl));
-        var tmplContext = _traverseTmpl(tmpl);
+    var _traverseCahce ={}, _traverseCmd = function (tmpl, cp, bd) {
+        var list, view, app, tmplTag,
+            cache = bingo.cache(_traverseCahce, tmpl);
 
-        tmpl = tmplContext.contents;
-        bingo.each(tmplContext.regs, function (reg) {
+        if (cache) {
+            list = cache.list;
+            tmplTag = cache.tmplTag;
+        } else {
+            list = [];
+            bingo.isString(tmpl) || (tmpl = bingo.toStr(tmpl));
+            var tmplContext = _traverseTmpl(tmpl, bd);
 
-            var elseList, whereList, item,
-                cmd = reg.tag,
-                contents = reg.contents;
-            contents && (contents = bingo.trim(contents));
-            if (cmd == 'if') {
-                var elseContent = _traverseElse(contents);
-                contents = elseContent.contents;
-                elseList = elseContent.elseList;
-                whereList = elseContent.whereList;
-            }
-            item = {
-                $id: reg.id,
-                $cmd: cmd,
-                $attrs: _traverseAttr(reg.attrs, bd),
-                $contents: contents,
-                $elseList: elseList,
-                $whereList: whereList
-            };
+            tmplTag = tmplContext.contents;
+            tmplContext.regs.forEach(function (reg) {
+
+                var elseList, whereList, item,
+                    cmd = reg.tag,
+                    contents = reg.contents;
+                contents && (contents = contents);
+                if (cmd == 'if') {
+                    var elseContent = _traverseElse(contents);
+                    contents = elseContent.contents;
+                    elseList = elseContent.elseList;
+                    whereList = elseContent.whereList;
+                    //console.log(elseContent);
+                }
+                item = {
+                    $id: reg.id,
+                    $cmd: cmd,
+                    $attrs: _traverseAttr(reg.attrs),
+                    $contents: contents,
+                    $elseList: elseList,
+                    $whereList: whereList
+                };
+                list.push(item);
+
+            });
+
+            bingo.cache(_traverseCahce, tmpl, {
+                list: list,
+                tmplTag: tmplTag
+            }, 200);
+        }
+
+        list = list.map(function (item) {
+            item = bingo.extend({}, item);
+            item.$elseList && (item.$elseList = item.$elseList.slice());
+            item.$whereList && (item.$whereList = item.$whereList.slice());
+            var as = item.$attrs;
+            item.$attrs = _newCPAttrs(as[0], bd)._setAS(as[1]);
             (item.$cmd == 'view') && (view = item);
-            list.push(item);
-
+            return item;
         });
 
         if (view) {
             app = bingo.app(view.$attrs.$getAttr('app'));
             app == bingo.defualtApp && (app = cp.$app);
             view = _newView({
-                $name: bingo.trim(view.$attrs.$getAttr('name')),
+                $name: view.$attrs.$getAttr('name'),
                 $app: app,
                 $parent: cp.$view,
-                $ownerCP: cp
+                $ownerCP: cp,
+                $hasWith: view.$attrs.$getAttr('with') !== 'false'
             }, bd);
             cp.$ownerView = view;
         } else {
@@ -1312,8 +1366,8 @@
         }
 
         var children = [], tempCP;
-        bingo.each(list, function (item) {
-            tempCP = _newCP(bingo.extend(item, {
+        list.forEach(function (item) {
+            tempCP = _newCP(bingo.extend({}, item, {
                 $view: view,
                 $app: app,
                 $parent: cp
@@ -1323,7 +1377,7 @@
         });
 
         cp.$children = children;
-        cp.tmplTag = tmpl;
+        cp.tmplTag = tmplTag;
         //return _retPromiseAll(promises);
     }, _traverseElse = function (contents) {
         var lv = 0, item, cmd, index = -1, start = -1;
@@ -1331,7 +1385,7 @@
         var elseList = [], whereList = [], wh;
         while (item = _checkElse.exec(contents)) {
             cmd = item[1];
-            wh = bingo.trim(item[2]);
+            wh = item[2];
             switch (cmd) {
                 case 'if':
                     lv++;
@@ -1357,37 +1411,34 @@
         }
 
         return { contents: start > -1 ? contents.substr(0, start) : contents, elseList: elseList, whereList: whereList };
-    }, _traverseAttr = function (s, bd) {
+    }, _traverseAttr = function (s) {
         _cmdAttrReg.lastIndex = 0;
-        var item, attrs = _newCPAttrs(s, bd);
+        var item, //attrs = _newCPAttrs(s, bd);
+            aList = [];
         while (item = _cmdAttrReg.exec(s)) {
-            attrs.$setAttr(item[1], item[2] || item[3]);
+            aList.push([item[1], item[2] || item[3]]);
+            //attrs.$setAttr(item[1], item[2] || item[3]);
         }
-        return attrs;
+        //console.log(aList);
+        return [s, aList];
+        //return attrs;
     }, _renderPromise = [], _renderThread = function () {
         var promises = _renderPromise;
         _renderPromise = [];
         return _Promise.always(promises).then(function () {
             if (_renderPromise.length > 0) return _renderThread();
         });
-    }, _newBuild = function (isAFrame) {
+    }, _newBuild = function () {
         var _stepObj = {}, _doneStep = function (stepList, name) {
-            
-            var isFr = isAFrame !== false && (name.indexOf('Ready') > 0 || name.indexOf('Init') > 0),
-                fn = function () {
-                    var promises = [];
-                    bingo.each(stepList, function (fn) {
-                        _promisePushList(promises, fn());
-                    });
-                    return _retPromiseAll(promises, true).then(bd.doneStep(name));
-                };
 
-            if (isFr)
-                return bingo.aFramePromise().then(fn);
-            else
-                return fn();
+            var promises = [];
+            stepList.forEach(function (fn) {
+                _promisePushList(promises, fn());
+            });
+            return _retPromiseAll(promises, true).then(bd.doneStep(name));
         }, end = false,bd;
         return bd = {
+            id:0,
             pushStep: function (name, fn) {
                 if (_stepObj[name])
                     _stepObj[name].push(fn);
@@ -1432,6 +1483,18 @@
         node.parentNode && node.parentNode.removeChild(node);
     }, _injWithName = 'bingo_cmpwith_';
 
+    var _checkClone = (function () {
+        var div = _doc.createElement("div");
+        div.innerHTML = "<input type='checkbox'/>";
+        var input = div.getElementsByTagName("input")[0],
+            fragment = document.createDocumentFragment();
+        input.checked = true;
+
+        fragment.appendChild(input);
+
+        return  fragment.cloneNode(true).cloneNode(true).lastChild.checked;
+    })();
+
     var _spTags = 'html,body,head', _wrapMap = {
         select: [1, "<select multiple='multiple'>", "</select>"],
         fieldset: [1, "<fieldset>", "</fieldset>"],
@@ -1454,13 +1517,24 @@
             }
         }
     }, _parseSrcipt = function (container, script) {
-        bingo.each(container.querySelectorAll('script'), function (node) {
+        _slice.call(container.querySelectorAll('script')).forEach(function (node) {
             if (!node.type || _scriptType.test(node.type)) {
                 _removeNode(node);
-                script && _globalEval(node);
+                _globalEval(node);
             }
         });
-    }, _parseHTML = function (html, p, script) {
+    },
+	_rchecked = /checked\s*(?:[^=]|=\s*.checked.)/i,
+    _nodeNames = "abbr|article|aside|audio|bdi|canvas|data|datalist|details|figcaption|figure|footer|" +
+		"header|hgroup|mark|meter|nav|output|progress|section|summary|time|video",
+	_rnoshimcache = new RegExp("<(?:" + _nodeNames + ")[\\s/>]", "i"),
+    _html5Clone = _doc.createElement("nav").cloneNode(true).outerHTML !== "<:nav></:nav>",
+    _isCacheHtml = function (html) {
+        return (_checkClone || !_rchecked.test(html)) &&
+            (_html5Clone || !_rnoshimcache.test(html));
+    },
+    _parseHTMLCache = {},_rempty = /^\s*$/,
+    _parseHTML = function (html, p, script) {
         /// <summary>
         /// 
         /// </summary>
@@ -1468,16 +1542,27 @@
         /// <param name="p">可以父节点或父节点tagName</param>
         /// <param name="script">是否运行script</param>
         /// <returns value=''></returns>
-        var tagName = p ? (bingo.isString(p) ? p : p.tagName.toLowerCase()) : '';
-        var wrap = _wrapMap[tagName] || _wrapMap.div, depth = wrap[0];
-        html = wrap[1] + html + wrap[2];
-        var container = _doc.createElement('div');
-        container.innerHTML = html;
-        while (depth--) {
-            container = container.lastChild;
+        if (_rempty.test(html)) return [];
+
+        var isCache = _isCacheHtml(html),
+            container = isCache ? bingo.cache(_parseHTMLCache, html) : null;
+        if (!container) {
+            //console.log(html);
+            var tagName = p ? (bingo.isString(p) ? p : p.tagName.toLowerCase()) : '',
+                wrap = _wrapMap[tagName] || _wrapMap.div, depth = wrap[0],
+                nhtml = wrap[1] + html + wrap[2];
+            container = _doc.createElement('div');
+            container.innerHTML = nhtml;
+            while (depth--) {
+                container = container.lastChild;
+            }
+            isCache && bingo.cache(_parseHTMLCache, html, container, 200);
         }
-        _parseSrcipt(container, script);
-        return bingo.sliceArray(container.childNodes);
+        isCache && (container = container.cloneNode(true));
+        //console.log(isCache, html);
+        //console.log(container);
+        script && _parseSrcipt(container, script);
+        return _slice.call(container.childNodes);
     }, _insertDom = function (nodes, refNode, fName) {
         //fName:appendTo, insertBefore
         var p;
@@ -1500,12 +1585,10 @@
         //取得cp空白节点
         _getCpEmptyNode = function (cp) {
             //var html = (_isComment) ?
-            //    ['<!--', _commentPrefix, cp.$id, '-->'].join('') :
+            //    '<!--bg-virtual-->' :
             //    _getScriptTag(cp.$id);
-            var html = (_isComment) ?
-                ['<!--bg-virtual-->'].join('') :
-                _getScriptTag(cp.$id);
-            return _parseHTML(html)[0];
+
+            return (_isComment) ? _doc.createComment('bg-virtual') : _parseHTML(_getScriptTag(cp.$id))[0];
         },
         _isScriptTag = /script/i,
         //取得render cp标签节点
@@ -1545,7 +1628,7 @@
             _virtualNodes(cp, nodes, bd);
             _traverseNodes(nodes, cp, bd);
             //重新读取childNodes，原因可以处理子级过程中有删除或增加节点
-            nodes = bingo.sliceArray(pNode.childNodes);
+            nodes = _slice.call(pNode.childNodes);
         }
 
         //检查是否空内容， 如果空，增加一个临时节点
@@ -1561,7 +1644,7 @@
     }, _traverseNodes = function (nodes, cp, bd) {
 
         var id, tempCP;
-        bingo.each(nodes, function (item) {
+        nodes.forEach(function (item) {
             if (item.nodeType == 1) {
                 //script的bg-id
                 id = _getEmptyRenderId(item);
@@ -1576,7 +1659,7 @@
                     }
                 } else {
                     //分析所有script节点， script临时节点
-                    _traverseNodes(_queryAll('script', item), cp, bd);
+                    _traverseNodes(_slice.call(_queryAll('script', item)), cp, bd);
                 }
             }
         });
@@ -1586,7 +1669,7 @@
     //_compile({cp:cp, context:node, opName:'insertBefore'});
     var _compile = function (p, ctrl) {
         var view = p.view;
-        var bd = _newBuild(!p.cp || p.cp.$isAFrame);
+        var bd = _newBuild();
         bd.ctrl = ctrl;
         var cp = p.cp || _newCP({
             $app: view.$app || bingo.defualtApp,
@@ -1619,7 +1702,7 @@
                 if (isAppend)
                     _insertDom(tmNode.childNodes, node, 'appendTo');
                 else {
-                    _insertDom(bingo.sliceArray(tmNode.childNodes, 0, -1), nextNode, 'insertBefore');
+                    _insertDom(_slice.call(tmNode.childNodes, 0, -1), nextNode, 'insertBefore');
                     _removeNode(nextNode);
                 }
                 tmNode = nextNode = null;

@@ -1,4 +1,4 @@
-#### 2.0.0.160731
+#### 2.1.beta.160814
 
 1. 增强bingo.compile 
 
@@ -26,5 +26,13 @@
 
 4. 强化{{route}} 
 
-5. 优化代码 
+5. {{include}} 的$export为cp, 并支持src属性
+
+6. {{view with="true/false" /}} 添加with属性支持默认为true, 使用with模式； 如果为false时{{this.userName}}指令内容要添加this
+
+7. 优化代码(编译性能提升30%)
+
+8. 调整Array的方法， 如push修改为bgPush, 不占用原来方法
+
+9. 调整异步处理机制，减少UI闪动
 
