@@ -174,10 +174,10 @@
             $view.list1 = [{ id: '1', text: '1111' }, { id: '2', text: '2222' }];
             $view.addList = function () {
                 var id = bingo.makeAutoId();
-                $view.list1.push({ id: id, text: 'text_' + id });
+                $view.list1.bgPush({ id: id, text: 'text_' + id });
             };
             $view.rmList = function (index) {
-                $view.list1.splice(index, 1);
+                $view.list1.bgSplice(index, 1);
             };
             $view.setList = function (index) {
                 var id = bingo.makeAutoId();

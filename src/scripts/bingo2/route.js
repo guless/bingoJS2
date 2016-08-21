@@ -7,7 +7,8 @@
           doc.getElementsByTagName('head')[0] ||
           doc.documentElement,
        baseElement = head.getElementsByTagName('base')[0],
-       READY_STATE_RE = /loaded|complete|undefined/i;
+       READY_STATE_RE = /loaded|complete|undefined/i,
+        slice = Array.prototype.slice;
 
     var _fetch = function (url, callback, charset) {
 
@@ -432,6 +433,12 @@
         if (arguments.length == 2) {
             if (!cache) return undefined;
             var index = bingo.inArray(function (item) { return item[0] == key; }, cache);
+            if (index > -1) {
+                var cI = cache[index];
+                cI[2] = new Date().valueOf();
+                return cI[1];
+            } else
+                return undefined;
             return index > -1 ? cache[index][1] : undefined;
         } else {
             arguments < 4 && (max = 20);
@@ -443,9 +450,10 @@
             } else {
                 c = [key, p, t];
                 cache.push(c);
-                if (cache.length >= max + 5) {
+                var end = cache.length - 15;
+                if (end >= max) {
                     cache.sort(function (item, item1) { return item1[2] - item[2]; });
-                    owner[_cacheName] = bingo.sliceArray(cache, 0, cache.length - 5);
+                    owner[_cacheName] = bingo.sliceArray(cache, 0, end);
                 }
             }
             return p;
@@ -552,7 +560,7 @@
         //如果url匹配， 
         //生成多余参数
         if (urlParams.length > 1) {
-            urlParams = bingo.sliceArray(urlParams, 1);
+            urlParams = slice.call(urlParams, 1);
             bingo.each(urlParams, function (item, index) {
                 var list = item.split(':'),
                     name = list[0],

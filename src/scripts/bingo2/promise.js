@@ -153,8 +153,8 @@
             return this.all(args, fn, true);
         }
     });
-    var _makeArgs = function (args, fn) {
-        args = bingo.sliceArray(args);
+    var _slice = Array.prototype.slice, _makeArgs = function (args, fn) {
+        args = _slice.call(args);
         args.length == 0 && (args = [args]);
         if (!fn) return args;
         var list = [];

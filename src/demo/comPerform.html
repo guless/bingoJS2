@@ -7,9 +7,10 @@
 </head>
 <body>
     <script type="text/html" id="demo">
-        {{view controller="main" name="main" app="demo" /}}
+        {{view controller="main" with="false" name="main" app="demo" /}}
         <div>
-            <button onclick="[[start]]">开始</button>
+            <button onclick="[[this.start]]">开始</button>
+            <button onclick="[[this.start1]]">开始1</button>
         </div>
         <table>
             <tr>
@@ -22,7 +23,7 @@
             </tr>
             {{include name="inc1" /}}
             {{tmpl id="tmpl1"}}
-            {{for item in list}}
+            {{for item in this.list}}
             <tr>
                 {{for col in [1,2,3,4,5]}}
                 <td>{{text item[col_index] /}}</td>
@@ -31,13 +32,13 @@
             {{/for}}
             {{/tmpl}}
             {{tmpl id="tmpl2"}}
-            {{for item in list}}
+            {{for item in this.list}}
             <tr>
-                <td>{{text item[0] /}}</td>
-                <td>{{text item[1] /}}</td>
-                <td>{{text item[2] /}}</td>
-                <td>{{text item[3] /}}</td>
-                <td>{{text item[4] /}}{{if $odd}} ok{{/if}} </td>
+                <td>{{text item[0] /}} | </td>
+                <td>{{text item[1] /}} | </td>
+                <td>{{text item[2] /}} | </td>
+                <td>{{text item[3] /}} | </td>
+                <td>{{text item[4] /}}{{if $odd}} ok {{else}} no {{/if}} </td>
             </tr>
             {{/for}}
             {{/tmpl}}
@@ -55,10 +56,9 @@
                 for (var i = 1; i <= 50; i++) {
                     datas.push([i, 'Business management','default', '测试1号', '2014年9月4日 7:28:47']);
                 }
-                $view.list = datas;
+                $view.list = datas.slice();
 
                 $view.$ready(function () {
-                    
                 });
 
                 $view.start = function () {
@@ -73,6 +73,18 @@
                             console.timeEnd('list');
                         });
                     });
+                };
+
+                $view.start1 = function () {
+                    var list = datas.slice(),item;
+                    console.time('start1');
+                    for (var i = 0; i < 100000; i++) {
+                        //item = new Date().getTime();
+                        item = list.splice(30, 1);
+                        list.unshift(item[0]);
+                    }
+                    console.timeEnd('start1');
+                    //console.log(list);
                 };
 
             });

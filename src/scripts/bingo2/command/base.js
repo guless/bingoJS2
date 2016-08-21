@@ -132,11 +132,12 @@
         cp.$isAFrame = false;
 
         var contents = cp.$attrs.$contents;
-        var withListName = '_bg_for_datas_' + bingo.makeAutoId();
+        var withListName = '';
 
         if (_forItemReg.test(contents)) {
             var itemName = RegExp.$1, dataName = RegExp.$2 || RegExp.$4, tmpl = bingo.trim(RegExp.$3);
             if (itemName && dataName) {
+                var withListName = '_bg_for_datas_' + itemName;
                 cp.$attrs.$contents = dataName;
                 var render = function (html, datas) {
                     if (tmpl)
@@ -169,7 +170,7 @@
     });
 
     defualtApp.command('if', function (cp) {
-        cp.$isAFrame = false;
+        //cp.$isAFrame = false;
 
         var _contents = cp.$contents,
             _elseList = cp.$elseList, _getContent = function (index, val) {
