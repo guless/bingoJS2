@@ -267,12 +267,10 @@
     
     var _newBase = function (p) {
         //基础
-        var o = {
-            $extend: function (p) {
-                return bingo.extend(this, p);
-            }
-        };
-        return o.$extend(p);
+        p && (p.$extend = function (p) {
+            return bingo.extend(this, p);
+        });
+        return p;
     }, _newBindContext = function (p, bd) {
         //绑定上下文
         var _pri = {
