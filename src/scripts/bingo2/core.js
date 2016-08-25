@@ -256,6 +256,81 @@
     Function.prototype.bgDefProp(fpName, true, false);
     String.prototype.bgDefProp(spName, true, false);
 
+    var _cacheName = '_bg_cache2_', _orderC = function (cc) {
+        cc.sort(function (item, item1) { return item1[2] - item[2]; });
+    }, _resetKeyC = function (cc) {
+        return cc.map(function (item) { return item[0]; });
+    }, _resetC = function (cc) {
+        var len = cc.length, n = len - 1;
+        _orderC(cc);
+        cc.forEach(function (item) { return item[2] = n--; });
+        return len;
+    }, _maxCC = Number.MAX_VALUE;
+    Object.defineProperty(Object.prototype, 'bgCache', {
+        configurable: true,
+        enumerable: false,
+        get: function () {
+            var m = this[_cacheName];
+            if (m) return m;
+
+            m = this[_cacheName] = function (key, p) {
+                return (arguments.length > 1) ? m.setItem(key, p) : m.getItem(key);
+            };
+            var _cache = [], _keys = [], _max = 20, _dCount = 5, _ti = 0, _tick = function (c) {
+                if (_ti == _maxCC) {
+                    _ti = _resetC(_cache);
+                    _keys = _resetKeyC(_cache);
+                }
+                c[2] = _ti++; return c;
+            }, _removeMax = function (end) {
+                _orderC(_cache);
+                _cache = slice.call(_cache, 0, end);
+                _keys = _resetKeyC(_cache);
+            };
+            m.option = function (max, dCount) {
+                _max = max || 20; _dCount = dCount || ~~(_max / 3);
+                return this;
+            };
+            m.setItem = function (key, p) {
+                var index = this.indexOf(key), c;
+                if (index > -1) {
+                    _tick(_cache[index])[1] = p;
+                } else {
+                    c = _tick([key, p, 0]);
+                    _cache.unshift(c);
+                    _keys.unshift(key);
+                    var end = _cache.length - _dCount;
+                    (end >= _max) && _removeMax(_cache.length - _dCount);
+                }
+                return p;
+            };
+            m.getItem = function (key) {
+                var index = this.indexOf(key);
+                if (index > -1) {
+                    return _tick(_cache[index])[1];
+                } else
+                    return undefined;
+            };
+            m.getAll = function () { return _cache; };
+            m.size = function () { return _cache.length; };
+            m.indexOf = function (key) {
+                return _keys.indexOf(key);
+            };
+            //删除key内容
+            m.removeItem = function (key) {
+                var index = this.indexOf(key);
+                return (index > -1) ? (_keys.splice(index, 1), _cache.splice(index, 1)[0]) : undefined;
+            };
+            //删除所有内容
+            m.removeAll = function () {
+                _cache = [];
+            };
+            return m;
+        },
+        set: function () { }
+    });
+
+
     //解决多版共存问题
     var majVer = ['bingoV' + bingo.version.major].join(''),
         minorVer = [majVer, bingo.version.minor].join('_');

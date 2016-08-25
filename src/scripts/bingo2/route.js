@@ -165,7 +165,6 @@
             } else
                 return _loadConfig[type](url, p);
         };
-    var _tmplCacheObj = {};
 
     bingo.app.extend({
         using: function (url, bRoute) {
@@ -349,18 +348,18 @@
             }, options.timeout);
 
             return D.promise;
-        }, _loadConfig = {
+        }, _tmplCacheObj = ({}).bgCache.option(200), _loadConfig = {
             ajax: _ajax,
             using: _loadJS,
             tmpl: function (url, p) {
                 var key = url;
-                var cache = bingo.cache(_tmplCacheObj, key);
+                var cache = _tmplCacheObj(key);
                 if (bingo.isString(cache)) {
                     return _Promise.resolve(cache);
                 } else {
                     var tFn = function (html) {
                         if (bingo.isString(html))
-                            bingo.cache(_tmplCacheObj, key, html, 200);
+                            _tmplCacheObj(key, html);
                         return html;
                     };
 
@@ -426,47 +425,6 @@
             return _Promise.resolve(html);
         }
     });
-
-    var _cacheName = '_bg_cache2_';
-    bingo.cache = function (owner, key, p, max) {
-        var cache = owner[_cacheName];
-        if (arguments.length == 2) {
-            if (!cache) return undefined;
-            var index = bingo.inArray(function (item) { return item[0] == key; }, cache);
-            if (index > -1) {
-                var cI = cache[index];
-                cI[2] = new Date().valueOf();
-                return cI[1];
-            } else
-                return undefined;
-            return index > -1 ? cache[index][1] : undefined;
-        } else {
-            arguments < 4 && (max = 20);
-            cache || (cache = owner[_cacheName] = []);
-            var index = bingo.inArray(function (item) { return item[0] == key; }, cache);
-            var c = index > -1 ? cache[index] : null, t = new Date().valueOf();
-            if (c) {
-                c[1] = p, c[2] = t;
-            } else {
-                c = [key, p, t];
-                cache.push(c);
-                var end = cache.length - 15;
-                if (end >= max) {
-                    cache.sort(function (item, item1) { return item1[2] - item[2]; });
-                    owner[_cacheName] = bingo.sliceArray(cache, 0, end);
-                }
-            }
-            return p;
-        }
-    };
-    bingo.cacheRemove = function (owner, key) {
-        var cache = owner[_cacheName];
-        if (cache) {
-            var index = bingo.inArray(function () { return this[0] == key; }, cache);
-            return (index > -1) ? cache.splice(index, 1)[0] : undefined;
-        }
-    };
-
 
     //route=====================================================
 

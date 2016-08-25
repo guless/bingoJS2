@@ -76,19 +76,24 @@
                 };
 
                 $view.start1 = function () {
-                    var list = datas.slice(),item;
+                    var list = datas.slice(), item, n = 0;
+                    var cache = ({}).bgCache.option(20), objC = {};
                     console.time('start1');
                     for (var i = 0; i < 100000; i++) {
+                        //item = bingo.cache(objC, 'key0');
+                        //cache('key' + i, i);//500-550ms, get:75ms;但max越大优势越好
+                        //bingo.cache(objC, 'key' + i, i, 20);//set:480-500ms, get:90ms;但max越大优势越差
                         //item = new Date().getTime();
-                        item = list.splice(30, 1);
-                        list.unshift(item[0]);
+                        //item = list.splice(30, 1);
+                        //list.unshift(item[0]);
                     }
                     console.timeEnd('start1');
+                    //console.log(cache.getAll());
+                    console.log(item);
                     //console.log(list);
                 };
 
             });
-
 
             bingo.ready(function () {
                 console.time('boot');
