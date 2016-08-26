@@ -53,7 +53,7 @@
             app.controller('main', function ($view) {
 
                 var datas = [];
-                for (var i = 1; i <= 50; i++) {
+                for (var i = 1; i <= 150; i++) {
                     datas.push([i, 'Business management','default', '测试1号', '2014年9月4日 7:28:47']);
                 }
                 $view.list = datas.slice();
@@ -65,11 +65,11 @@
                     datas = datas.slice();
                     $view.list = datas;
                     console.time('list');
-                    //console.profile('list');
+                    console.profile('list');
                     //$view.inc1.src = '#tmpl2';
                     $view.inc1.$loadTmpl('#tmpl2').then(function (s) {
                         $view.inc1.$html(s).then(function (cp) {
-                            //console.profileEnd('list');
+                            console.profileEnd('list');
                             console.timeEnd('list');
                         });
                     });
@@ -78,8 +78,11 @@
                 $view.start1 = function () {
                     var list = datas.slice(), item, n = 0;
                     var cache = ({}).bgCache.option(20), objC = {};
+                    for (var i = 0; i < 20; i++)
+                        objC['key' + i] = i;
                     console.time('start1');
                     for (var i = 0; i < 100000; i++) {
+                        item = Object.keys(objC);
                         //item = bingo.cache(objC, 'key0');
                         //cache('key' + i, i);//500-550ms, get:75ms;但max越大优势越好
                         //bingo.cache(objC, 'key' + i, i, 20);//set:480-500ms, get:90ms;但max越大优势越差

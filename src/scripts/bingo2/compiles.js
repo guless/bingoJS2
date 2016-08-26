@@ -297,8 +297,8 @@
                     case 0:
                         return _pri.withData;
                     case 1:
-                        return bingo.isObject(name) ? (_pri.withData = name)
-                            : _pri.withData[name];
+                        return bingo.isString(name) ? _pri.withData[name]
+                            : (_pri.withData = name);
                     case 2:
                         return _pri.withData[name] = p;
                 }
@@ -1533,7 +1533,7 @@
         return (_checkClone || !_rchecked.test(html)) &&
             (_html5Clone || !_rnoshimcache.test(html));
     },
-    _parseHTMLCache = ({}).bgCache.option(200),_rempty = /^\s*$/,
+    _parseHTMLCache = ({}).bgCache.option(100),_rempty = /^\s*$/,
     _parseHTML = function (html, p, script) {
         /// <summary>
         /// 

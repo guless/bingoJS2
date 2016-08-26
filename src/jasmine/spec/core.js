@@ -468,13 +468,13 @@ describe('core --- bingoJS ' + bingo.version , function () {
         //    expect(bingo.equals(obj, obj1)).toEqual(false);
         //});
 
-        it('other', function () {
-            //expect(bingo._splitEvName(['aaa'])).toEqual(['aaa']);
-            //expect(bingo._splitEvName(true)).toEqual(true);
-            //expect(bingo._splitEvName('')).toEqual(null);
-            expect(bingo._splitEvName(' a  aaa  ')).toEqual(['a', 'aaa']);
-            expect(bingo._splitEvName('aaa')).toEqual(['aaa']);
-        });
+        //it('other', function () {
+        //    //expect(bingo._splitEvName(['aaa'])).toEqual(['aaa']);
+        //    //expect(bingo._splitEvName(true)).toEqual(true);
+        //    //expect(bingo._splitEvName('')).toEqual(null);
+        //    expect(bingo._splitEvName(' a  aaa  ')).toEqual(['a', 'aaa']);
+        //    expect(bingo._splitEvName('aaa')).toEqual(['aaa']);
+        //});
 
 
     }); //end describe 常用方法
@@ -500,15 +500,15 @@ describe('core --- bingoJS ' + bingo.version , function () {
             expect(count).toEqual(1);
 
             //多个定义
-            count = 0, o = {};
-            o.bgOn('test test1', function () { count++; });
-            o.bgTrigger('test');
-            expect(count).toEqual(1);
-            o.bgTrigger('test1');
-            o.bgTrigger('test2');
-            expect(count).toEqual(2);
-            o.bgTrigger('test test1 test2');
-            expect(count).toEqual(4);
+            //count = 0, o = {};
+            //o.bgOn('test test1', function () { count++; });
+            //o.bgTrigger('test');
+            //expect(count).toEqual(1);
+            //o.bgTrigger('test1');
+            //o.bgTrigger('test2');
+            //expect(count).toEqual(2);
+            //o.bgTrigger('test test1 test2');
+            //expect(count).toEqual(4);
 
         });
 

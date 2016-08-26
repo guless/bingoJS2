@@ -1,7 +1,7 @@
 ﻿
 (function (undefined) {
     "use strict";
-
+    window.aaaa = 0;
     var stringEmpty = "",
         toString = Object.prototype.toString,
         core_hasOwn = Object.prototype.hasOwnProperty,
@@ -180,52 +180,8 @@
             });
             return obj;
         },
-        Class: function (fn) {
-            var def = function () {
-                var p = this._bgpro_;
-                p && (this._bgpro_ = bingo.extend({}, p));
-                this._bgpri_ = new pri();
-                init && init.apply(this, arguments);
-            }, prototype = def.prototype,
-            init = null,
-            pri = function () { }, pritype = pri.prototype,
-                defObj = {
-                    Prop: function (p) {
-                        prototype._bgpro_ = bingo.extend(prototype._bgpro_ || {}, p);
-                        bingo.eachProp(p, function (item, n) {
-                            prototype[n] = function (val) {
-                                if (arguments.length == 0)
-                                    return this._bgpro_[n];
-                                else {
-                                    this._bgpro_[n] = val;
-                                    return this;
-                                }
-                            };
-                        }, this);
-                    },
-                    Event: function (s) { prototype.bgEventDef(s); },
-                    Define: function (p) {
-                        bingo.extend(prototype, p);
-                    },
-                    Private: function (p) {
-                        bingo.extend(pritype, p);
-                    },
-                    Init: function (fn) { init = fn; }
-                };
-            fn.call(defObj);
-            bingo.extend(prototype, {
-                Extend: function (p) { bingo.extend(this, p); },
-                Private: function (p) { bingo.extend(this._bgpri_, p); }
-            });
-
-            def.constructor = def;
-            return def;
-        },
         proxy: function (thisArg, fn) {
             return function() { return fn && fn.apply(thisArg, arguments); };
-        },
-        _splitEvName: function (eventName) {
-            return !eventName ? [] : eventName.replace(/(^\s*)|(\s*$)/g, '').split(/\s+/g);
         }
     };
 

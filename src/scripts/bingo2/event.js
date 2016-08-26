@@ -54,64 +54,50 @@
                 return ret;
             }
         };
-    }, _splitEvName = bingo._splitEvName, _rmEvent = function (o) {
+    }, _rmEvent = function (o) {
         var events = o[_bgevsn];
         if (events) {
             o.bgOff(Object.keys(events).join(' '));
             o[_bgevsn] = null;
         }
+    }, _splitEvName = function (eventName) {
+        return !eventName ? [] : eventName.replace(/(^\s*)|(\s*$)/g, '').split(/\s+/g);
     };
 
     Object.prototype.bgDefProps({
-        //bgOn('ready init', fn)
+        //bgOn('ready', fn)
         bgOn: function (eventName, callback) {
-            _splitEvName(eventName).forEach(function (item) {
-                _getEvent(this, item, true).on(callback, this);
-            }, this);
+            _getEvent(this, eventName, true).on(callback, this);
             return this;
         },
-        //bgOn('ready init', fn)
+        //bgOn('ready', fn)
         bgOne: function (eventName, callback) {
-            _splitEvName(eventName).forEach(function (item) {
-                _getEvent(this, item, true).on(callback, this, true);
-            }, this);
+            _getEvent(this, eventName, true).on(callback, this, true);
             return this;
         },
         //bgOff() //删除所有事件
-        //bgOff('ready init')
-        //bgOff('ready init', fn)
+        //bgOff('ready')
+        //bgOff('ready', fn)
         bgOff: function (eventName, callback) {
             if (arguments.length == 0)
                 _rmEvent(this);
             else
-                _splitEvName(eventName).forEach(function (item) {
-                    _getEvent(this, item).off(callback);
-                }, this);
+                _getEvent(this, eventName).off(callback);
             return this;
         },
         //bgEnd('ready init')
         bgEnd: function (eventName) {
-            _splitEvName(eventName).forEach(function (item) {
-                _getEvent(this, item, true).end(this);
-            }, this);
+            _getEvent(this, eventName, true).end(this);
             return this;
         },
-        //bgTrigger('ready init')
-        //bgTrigger('ready init', [arg1, arg2])
-        //bgTrigger('ready init', [arg1, arg2], this)
+        //bgTrigger('ready')
+        //bgTrigger('ready', [arg1, arg2])
+        //bgTrigger('ready', [arg1, arg2], this)
         bgTrigger: function (eventName, args, thisArg) {
-            var ret;
-            _splitEvName(eventName).forEach(function (item) {
-                ret = _getEvent(this, item).trigger(args, thisArg || this);
-            }, this);
-            return ret;
+            return _getEvent(this, eventName).trigger(args, thisArg || this);
         },
         bgTriggerHandler: function (eventName, args, thisArg) {
-            var ret;
-            _splitEvName(eventName).forEach(function (item) {
-                ret = _getEvent(this, item).trigger(args, thisArg || this, true);
-            }, this);
-            return ret;
+            return _getEvent(this, eventName).trigger(args, thisArg || this, true);
         },
         //bgEventDef('ready init')
         bgEventDef: function (eventName) {
