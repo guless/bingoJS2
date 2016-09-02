@@ -1,7 +1,7 @@
 ﻿
 (function (undefined) {
     "use strict";
-    window.aaaa = 0;
+    //window.aaaa = 0;
     var stringEmpty = "",
         toString = Object.prototype.toString,
         core_hasOwn = Object.prototype.hasOwnProperty,
