@@ -1,7 +1,7 @@
 ﻿
 (function (undefined) {
     "use strict";
-
+    //window.aaaa = 0;
     var stringEmpty = "",
         toString = Object.prototype.toString,
         core_hasOwn = Object.prototype.hasOwnProperty,
@@ -20,7 +20,7 @@
 
     var bingo = window.bingo = {
         //主版本号.子版本号.修正版本号.编译版本号(日期)
-        version: { major: 2, minor: 1, rev: 'beta', build: 160821, toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
+        version: { major: 2, minor: 1, rev: 0, build: 160907, toString: function () { return [this.major, this.minor, this.rev, this.build].join('.'); } },
         bgNoObserve: true,//防止observe
         isDebug: false,
         prdtVersion: '',
@@ -180,52 +180,8 @@
             });
             return obj;
         },
-        Class: function (fn) {
-            var def = function () {
-                var p = this._bgpro_;
-                p && (this._bgpro_ = bingo.extend({}, p));
-                this._bgpri_ = new pri();
-                init && init.apply(this, arguments);
-            }, prototype = def.prototype,
-            init = null,
-            pri = function () { }, pritype = pri.prototype,
-                defObj = {
-                    Prop: function (p) {
-                        prototype._bgpro_ = bingo.extend(prototype._bgpro_ || {}, p);
-                        bingo.eachProp(p, function (item, n) {
-                            prototype[n] = function (val) {
-                                if (arguments.length == 0)
-                                    return this._bgpro_[n];
-                                else {
-                                    this._bgpro_[n] = val;
-                                    return this;
-                                }
-                            };
-                        }, this);
-                    },
-                    Event: function (s) { prototype.bgEventDef(s); },
-                    Define: function (p) {
-                        bingo.extend(prototype, p);
-                    },
-                    Private: function (p) {
-                        bingo.extend(pritype, p);
-                    },
-                    Init: function (fn) { init = fn; }
-                };
-            fn.call(defObj);
-            bingo.extend(prototype, {
-                Extend: function (p) { bingo.extend(this, p); },
-                Private: function (p) { bingo.extend(this._bgpri_, p); }
-            });
-
-            def.constructor = def;
-            return def;
-        },
         proxy: function (thisArg, fn) {
             return function() { return fn && fn.apply(thisArg, arguments); };
-        },
-        _splitEvName: function (eventName) {
-            return !eventName ? [] : eventName.replace(/(^\s*)|(\s*$)/g, '').split(/\s+/g);
         }
     };
 
@@ -255,6 +211,81 @@
     var fpName = '_bg_ifFn_', spName = '_bg_ifStr_';
     Function.prototype.bgDefProp(fpName, true, false);
     String.prototype.bgDefProp(spName, true, false);
+
+    var _cacheName = '_bg_cache2_', _orderC = function (cc) {
+        cc.sort(function (item, item1) { return item1[2] - item[2]; });
+    }, _resetKeyC = function (cc) {
+        return cc.map(function (item) { return item[0]; });
+    }, _resetC = function (cc) {
+        var len = cc.length, n = len - 1;
+        _orderC(cc);
+        cc.forEach(function (item) { return item[2] = n--; });
+        return len;
+    }, _maxCC = Number.MAX_VALUE;
+    Object.defineProperty(Object.prototype, 'bgCache', {
+        configurable: true,
+        enumerable: false,
+        get: function () {
+            var m = this[_cacheName];
+            if (m) return m;
+
+            m = this[_cacheName] = function (key, p) {
+                return (arguments.length > 1) ? m.setItem(key, p) : m.getItem(key);
+            };
+            var _cache = [], _keys = [], _max = 20, _dCount = 5, _ti = 0, _tick = function (c) {
+                if (_ti == _maxCC) {
+                    _ti = _resetC(_cache);
+                    _keys = _resetKeyC(_cache);
+                }
+                c[2] = _ti++; return c;
+            }, _removeMax = function (end) {
+                _orderC(_cache);
+                _cache = slice.call(_cache, 0, end);
+                _keys = _resetKeyC(_cache);
+            };
+            m.option = function (max, dCount) {
+                _max = max || 20; _dCount = dCount || ~~(_max / 3);
+                return this;
+            };
+            m.setItem = function (key, p) {
+                var index = this.indexOf(key), c;
+                if (index > -1) {
+                    _tick(_cache[index])[1] = p;
+                } else {
+                    c = _tick([key, p, 0]);
+                    _cache.unshift(c);
+                    _keys.unshift(key);
+                    var end = _cache.length - _dCount;
+                    (end >= _max) && _removeMax(_cache.length - _dCount);
+                }
+                return p;
+            };
+            m.getItem = function (key) {
+                var index = this.indexOf(key);
+                if (index > -1) {
+                    return _tick(_cache[index])[1];
+                } else
+                    return undefined;
+            };
+            m.getAll = function () { return _cache; };
+            m.size = function () { return _cache.length; };
+            m.indexOf = function (key) {
+                return _keys.indexOf(key);
+            };
+            //删除key内容
+            m.removeItem = function (key) {
+                var index = this.indexOf(key);
+                return (index > -1) ? (_keys.splice(index, 1), _cache.splice(index, 1)[0]) : undefined;
+            };
+            //删除所有内容
+            m.removeAll = function () {
+                _cache = [];
+            };
+            return m;
+        },
+        set: function () { }
+    });
+
 
     //解决多版共存问题
     var majVer = ['bingoV' + bingo.version.major].join(''),

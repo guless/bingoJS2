@@ -37,22 +37,18 @@
         };
     }]);
 
-    var _cacheObj = {};
+    var _cacheObj = ({}).bgCache.option(1000);
     defualtApp.service('$cache', function () {
-        return function (key, value, max) {
-            var args = [_cacheObj].concat(bingo.sliceArray(arguments));
-            return bingo.cache.apply(bingo, args);
+        return function (key, value) {
+            return _cacheObj.apply(this, arguments);
         };
     });
 
     //参数，使用后，自动清除
-    var _paramObj = {};
+    var _paramObj = ({}).bgCache.option(10);
     defualtApp.service('$param', function () {
         return function (key, value) {
-            if (arguments.length == 1)
-                return bingo.cache(_paramObj, key);
-            else
-                return bingo.cache(_paramObj, key, value, 10);
+            return _paramObj.apply(this, arguments);
         };
     });
 

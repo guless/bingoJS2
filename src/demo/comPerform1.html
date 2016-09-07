@@ -1,0 +1,73 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>测试编译性能(comPerform)</title>
+    <link href="style.css" rel="stylesheet" />
+</head>
+<body>
+    <script type="text/html" id="demo">
+        {{view controller="main" with="false" name="main" app="demo" /}}
+        <div>
+            <button onclick="[[this.start]]">开始</button>
+        </div>
+        <div>
+            <div class="row">
+                {{for item in this.data}}
+                <div class="col-md-12 test-data">
+                    <span class="[[item.id === this.selected ? 'selected': '']]" onclick="[[this.select(item)]]">{{text item.label /}}</span>
+                </div>
+                {{/for}}
+            </div>
+        </div>
+    </script>
+    <script src="../scripts/bingo2/bingo.js"></script>
+    <script src="route.js"></script>
+    <script type="text/javascript">
+        (function () {
+            var app = bingo.app('demo');
+
+            app.controller('main', function ($view) {
+
+                $view.selected =  '';
+                $view.data = null;
+
+                $view.select = function (item) {
+                    this.selected(item.id);
+                };
+
+                $view.$ready(function () {
+                });
+
+                $view.start = function () {
+                    $view.data = _buildData();
+                    console.log('aaaa', $view.data);
+                };
+
+            });
+            function _random(max) {
+                return Math.round(Math.random() * 1000) % max;
+            }
+            function _buildData(count) {
+                count = count || 1000;
+
+                var adjectives = ["pretty", "large", "big", "small", "tall", "short", "long", "handsome", "plain", "quaint", "clean", "elegant", "easy", "angry", "crazy", "helpful", "mushy", "odd", "unsightly", "adorable", "important", "inexpensive", "cheap", "expensive", "fancy"];
+                var colours = ["red", "yellow", "blue", "green", "pink", "brown", "purple", "brown", "white", "black", "orange"];
+                var nouns = ["table", "chair", "house", "bbq", "desk", "car", "pony", "cookie", "sandwich", "burger", "pizza", "mouse", "keyboard"];
+                var data = [];
+                for (var i = 0; i < count; i++)
+                    data.push({ id: i + 1, label: adjectives[_random(adjectives.length)] + " " + colours[_random(colours.length)] + " " + nouns[_random(nouns.length)] });
+                return data;
+            }
+
+            bingo.ready(function () {
+                console.time('boot');
+                bingo.compile(document.getElementById('demo')).then(function () {
+                    //console.profileEnd('boot');
+                    console.timeEnd('boot');
+                });
+            });
+        })();
+    </script>
+</body>
+</html>

@@ -468,13 +468,13 @@ describe('core --- bingoJS ' + bingo.version , function () {
         //    expect(bingo.equals(obj, obj1)).toEqual(false);
         //});
 
-        it('other', function () {
-            //expect(bingo._splitEvName(['aaa'])).toEqual(['aaa']);
-            //expect(bingo._splitEvName(true)).toEqual(true);
-            //expect(bingo._splitEvName('')).toEqual(null);
-            expect(bingo._splitEvName(' a  aaa  ')).toEqual(['a', 'aaa']);
-            expect(bingo._splitEvName('aaa')).toEqual(['aaa']);
-        });
+        //it('other', function () {
+        //    //expect(bingo._splitEvName(['aaa'])).toEqual(['aaa']);
+        //    //expect(bingo._splitEvName(true)).toEqual(true);
+        //    //expect(bingo._splitEvName('')).toEqual(null);
+        //    expect(bingo._splitEvName(' a  aaa  ')).toEqual(['a', 'aaa']);
+        //    expect(bingo._splitEvName('aaa')).toEqual(['aaa']);
+        //});
 
 
     }); //end describe 常用方法
@@ -500,15 +500,15 @@ describe('core --- bingoJS ' + bingo.version , function () {
             expect(count).toEqual(1);
 
             //多个定义
-            count = 0, o = {};
-            o.bgOn('test test1', function () { count++; });
-            o.bgTrigger('test');
-            expect(count).toEqual(1);
-            o.bgTrigger('test1');
-            o.bgTrigger('test2');
-            expect(count).toEqual(2);
-            o.bgTrigger('test test1 test2');
-            expect(count).toEqual(4);
+            //count = 0, o = {};
+            //o.bgOn('test test1', function () { count++; });
+            //o.bgTrigger('test');
+            //expect(count).toEqual(1);
+            //o.bgTrigger('test1');
+            //o.bgTrigger('test2');
+            //expect(count).toEqual(2);
+            //o.bgTrigger('test test1 test2');
+            //expect(count).toEqual(4);
 
         });
 
@@ -1436,48 +1436,49 @@ describe('core --- bingoJS ' + bingo.version , function () {
 
     });//end bingo.route
 
-    describe('cache', function () {
+    describe('bgCache', function () {
 
         it('base', function () {
-            var obj = {};
-            bingo.cache(obj, 'key', 1);
-            expect(bingo.cache(obj, 'key')).toEqual(1);
+            var obj = {}, cache = obj.bgCache;
+            expect(obj.bgCache === cache).toEqual(true);
 
-            bingo.cacheRemove(obj, 'key');
-            expect(bingo.isUndefined(bingo.cache(obj, 'key'))).toEqual(true);
+            obj.bgCache('key', 1);
+            expect(obj.bgCache('key')).toEqual(1);
+            expect(cache('key')).toEqual(1);
+            expect(cache.indexOf('key')).toEqual(0);
+
+            obj.bgCache.removeItem('key');
+            expect(cache.indexOf('key')).toEqual(-1);
+            expect(bingo.isUndefined(obj.bgCache('key'))).toEqual(true);
+            expect(bingo.isUndefined(cache('key'))).toEqual(true);
 
         });//end base
 
         it('max', function () {
-            var obj = {};
+            var max = 5, dCount = 2,
+                obj = {}, cache = obj.bgCache.option(max, dCount);
 
-            //最大2
-            bingo.cache(obj, 'key1', 1, 2);
-            
+            for(var i=0,len = max+dCount;i<len;i++)
+                cache('key' + i, i);
+
+            expect(obj.bgCache('key5')).toEqual(5);
+
+
             var wOk = false;
             setTimeout(function () {
-                for (var i = 0; i < 15; i++)
-                    bingo.cache(obj, bingo.makeAutoId(), 1);
-                //expect(bingo.cache(obj, 'key1')).toEqual(1);
-                setTimeout(function () {
-                    wOk = true;
-                }, 50);
-            });
+                wOk = true;
+            },10);
             waitsFor(function () { return wOk; });
-            
+
             runs(function () {
-                //最大2
-                bingo.cache(obj, 'key2', 1, 2);
-                bingo.cache(obj, 'key3', 1, 2);
-                expect(bingo.cache(obj, 'key2')).toEqual(1);
-                console.log(obj);
-                //console.log(bingo.cache(obj, 'key2'), bingo.cache(obj, 'key1'));
-                expect(bingo.isUndefined(bingo.cache(obj, 'key1'))).toEqual(true);
+                expect(cache.size() == 5).toEqual(true);
+                expect(cache.getAll().map(function (item) { return item[0]; })).toEqual(['key6', 'key5', 'key4', 'key3', 'key2']);
+                console.log(cache.getAll());
             });
 
         });//end max
 
-    }); //end describe compiles
+    }); //end describe cache
 
     describe('Promise', function () {
 

@@ -227,7 +227,7 @@
             if (contextCache[cacheName])
                 return contextCache[cacheName];
             else {
-                cT = bingo.cache(_vm, cacheName);
+                cT = _vmC(cacheName);
                 if (cT) return cT;
             }
 
@@ -250,7 +250,7 @@
             var retFn = function () {
                 //console.log(fnDef);
                 cT = contextCache[cacheName] = new Function('_this_', '$view', '$withData', 'node', 'bingo', 'event', fnDef);//bingo(多版本共存)
-                bingo.cache(_vm, cacheName, cT, 200);
+                _vmC(cacheName, cT);
                 return cT;
             };
             try {
@@ -263,7 +263,7 @@
         reset: function (cacheObj) {
             cacheObj[_vm._cacheName] = {};
         }
-    }; //end _vm
+    },_vmC = _vm.bgCache.option(200); //end _vm
     
     var _newBase = function (p) {
         //基础
@@ -297,8 +297,8 @@
                     case 0:
                         return _pri.withData;
                     case 1:
-                        return bingo.isObject(name) ? (_pri.withData = name)
-                            : _pri.withData[name];
+                        return bingo.isString(name) ? _pri.withData[name]
+                            : (_pri.withData = name);
                     case 2:
                         return _pri.withData[name] = p;
                 }
@@ -1295,9 +1295,9 @@
         return { contents: strAll.join(''), regs: list };
     };
 
-    var _traverseCahce ={}, _traverseCmd = function (tmpl, cp, bd) {
+    var _traverseCahce =({}).bgCache.option(200), _traverseCmd = function (tmpl, cp, bd) {
         var list, view, app, tmplTag,
-            cache = bingo.cache(_traverseCahce, tmpl);
+            cache = _traverseCahce(tmpl);
 
         if (cache) {
             list = cache.list;
@@ -1333,10 +1333,10 @@
 
             });
 
-            bingo.cache(_traverseCahce, tmpl, {
+            _traverseCahce(tmpl, {
                 list: list,
                 tmplTag: tmplTag
-            }, 200);
+            });
         }
 
         list = list.map(function (item) {
@@ -1533,7 +1533,7 @@
         return (_checkClone || !_rchecked.test(html)) &&
             (_html5Clone || !_rnoshimcache.test(html));
     },
-    _parseHTMLCache = {},_rempty = /^\s*$/,
+    _parseHTMLCache = ({}).bgCache.option(100),_rempty = /^\s*$/,
     _parseHTML = function (html, p, script) {
         /// <summary>
         /// 
@@ -1545,7 +1545,7 @@
         if (_rempty.test(html)) return [];
 
         var isCache = _isCacheHtml(html),
-            container = isCache ? bingo.cache(_parseHTMLCache, html) : null;
+            container = isCache ? _parseHTMLCache(html) : null;
         if (!container) {
             //console.log(html);
             var tagName = p ? (bingo.isString(p) ? p : p.tagName.toLowerCase()) : '',
@@ -1556,7 +1556,7 @@
             while (depth--) {
                 container = container.lastChild;
             }
-            isCache && bingo.cache(_parseHTMLCache, html, container, 200);
+            isCache && _parseHTMLCache(html, container);
         }
         isCache && (container = container.cloneNode(true));
         //console.log(isCache, html);
